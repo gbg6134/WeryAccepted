@@ -1,0 +1,205 @@
+\section{Connectivity}
+
+\entry{SCC (Tarjan, iterative)}{$O(n + m)$ \quad mem $n + m$}{%
+Directed. Takes any adjacency of an integer type. No recursion, so depth never matters;
+self-loops and multi-edges are fine.\\[0.3ex]
+\code{comp} is in \textbf{topological} order --- every edge \code{u -> v} has
+\code{comp[u] <= comp[v]} --- so a DP over the condensation is just a loop over
+\code{0 .. nc-1}, no toposort. \code{members()} gives the vertices of each comp,
+\code{dag()} the condensation with duplicates removed.\\[0.3ex]
+A comp holds a cycle iff it has $\ge 2$ vertices, or 1 with a self-loop; the graph is a
+DAG iff \code{nc == n} and no self-loop exists. Sources of the condensation have
+in-degree 0 in \code{dag()}, sinks out-degree 0 --- count degrees, \code{comp[v] == 0}
+is not enough.\\[0.3ex]
+\textbf{2-SAT.} Node \code{2i} is $x_i$ false, \code{2i+1} is true, so \code{n = 2*vars}.
+A clause $(a \lor b)$ adds \emph{both} \code{!a -> b} and \code{!b -> a}; forcing $a$
+true is the single edge \code{!a -> a}. Satisfiable iff
+\code{comp[2i] != comp[2i+1]} for every $i$, and then
+$x_i$ = \code{comp[2i+1] > comp[2i]} (needs \code{comp} topological, as here).}
+
+%LABEL SCC
+\begin{lstlisting}
+struct SCC {
+    int n, nc = 0;              // nc = number of comps
+    vector<vector<int>> g;
+    vector<int> comp;           // topological order
+
+    template<class G>          // any vector<vector<intlike>>
+    SCC(const G& adj) : n(adj.size()), g(n), comp(n, -1) {
+        for (int u = 0; u < n; u++)
+            for (auto v : adj[u]) g[u].push_back((int)v);
+        vector<int> tin(n, -1), low(n), ptr(n, 0), stk, cs;
+        vector<char> on(n, 0);
+        int timer = 0;
+        for (int r = 0; r < n; r++) {
+            if (tin[r] != -1) continue;
+            tin[r] = low[r] = timer++;
+            stk.push_back(r); on[r] = 1; cs.push_back(r);
+            while (!cs.empty()) {
+                int u = cs.back();
+                if (ptr[u] < (int)g[u].size()) {
+                    int v = g[u][ptr[u]++];
+                    if (tin[v] == -1) {
+                        tin[v] = low[v] = timer++;
+                        stk.push_back(v); on[v] = 1;
+                        cs.push_back(v);
+                    } else if (on[v])
+                        low[u] = min(low[u], tin[v]);
+                } else {
+                    cs.pop_back();
+                    if (!cs.empty()) {
+                        int p = cs.back();
+                        low[p] = min(low[p], low[u]);
+                    }
+                    if (low[u] == tin[u]) {  // u roots comp
+                        int w;
+                        do {
+                            w = stk.back(); stk.pop_back();
+                            on[w] = 0; comp[w] = nc;
+                        } while (w != u);
+                        nc++;
+                    }
+                }
+            }
+        }
+        for (int v = 0; v < n; v++)         // -> topological
+            comp[v] = nc - 1 - comp[v];
+    }
+    vector<vector<int>> members() {
+        vector<vector<int>> c(nc);
+        for (int v = 0; v < n; v++) c[comp[v]].push_back(v);
+        return c;
+    }
+    vector<vector<int>> dag() {      // condensation, dedup
+        vector<vector<int>> d(nc);
+        for (int u = 0; u < n; u++)
+            for (int v : g[u])
+                if (comp[u] != comp[v])
+                    d[comp[u]].push_back(comp[v]);
+        for (auto& a : d) {
+            sort(all(a));
+            a.erase(unique(all(a)), a.end());
+        }
+        return d;
+    }
+};
+\end{lstlisting}
+
+\entry{Bridges, cut vertices, 2ECC}{$O(n + m)$ \quad mem $n + m$}{%
+Undirected, given as an \textbf{edge list} (pairs, 2-element arrays or tuples of any
+integer type), so \code{bri[i]} indexes your own input. Multi-edges and self-loops are
+safe, disconnected input is fine, no recursion.\\[0.3ex]
+\begin{ctab}{0.15}{0.80}
+\code{bri[i]} & input edge \code{i} is a bridge.\\
+\code{art[v]} & \code{v} is a cut vertex.\\
+\code{comp[v]} & 2-edge-connected comp: all you reach without crossing a bridge.\\
+\code{tree()} & the bridge forest on those comps.\\
+\end{ctab}\\[0.3ex]
+Bridges are exactly the edges between comps, so \code{tree()} is a forest, one tree per
+connected component --- feed it to \code{LCA} / \code{HLD} for ``how many bridges on
+the \code{u}--\code{v} path''. Adding one edge kills every bridge on the path joining
+its two comps.\\[0.3ex]
+The parent edge is skipped by \textbf{edge id}, never by vertex --- by vertex reports
+parallel edges as bridges, which is the usual wrong answer. A bridge endpoint need not
+be a cut vertex (degree 1) and a cut vertex need not carry one (two cycles sharing it);
+the DFS root is one iff it has $\ge 2$ children.}
+
+\begin{lstlisting}
+struct Bridges {
+    int n, m, nc = 0;                  // nc = number of 2ecc
+    vector<vector<pair<int,int>>> g;   // (to, edge id)
+    vector<int> comp;                  // 2ecc id per vertex
+    vector<char> bri, art;             // per edge / vertex
+    vector<pair<int,int>> es;
+
+    template<class E>      // list of pair / array / tuple
+    Bridges(int n, const E& edges)
+            : n(n), m(edges.size()), g(n), comp(n, -1),
+              bri(m, 0), art(n, 0) {
+        es.reserve(m);
+        for (auto& e : edges)
+            es.push_back({(int)get<0>(e), (int)get<1>(e)});
+        vector<int> deg(n, 0);
+        for (int i = 0; i < m; i++) {
+            deg[es[i].first]++; deg[es[i].second]++;
+        }
+        for (int v = 0; v < n; v++) g[v].reserve(deg[v]);
+        for (int i = 0; i < m; i++) {
+            g[es[i].first].push_back({es[i].second, i});
+            g[es[i].second].push_back({es[i].first, i});
+        }
+        vector<int> tin(n, -1), low(n), ptr(n, 0), cs;
+        vector<int> pe(n, -1);
+        int timer = 0;
+        for (int r = 0; r < n; r++) {
+            if (tin[r] != -1) continue;
+            int kids = 0;
+            tin[r] = low[r] = timer++; cs.push_back(r);
+            while (!cs.empty()) {
+                int u = cs.back();
+                if (ptr[u] < (int)g[u].size()) {
+                    auto [v, id] = g[u][ptr[u]++];
+                    if (id == pe[u]) continue;   // skip by ID
+                    if (tin[v] == -1) {
+                        pe[v] = id; tin[v] = low[v] = timer++;
+                        cs.push_back(v); kids += (u == r);
+                    } else low[u] = min(low[u], tin[v]);
+                } else {
+                    cs.pop_back();
+                    if (cs.empty()) break;
+                    int p = cs.back();
+                    low[p] = min(low[p], low[u]);
+                    if (low[u] > tin[p]) bri[pe[u]] = 1;
+                    if (low[u] >= tin[p]) art[p] = 1;
+                }
+            }
+            art[r] = kids >= 2;                  // root rule
+        }
+        vector<int> q;                // 2ecc: drop bridges
+        for (int r = 0; r < n; r++) {
+            if (comp[r] != -1) continue;
+            comp[r] = nc; q.clear(); q.push_back(r);
+            while (!q.empty()) {
+                int u = q.back(); q.pop_back();
+                for (auto [v, id] : g[u])
+                    if (!bri[id] && comp[v] == -1) {
+                        comp[v] = nc; q.push_back(v);
+                    }
+            }
+            nc++;
+        }
+    }
+    Bridges(int n, initializer_list<pair<int,int>> e)
+            : Bridges(n, vector<pair<int,int>>(e)) {}
+
+    vector<vector<int>> tree() {     // bridge forest
+        vector<vector<int>> t(nc);
+        for (int i = 0; i < m; i++) if (bri[i]) {
+            int a = comp[es[i].first], b = comp[es[i].second];
+            t[a].push_back(b); t[b].push_back(a);
+        }
+        return t;
+    }
+};
+\end{lstlisting}
+
+\entry{Topological sort (Kahn)}{$O(n + m)$ \quad mem $n$}{%
+Directed. Returns an empty vector iff the graph has a cycle, so it doubles as a cycle
+test. If you already built \code{SCC} you have a topological order for free in
+\code{comp} --- use this only when you do not need the components.\\[0.3ex]
+Pop from the back instead of the front and you get a DFS-flavoured order; use a
+\code{priority\_queue} for the lexicographically smallest one.}
+
+\begin{lstlisting}
+vector<int> topo(const vector<vector<int>>& g) {
+    int n = (int)g.size();
+    vector<int> deg(n, 0), q;
+    for (int u = 0; u < n; u++)
+        for (int v : g[u]) deg[v]++;
+    for (int u = 0; u < n; u++) if (!deg[u]) q.push_back(u);
+    for (int i = 0; i < (int)q.size(); i++)
+        for (int v : g[q[i]])
+            if (--deg[v] == 0) q.push_back(v);
+    return (int)q.size() == n ? q : vector<int>{};
+}
+\end{lstlisting}

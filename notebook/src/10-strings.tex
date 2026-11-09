@@ -1,0 +1,302 @@
+\section{Strings}
+
+\entry{KMP}{$O(n + m)$ \quad mem $n$}{%
+\code{failure(p)[i]} is the length of the longest proper prefix of \code{p[0..i]} that is
+also a suffix --- so \code{m - failure.back()} is the shortest period of \code{p}, and
+\code{p} is a repetition of that period iff the period divides \code{m}.
+\code{kmp(txt, pat)} returns every 0-indexed start where \code{pat} occurs, overlaps
+included.\\[0.3ex]
+Borders of \code{p} are \code{m}, \code{f[m-1]}, \code{f[f[m-1]-1]}, \dots\ --- walk the
+chain. Counting occurrences of every prefix: add 1 at each \code{f} position and push
+the counts down the chain in reverse order.}
+
+%LABEL kmp
+\begin{lstlisting}
+vector<int> failure(const string& p) {
+    int m = (int)p.size(); vector<int> f(m, 0);
+    for (int i = 1, k = 0; i < m; i++) {
+        while (k && p[i] != p[k]) k = f[k-1];
+        if (p[i] == p[k]) k++;
+        f[i] = k;
+    }
+    return f;
+}
+vector<int> kmp(const string& txt, const string& pat) {
+    vector<int> r;
+    if (pat.empty()) return r;
+    vector<int> f = failure(pat);
+    int n = (int)txt.size(), m = (int)pat.size();
+    for (int i = 0, k = 0; i < n; i++) {
+        while (k && txt[i] != pat[k]) k = f[k-1];
+        if (txt[i] == pat[k]) k++;
+        if (k == m) { r.push_back(i - m + 1); k = f[k-1]; }
+    }
+    return r;
+}
+\end{lstlisting}
+
+\entry{Z function}{$O(n)$ \quad mem $n$}{%
+\code{z[i]} is the length of the longest common prefix of \code{s} and \code{s[i..]}
+(\code{z[0]} is left 0). Pattern matching: build \code{pat + '\textbackslash1' + txt} and
+look for \code{z[i] == pat.size()}; the separator must not occur in either
+string.\\[0.3ex]
+Often replaces KMP, and is the easier one to get right. Distinct substrings, smallest
+rotation, and ``is this a repetition'' all fall out of it.}
+
+%LABEL zfunc
+\begin{lstlisting}
+vector<int> zfunc(const string& s) {
+    int n = (int)s.size();
+    vector<int> z(n, 0);
+    for (int i = 1, l = 0, r = 0; i < n; i++) {
+        if (i < r) z[i] = min(r - i, z[i - l]);
+        while (i + z[i] < n && s[z[i]] == s[i + z[i]]) z[i]++;
+        if (i + z[i] > r) { l = i; r = i + z[i]; }
+    }
+    return z;
+}
+\end{lstlisting}
+
+\entry{Manacher}{$O(n)$ \quad mem $n$}{%
+Every palindromic substring at once. \code{d1[i]} is the radius of the longest
+\emph{odd} palindrome centred at \code{i} (always $\ge 1$), \code{d2[i]} the radius of
+the longest \emph{even} one centred between \code{i-1} and \code{i} (may be 0). The
+number of palindromic substrings is $\sum d1 + \sum d2$.\\[0.3ex]
+\code{isPal(l, r)} answers ``is \code{s[l..r)} a palindrome'' in $O(1)$, which is what
+you usually actually want --- e.g. for ``split the string into the fewest
+palindromes'' DP. Longest palindromic substring:
+$\max(2 d1[i] - 1, 2 d2[i])$.}
+
+%LABEL manacher
+\begin{lstlisting}
+struct Manacher {
+    int n; vector<int> d1, d2;
+    Manacher(const string& s) : n((int)s.size()),
+                                d1(n, 0), d2(n, 0) {
+        for (int i = 0, l = 0, r = -1; i < n; i++) {
+            int k = i > r ? 1 : min(d1[l+r-i], r-i+1);
+            while (i-k >= 0 && i+k < n && s[i-k] == s[i+k])
+                k++;
+            d1[i] = k--;
+            if (i + k > r) { l = i - k; r = i + k; }
+        }
+        for (int i = 0, l = 0, r = -1; i < n; i++) {
+            int k = i > r ? 0 : min(d2[l+r-i+1], r-i+1);
+            while (i - k - 1 >= 0 && i + k < n
+                   && s[i-k-1] == s[i+k]) k++;
+            d2[i] = k--;
+            if (i + k > r) { l = i - k - 1; r = i + k; }
+        }
+    }
+    bool isPal(int l, int r) {                // s[l..r)
+        int len = r - l, c = l + len / 2;
+        return len % 2 ? 2*d1[c]-1 >= len : 2*d2[c] >= len;
+    }
+};
+\end{lstlisting}
+
+\entry{String hashing}{build $O(n)$, compare $O(1)$ \quad mem $n$}{%
+\code{get(l, r)} is the hash of \code{s[l..r)}; two substrings are equal iff their
+hashes match. Two independent moduli, so a collision needs both to fail at once ---
+with a single 64-bit overflow hash an adversarial test \emph{will} break you.\\[0.3ex]
+This is the workhorse: compare any two substrings, binary-search the longest common
+prefix of two suffixes, dedupe substrings by putting \code{get} results in a
+\code{set}, Rabin-Karp matching. Often replaces a suffix array
+outright.\\[0.3ex]
+For randomised bases (safer against hash-killers) pick \code{B1}, \code{B2} at run time
+from \code{mt19937} in $[256, M)$.}
+
+%LABEL hash
+\begin{lstlisting}
+struct Hash {
+    static constexpr ll M1 = 1000000007, M2 = 998244353,
+                        B1 = 131, B2 = 137;
+    int n; vi h1, h2, p1, p2;
+    Hash(const string& s) : n((int)s.size()), h1(n+1, 0),
+            h2(n+1, 0), p1(n+1, 1), p2(n+1, 1) {
+        rep(i, 0, n) {
+            h1[i+1] = (h1[i] * B1 + s[i]) % M1;
+            h2[i+1] = (h2[i] * B2 + s[i]) % M2;
+            p1[i+1] = p1[i] * B1 % M1;
+            p2[i+1] = p2[i] * B2 % M2;
+        }
+    }
+    pii get(int l, int r) {                   // s[l..r)
+        ll a = (h1[r] - h1[l] * p1[r-l]) % M1;
+        ll b = (h2[r] - h2[l] * p2[r-l]) % M2;
+        return {(a + M1) % M1, (b + M2) % M2};
+    }
+};
+\end{lstlisting}
+
+\entry{Suffix array + LCP}{$O(n \log n)$ \quad mem $n$}{%
+\code{sa[i]} is the start of the \code{i}-th smallest suffix; \code{rnk} is its inverse;
+\code{lcp[i]} is the longest common prefix of \code{sa[i]} and \code{sa[i+1]}.
+The input must not contain the byte \code{1}, which is used as a
+sentinel.\\[0.3ex]
+Number of distinct substrings is $\frac{n(n+1)}{2} - \sum \mathrm{lcp}$. Longest
+repeated substring is $\max \mathrm{lcp}$. Longest common substring of two strings: join
+with a separator and take the best \code{lcp} between suffixes from different sides.
+LCP of two arbitrary suffixes = range-min of \code{lcp} between their ranks --- feed
+\code{lcp} to \code{SpTab}.\\[0.3ex]
+Consider \code{Hash} plus binary search first: shorter to write, usually fast enough.}
+
+%LABEL sufarr
+\begin{lstlisting}
+struct SuffixArray {
+    int n; vector<int> sa, rnk, lcp;
+    SuffixArray(const string& str) {
+        string s = str; s += char(1);       // sentinel
+        n = (int)s.size();
+        vector<int> p(n), c(n), pn(n), cn(n);
+        vector<int> cnt(max(256, n), 0);
+        for (int i = 0; i < n; i++)
+            cnt[(unsigned char)s[i]]++;
+        for (int i = 1; i < 256; i++) cnt[i] += cnt[i-1];
+        for (int i = 0; i < n; i++)
+            p[--cnt[(unsigned char)s[i]]] = i;
+        int cls = 1; c[p[0]] = 0;
+        for (int i = 1; i < n; i++) {
+            if (s[p[i]] != s[p[i-1]]) cls++;
+            c[p[i]] = cls - 1;
+        }
+        for (int h = 0; (1 << h) < n; h++) {
+            for (int i = 0; i < n; i++) {
+                pn[i] = p[i] - (1 << h);
+                if (pn[i] < 0) pn[i] += n;
+            }
+            fill(cnt.begin(), cnt.begin() + cls, 0);
+            for (int i = 0; i < n; i++) cnt[c[pn[i]]]++;
+            for (int i = 1; i < cls; i++) cnt[i] += cnt[i-1];
+            for (int i = n - 1; i >= 0; i--)
+                p[--cnt[c[pn[i]]]] = pn[i];
+            cn[p[0]] = 0; cls = 1;
+            for (int i = 1; i < n; i++) {
+                int a = p[i], b = p[i-1], d = 1 << h;
+                if (c[a] != c[b]
+                    || c[(a+d) % n] != c[(b+d) % n]) cls++;
+                cn[a] = cls - 1;
+            }
+            c = cn;
+        }
+        sa.assign(p.begin() + 1, p.end());   // drop sentinel
+        n--;
+        rnk.assign(n, 0);
+        for (int i = 0; i < n; i++) rnk[sa[i]] = i;
+        lcp.assign(max(n - 1, 0), 0);
+        for (int i = 0, k = 0; i < n; i++) {
+            if (rnk[i] == n - 1) { k = 0; continue; }
+            int j = sa[rnk[i] + 1];
+            while (i + k < n && j + k < n
+                   && str[i+k] == str[j+k]) k++;
+            lcp[rnk[i]] = k;
+            if (k) k--;
+        }
+    }
+};
+\end{lstlisting}
+
+\entry{Aho-Corasick}{build $O(\Sigma \cdot \mathrm{tot})$, scan $O(n + \mathrm{hits})$ \quad mem $\Sigma \cdot \mathrm{tot}$}{%
+Many patterns at once. \code{add(s, id)} before \code{build()}, then \code{match(txt, f)}
+calls \code{f(i, id)} for every pattern \code{id} ending at text position \code{i}.
+Lowercase \code{a-z}; change the 26 and the \code{- 'a'} for another
+alphabet.\\[0.3ex]
+\code{out} is the \emph{output link} --- the nearest fail-ancestor that is itself a
+pattern end --- so reporting costs $O(1)$ per hit instead of walking the whole fail
+chain, which is the difference between $O(n + \mathrm{hits})$ and $O(n \cdot
+\mathrm{depth})$. Empty patterns are not allowed (the root is never a match).\\[0.3ex]
+To \emph{count} hits per pattern without listing them, mark \code{cnt[u]++} per text
+position and push counts along \code{fail} in reverse BFS order --- $O(n +
+\mathrm{tot})$ regardless of how many matches there are.}
+
+%LABEL aho
+\begin{lstlisting}
+struct Aho {
+    struct Nd { int go[26], fail = 0, out = 0, head = -1; };
+    vector<Nd> t;
+    vector<int> idv, nxt;        // id lists on terminal nodes
+    Aho() { newNode(); }
+    int newNode() {
+        t.push_back(Nd{});
+        fill(t.back().go, t.back().go + 26, -1);
+        return (int)t.size() - 1;
+    }
+    void add(const string& s, int id) {  // nonempty s
+        int u = 0;
+        for (char ch : s) {
+            int c = ch - 'a';
+            if (t[u].go[c] < 0) {
+                int v = newNode(); t[u].go[c] = v;
+            }
+            u = t[u].go[c];
+        }
+        idv.push_back(id); nxt.push_back(t[u].head);
+        t[u].head = (int)idv.size() - 1;
+    }
+    void build() {
+        vector<int> q;
+        for (int c = 0; c < 26; c++) {
+            int v = t[0].go[c];
+            if (v < 0) t[0].go[c] = 0;
+            else { t[v].fail = 0; q.push_back(v); }
+        }
+        for (int i = 0; i < (int)q.size(); i++) {
+            int u = q[i], f = t[u].fail;
+            t[u].out = t[f].head >= 0 ? f : t[f].out;
+            for (int c = 0; c < 26; c++) {
+                int v = t[u].go[c], w = t[f].go[c];
+                if (v < 0) t[u].go[c] = w;
+                else { t[v].fail = w; q.push_back(v); }
+            }
+        }
+    }
+    template<class F>       // f(end index, pattern id)
+    void match(const string& s, F f) {
+        int u = 0;
+        for (int i = 0; i < (int)s.size(); i++) {
+            u = t[u].go[s[i] - 'a'];
+            for (int v = t[u].head >= 0 ? u : t[u].out; v;
+                 v = t[v].out)
+                for (int e = t[v].head; e >= 0; e = nxt[e])
+                    f(i, idv[e]);
+        }
+    }
+};
+\end{lstlisting}
+
+\entry{XOR trie}{insert / query $O(\mathrm{BITS})$ \quad mem $n \cdot \mathrm{BITS}$}{%
+\code{maxXor(x)} is the largest \code{x \textasciicircum{} y} over everything inserted:
+walk from the top bit and always take the opposite branch if it exists. Raise
+\code{BITS} to 62 for \code{ll} values.\\[0.3ex]
+Keep a counter per node and you can also answer ``how many \code{y} with
+\code{x \textasciicircum{} y < k}'', and delete by decrementing. Maximum XOR
+\emph{subarray}: insert prefix xors as you sweep.\\[0.3ex]
+A plain prefix trie over letters is the same shape with 26 children --- see
+\code{Aho} without the fail links.}
+
+\begin{lstlisting}
+struct XorTrie {
+    static const int BITS = 30;
+    vector<array<int,2>> ch{{-1, -1}};
+    void insert(ll x) {
+        int u = 0;
+        down(b, BITS + 1, 0) {
+            int c = x >> b & 1;
+            if (ch[u][c] < 0) {
+                ch.push_back({-1, -1});
+                ch[u][c] = (int)ch.size() - 1;
+            }
+            u = ch[u][c];
+        }
+    }
+    ll maxXor(ll x) {         // needs >= 1 inserted value
+        int u = 0; ll r = 0;
+        down(b, BITS + 1, 0) {
+            int c = (x >> b & 1) ^ 1;
+            if (ch[u][c] >= 0) { r |= 1LL<<b; u = ch[u][c]; }
+            else u = ch[u][c ^ 1];
+        }
+        return r;
+    }
+};
+\end{lstlisting}

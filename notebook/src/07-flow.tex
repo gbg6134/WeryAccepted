@@ -1,0 +1,289 @@
+\section{Flow and matching}
+
+\entry{Dinic (max flow)}{$O(n^2 m)$, unit caps $O(m\sqrt m)$ \quad mem $n + m$}{%
+\code{addEdge} returns the edge id, and after \code{maxflow} the flow actually pushed
+along it is \code{flowOn(id)} (only meaningful when it was added with \code{rcap = 0}).
+For an undirected edge pass \code{rcap = cap}.\\[0.3ex]
+\begin{ctab}{0.22}{0.73}
+\code{cut()} & after \code{maxflow}: \code{c[v]} true iff \code{v} is on the
+\code{s} side of a minimum cut. The cut edges are those with \code{c[u] \&\& !c[v]}.\\
+\end{ctab}\\[0.3ex]
+\textbf{Recipes.} Bipartite matching: source$\to$left cap 1, left$\to$right cap 1,
+right$\to$sink cap 1; with unit caps this runs in $O(m\sqrt n)$, i.e. the same bound as
+Hopcroft-Karp, so there is no separate template here.
+Min vertex cover in a bipartite graph = max matching (K\"onig), and max independent set
+= $n$ minus that.
+Vertex capacities: split \code{v} into \code{v\_in -> v\_out} with that capacity.
+Minimum path cover of a DAG = $n$ minus max matching on the split graph.
+Project selection / max closure: source$\to$profit nodes, cost nodes$\to$sink,
+prerequisites as \code{INF} edges, answer = total profit $-$ max flow.\\[0.3ex]
+\code{dfs} recurses to depth $O(n)$; fine at contest sizes, but it is the thing to
+rewrite if $n$ is huge.}
+
+%LABEL Dinic
+\begin{lstlisting}
+struct Dinic {
+    struct E { int to; ll cap; };
+    int n; vector<E> e; vector<vector<int>> g;
+    vector<int> lvl, it;
+    Dinic(int n = 0) : n(n), g(n) {}
+
+    int addEdge(int u, int v, ll cap, ll rcap = 0) {
+        g[u].push_back((int)e.size()); e.push_back({v, cap});
+        g[v].push_back((int)e.size()); e.push_back({u, rcap});
+        return (int)e.size() - 2;               // edge id
+    }
+    ll dfs(int u, int t, ll f) {
+        if (u == t || !f) return f;
+        for (int& i = it[u]; i < (int)g[u].size(); i++) {
+            int id = g[u][i];
+            if (lvl[e[id].to] != lvl[u] + 1 || !e[id].cap)
+                continue;
+            if (ll d = dfs(e[id].to, t, min(f, e[id].cap))) {
+                e[id].cap -= d; e[id ^ 1].cap += d;
+                return d;
+            }
+        }
+        return 0;
+    }
+    ll maxflow(int s, int t) {
+        ll fl = 0;
+        while (true) {
+            lvl.assign(n, -1); lvl[s] = 0;
+            vector<int> q{s};
+            for (int i = 0; i < (int)q.size(); i++)
+                for (int id : g[q[i]])
+                    if (e[id].cap && lvl[e[id].to] < 0) {
+                        lvl[e[id].to] = lvl[q[i]] + 1;
+                        q.push_back(e[id].to);
+                    }
+            if (lvl[t] < 0) return fl;
+            it.assign(n, 0);
+            while (ll d = dfs(s, t, INF)) fl += d;
+        }
+    }
+    vector<char> cut() {          // true = s side of min cut
+        vector<char> c(n);
+        for (int i = 0; i < n; i++) c[i] = lvl[i] >= 0;
+        return c;
+    }
+    ll flowOn(int id) { return e[id ^ 1].cap; }
+};
+\end{lstlisting}
+
+\entry{Min cost max flow}{$O(\mathrm{flow} \cdot nm)$ \quad mem $n + m$}{%
+SPFA-based, so \textbf{negative edge costs are fine} (negative \emph{cycles} are not).
+Returns \code{\{flow, cost\}}. Pass \code{maxf} to cap the flow, which is how you ask
+for ``cheapest way to ship exactly $k$ units''.\\[0.3ex]
+For \emph{min cost flow of any size} rather than min cost \emph{max} flow, stop as soon
+as \code{d[t] >= 0}: further augmentation only adds cost.\\[0.3ex]
+Assignment problems fit here (left$\to$right with cost, unit caps) but
+\code{hungarian} is $O(n^3)$ and much faster for a dense square matrix.}
+
+%LABEL MCMF
+\begin{lstlisting}
+struct MCMF {
+    struct E { int to; ll cap, cost; };
+    int n; vector<E> e; vector<vector<int>> g;
+    MCMF(int n = 0) : n(n), g(n) {}
+
+    void addEdge(int u, int v, ll cap, ll cost) {
+        g[u].push_back((int)e.size());
+        e.push_back({v, cap, cost});
+        g[v].push_back((int)e.size());
+        e.push_back({u, 0, -cost});
+    }
+    pair<ll,ll> run(int s, int t, ll maxf = INF) {
+        ll fl = 0, cost = 0;
+        while (fl < maxf) {
+            vi d(n, INF); vector<int> pe(n, -1);
+            vector<char> inq(n, 0);
+            deque<int> q{s}; d[s] = 0; inq[s] = 1;
+            while (!q.empty()) {              // SPFA
+                int u = q.front(); q.pop_front(); inq[u] = 0;
+                for (int id : g[u]) {
+                    if (!e[id].cap) continue;
+                    int v = e[id].to;
+                    if (d[u] + e[id].cost < d[v]) {
+                        d[v] = d[u] + e[id].cost; pe[v] = id;
+                        if (!inq[v]) {
+                            inq[v] = 1; q.push_back(v);
+                        }
+                    }
+                }
+            }
+            if (d[t] >= INF) break;
+            ll push = maxf - fl;
+            for (int v = t; v != s; v = e[pe[v] ^ 1].to)
+                push = min(push, e[pe[v]].cap);
+            for (int v = t; v != s; v = e[pe[v] ^ 1].to) {
+                e[pe[v]].cap -= push;
+                e[pe[v] ^ 1].cap += push;
+            }
+            fl += push; cost += push * d[t];
+        }
+        return {fl, cost};
+    }
+};
+\end{lstlisting}
+
+\entry{Bipartite matching (Kuhn)}{$O(nm)$ \quad mem $n + m$}{%
+Left side \code{[0, n1)}, right side \code{[0, n2)}, \code{addEdge(u, v)} with
+\code{u} left and \code{v} right. After \code{maxMatching()}, \code{matchL[u]} /
+\code{matchR[v]} give the partner or \code{-1}.\\[0.3ex]
+Short and fast enough for a few thousand vertices. Above that build a unit-capacity
+\code{Dinic} instead --- same graph, $O(m\sqrt n)$.\\[0.3ex]
+\textbf{K\"onig, minimum vertex cover.} Let $Z$ be everything reachable by alternating
+paths from the \emph{unmatched} left vertices. Then a minimum vertex cover is
+$(L \setminus Z) \cup (R \cap Z)$ and a maximum independent set is its complement; both
+have the expected sizes.}
+
+%LABEL Matching
+\begin{lstlisting}
+struct Matching {
+    int n1, n2;
+    vector<vector<int>> g;
+    vector<int> matchL, matchR;
+    vector<char> vis;
+    Matching(int n1 = 0, int n2 = 0) : n1(n1), n2(n2), g(n1),
+        matchL(n1, -1), matchR(n2, -1) {}
+    void addEdge(int u, int v) { g[u].push_back(v); }
+
+    bool tryKuhn(int u) {
+        for (int v : g[u]) if (!vis[v]) {
+            vis[v] = 1;
+            if (matchR[v] == -1 || tryKuhn(matchR[v])) {
+                matchL[u] = v; matchR[v] = u;
+                return true;
+            }
+        }
+        return false;
+    }
+    int maxMatching() {
+        int r = 0;
+        for (int u = 0; u < n1; u++) {
+            vis.assign(n2, 0);
+            if (tryKuhn(u)) r++;
+        }
+        return r;
+    }
+};
+\end{lstlisting}
+
+\entry{Hungarian (assignment)}{$O(n^2 m)$ \quad mem $nm$}{%
+Minimum-cost \textbf{perfect} matching on a cost matrix, rows $\le$ columns: every row
+gets its own column, cheapest in total. Returns \code{\{cost, asg\}} with
+\code{asg[row] = column}. Input is 0-indexed; the internals are 1-indexed, which is why
+the matrix is read as \code{a[i0-1][j-1]}.\\[0.3ex]
+\textbf{Maximise} instead: negate every cost, then negate the answer. Forbidden pairs:
+a large finite cost, not \code{INF} (\code{INF} arithmetic overflows here) --- something
+like $10^{12}$ with real costs below $10^6$.\\[0.3ex]
+Not the same thing as \code{Matching}: that one maximises the \emph{number} of pairs,
+this one fixes the number and minimises the \emph{cost}. Costs may be negative.}
+
+%LABEL hungarian
+\begin{lstlisting}
+// a = cost matrix, a.size() <= a[0].size()
+pair<ll, vector<int>> hungarian(const matrix& a) {
+    int n = (int)a.size(), m = (int)a[0].size();
+    // 1-indexed inside; column 0 is virtual, p[j]==0 => free
+    vi u(n + 1, 0), v(m + 1, 0), minv(m + 1);
+    vector<int> p(m + 1, 0), way(m + 1, 0);
+    for (int i = 1; i <= n; i++) {
+        p[0] = i; int j0 = 0;
+        fill(all(minv), INF);
+        vector<char> used(m + 1, 0);
+        do {
+            used[j0] = 1;
+            int i0 = p[j0], j1 = 0; ll delta = INF;
+            for (int j = 1; j <= m; j++) if (!used[j]) {
+                ll cur = a[i0-1][j-1] - u[i0] - v[j];
+                if (cur < minv[j]) {
+                    minv[j] = cur; way[j] = j0;
+                }
+                if (minv[j] < delta) {
+                    delta = minv[j]; j1 = j;
+                }
+            }
+            for (int j = 0; j <= m; j++) {
+                if (used[j]) {
+                    u[p[j]] += delta; v[j] -= delta;
+                } else minv[j] -= delta;
+            }
+            j0 = j1;
+        } while (p[j0] != 0);
+        do {                          // flip the path back
+            int j1 = way[j0]; p[j0] = p[j1]; j0 = j1;
+        } while (j0);
+    }
+    vector<int> asg(n);
+    for (int j = 1; j <= m; j++) if (p[j]) asg[p[j]-1] = j-1;
+    ll cost = 0;
+    for (int i = 0; i < n; i++) cost += a[i][asg[i]];
+    return {cost, asg};
+}
+\end{lstlisting}
+
+\entry{Eulerian path}{$O(n + m)$ \quad mem $n + m$}{%
+Hierholzer, iterative, handles both directions with the \code{dir} flag. Returns the
+\textbf{vertex} sequence, length \code{m+1}, using every edge exactly once --- or an
+empty vector when none exists (wrong degrees, or the edges are disconnected). A closed
+tour comes back with \code{path.front() == path.back()}.\\[0.3ex]
+Existence: \emph{directed} needs \code{out-in} equal to 0 everywhere except possibly one
+$+1$ (the start) and one $-1$ (the end); \emph{undirected} needs zero or exactly two odd
+vertices. Both also need all edges in one connected component --- which the final
+\code{size() != m+1} test catches, so isolated vertices do not matter.\\[0.3ex]
+For the edge sequence instead, record \code{id} alongside each pop.}
+
+%LABEL eulerPath
+\begin{lstlisting}
+vector<int> eulerPath(int n, const vector<pii>& es,
+                      bool dir) {
+    int m = (int)es.size();
+    if (!m) return {};
+    vector<vector<pii>> g(n);          // (to, edge id)
+    vi outd(n, 0), ind(n, 0);
+    for (int i = 0; i < m; i++) {
+        int a = (int)es[i].first, b = (int)es[i].second;
+        g[a].push_back({b, i}); outd[a]++; ind[b]++;
+        if (!dir) {
+            g[b].push_back({a, i}); outd[b]++; ind[a]++;
+        }
+    }
+    int s = -1;
+    if (dir) {
+        int plus = 0, minus = 0;
+        for (int v = 0; v < n; v++) {
+            ll df = outd[v] - ind[v];
+            if (df == 1) { plus++; s = v; }
+            else if (df == -1) minus++;
+            else if (df) return {};
+        }
+        if (plus > 1 || minus > 1) return {};
+    } else {
+        int odd = 0;
+        for (int v = 0; v < n; v++)
+            if (outd[v] & 1) { odd++; s = v; }
+        if (odd != 0 && odd != 2) return {};
+    }
+    if (s < 0)
+        for (int v = 0; v < n; v++)
+            if (outd[v]) { s = v; break; }
+    vector<int> it(n, 0), st{s}, path;
+    vector<char> used(m, 0);
+    while (!st.empty()) {
+        int u = st.back();
+        while (it[u] < (int)g[u].size()
+               && used[g[u][it[u]].second]) it[u]++;
+        if (it[u] == (int)g[u].size()) {
+            path.push_back(u); st.pop_back();
+        } else {
+            auto [v, id] = g[u][it[u]++];
+            used[id] = 1; st.push_back((int)v);
+        }
+    }
+    if ((int)path.size() != m + 1) return {};   // disjoint
+    reverse(all(path));
+    return path;
+}
+\end{lstlisting}

@@ -1,0 +1,448 @@
+\section{Range structures}
+
+All ranges are half-open: \code{[l, r)}, \code{r} not included.
+
+\entry{Fenwick (BIT)}{add, sum, kth $O(\log n)$ \quad mem $n$}{%
+Needs an operation with an inverse (sum, xor); min/max/gcd need a segment tree.
+$\sim$3x faster than \code{Seg}, $\sim$15x faster than \code{LazySeg}.\\[0.3ex]
+Range add + point get: \code{add(l, x)}, \code{add(r, -x)}; then \code{sum(i+1)}
+\emph{is} \code{a[i]}. Range add + range sum: two BITs, or \code{LazySeg}.
+\code{kth} needs every \code{a[i] >= 0} and \code{k >= 1}. Xor instead of sum:
+every \code{+=} becomes \code{\textasciicircum=}, and drop the \code{-} in
+\code{sum(l, r)}.}
+
+\begin{lstlisting}
+struct BIT {
+    int n; vector<ll> t;
+    BIT(int n = 0) : n(n), t(n + 1, 0) {}
+    BIT(const vector<ll>& a) : BIT((int)a.size()) {
+        for (int i = 1; i <= n; i++) {
+            t[i] += a[i-1];
+            int j = i + (i & -i);
+            if (j <= n) t[j] += t[i];
+        }
+    }
+    void add(int i, ll x) {                     // a[i] += x
+        for (++i; i <= n; i += i & -i) t[i] += x;
+    }
+    ll sum(int r) {                             // a[0..r)
+        ll s = 0;
+        for (; r > 0; r -= r & -r) s += t[r];
+        return s;
+    }
+    ll sum(int l, int r) {                      // a[l..r)
+        return l < r ? sum(r) - sum(l) : 0;
+    }
+    int kth(ll k) {     // min i with sum(i+1) >= k, else n
+        int p = 0;
+        for (int w = 1 << __lg(max(n, 1)); w; w >>= 1)
+            if (p + w <= n && t[p + w] < k) p += w, k -= t[p];
+        return p;
+    }
+};
+\end{lstlisting}
+
+\entry{Segment tree}{build $O(n)$, set / query $O(\log n)$ \quad mem $2n$}{%
+Point assign + range query.\\[0.3ex]
+\begin{ctab}{0.15}{0.80}
+\code{T} & what one element is, and what a query gives back.\\
+\code{op(a,b)} & answers for two neighbouring pieces, \code{a} the left one;
+return the answer for both together. Associative, need not commute.\\
+\code{ID} & a \code{T} that \code{op} ignores: \code{op(x,ID) = op(ID,x) = x}.
+An empty query returns it.\\
+\end{ctab}\\[0.3ex]
+{\ttfamily\footnotesize
+\begin{ctab}{0.16}{0.79}
+query= & op \hfill ID\\
+sum & \code{a + b} \hfill \code{0}\\
+min & \code{min(a,b)} \hfill \code{LLONG\_MAX}\\
+max & \code{max(a,b)} \hfill \code{LLONG\_MIN}\\
+gcd & \code{\_\_gcd(a,b)} \hfill \code{0}\\
+xor & \code{a \textasciicircum{} b} \hfill \code{0}\\
+and & \code{a \& b} \hfill \code{\textasciitilde 0LL}\\
+or & \code{a | b} \hfill \code{0}\\
+\end{ctab}}\\[0.3ex]
+Count of min: \code{T = pair<ll,int>}, keep the smaller \code{.first} and sum
+\code{.second} on ties, \code{ID = \{LLONG\_MAX, 0\}}. Struct \code{T}: write
+\code{inline static const T ID = T\{...\};}\\[0.3ex]
+Read-modify-write is \code{s.set(i, s[i] + v)}. Range updates need
+\code{LazySeg}. Two different trees in one problem: copy, rename, edit.}
+
+\begin{lstlisting}
+struct Seg {
+    using T = ll;
+    static T op(T a, T b) { return a + b; }
+    static constexpr T ID = 0;
+
+    int n; vector<T> t;
+    Seg(int n = 0) : n(n), t(2 * n, ID) {}
+    Seg(const vector<T>& a)
+            : n((int)a.size()), t(2*a.size()) {
+        copy(a.begin(), a.end(), t.begin() + n);
+        for (int i = n - 1; i > 0; i--)
+            t[i] = op(t[2*i], t[2*i+1]);
+    }
+    T operator[](int i) const { return t[i + n]; }
+    void set(int i, T v) {
+        for (t[i += n] = v; i /= 2;)
+            t[i] = op(t[2*i], t[2*i+1]);
+    }
+    T query(int l, int r) {               // combine a[l..r)
+        T x = ID, y = ID;              // x = left, y = right
+        for (l += n, r += n; l < r; l /= 2, r /= 2) {
+            if (l & 1) x = op(x, t[l++]);
+            if (r & 1) y = op(t[--r], y);
+        }
+        return op(x, y);
+    }
+};
+\end{lstlisting}
+
+\entry{Sparse table}{build $O(n \log n)$, query $O(1)$ \quad mem $n \log n$}{%
+\textbf{Idempotent} \code{op} only --- min, max, gcd, and, or. \code{op(x,x)} must
+be \code{x}, because the two halves of a query overlap. No \code{ID} needed, and
+no updates ever. For sum use \code{BIT}, for updates use \code{Seg}.}
+
+\begin{lstlisting}
+struct SpTab {
+    using T = ll;
+    static T op(T a, T b) { return min(a, b); }
+
+    int n; vector<vector<T>> t;
+    SpTab(const vector<T>& a) : n((int)a.size()), t(1, a) {
+        for (int k = 1; (1 << k) <= n; k++) {
+            t.push_back(vector<T>(n - (1 << k) + 1));
+            for (int i = 0; i < (int)t[k].size(); i++)
+                t[k][i] = op(t[k-1][i],
+                             t[k-1][i + (1 << (k-1))]);
+        }
+    }
+    T query(int l, int r) {          // a[l..r), needs l < r
+        int k = __lg(r - l);
+        return op(t[k][l], t[k][r - (1 << k)]);
+    }
+};
+\end{lstlisting}
+
+\entry{Sparse segment tree}{set / add / query $O(\log C)$ \quad mem $V \log_2 (C/V)$ nodes}{%
+Same \code{T / op / ID} as \code{Seg}, but \code{[lo, hi)} is given at
+construction, may be $10^{18}$ wide or start negative, and nodes appear only where
+you write. \code{ID} is \emph{also} what every untouched position reads as, so pick
+the neutral element you want spread over the whole range.\\[0.3ex]
+\begin{ctab}{0.19}{0.76}
+\code{add(i,v)} & \code{a[i] = op(a[i], v)} in one descent; prefer it over
+\code{set(i, s[i]+v)}, which pays two.\\
+\code{hint} & 3rd ctor arg, how many \code{set}/\code{add} you expect.
+\code{reserve} only; 0 or wrong is safe.\\
+\code{kth(k)} & sum config, all \code{a[i] >= 0}, \code{k >= 1}: smallest
+\code{i} with \code{query(lo, i+1) >= k}, else \code{hi}.\\
+\end{ctab}\\[0.3ex]
+Multiset on a value axis: count config, \code{add(v, 1)} / \code{add(v, -1)},
+\code{query(a, b+1)} counts $[a,b]$, \code{kth} gives order statistics.\\[0.3ex]
+Use it \emph{only} when the positions are not all known up front (interactive, or an
+update that depends on an earlier answer). Otherwise coordinate-compress and use
+\code{BIT}: 3.5x faster, 4.5x less memory. Nodes $\approx 2V + V\log_2(C/V)$, 16 B
+each ($V$ = positions touched), so $V = 3\cdot10^5$ over $C = 10^9$ is $\sim$62 MB.}
+
+\begin{lstlisting}
+struct SparseSeg {
+    using T = ll;
+    static T op(T a, T b) { return a + b; }
+    static constexpr T ID = 0;
+
+    struct Nd { int l, r; T v; };
+    ll lo, hi;
+    vector<Nd> nd;               // node 0 = null, 1 = root
+
+    SparseSeg(ll lo = 0, ll hi = 1, int hint = 0)
+            : lo(lo), hi(hi) {
+        ll C = max(hi - lo, 1LL), h = max(hint, 1);
+        size_t cap = 2 + h * (3 + (C > h ? __lg(C / h) : 0));
+        nd.reserve(cap);
+        node(); node();
+    }
+    int node() {
+        nd.push_back({0, 0, ID});
+        return (int)nd.size() - 1;
+    }
+    void set(ll i, T v) { pt(i, v, true);  }
+    void add(ll i, T v) { pt(i, v, false); }
+    T operator[](ll i) { return query(i, i + 1); }
+    T query(ll l, ll r) {                      // fold a[l..r)
+        return l < r ? qry(1, lo, hi, l, r) : ID;
+    }
+    ll kth(T k) {
+        if (nd[1].v < k) return hi;
+        int x = 1; ll l = lo, r = hi;
+        while (r - l > 1) {
+            ll m = l + (r - l) / 2;
+            if (nd[nd[x].l].v >= k) { x = nd[x].l; r = m; }
+            else { k -= nd[nd[x].l].v; x = nd[x].r; l = m; }
+        }
+        return l;
+    }
+    void pt(ll i, T v, bool assign) {
+        int st[64], d = 0, x = 1; ll l = lo, r = hi;
+        while (r - l > 1) {
+            st[d++] = x;
+            ll m = l + (r - l) / 2;
+            if (i < m) {
+                if (!nd[x].l) { int c = node(); nd[x].l = c; }
+                x = nd[x].l; r = m;
+            } else {
+                if (!nd[x].r) { int c = node(); nd[x].r = c; }
+                x = nd[x].r; l = m;
+            }
+        }
+        nd[x].v = assign ? v : op(nd[x].v, v);
+        while (d--) {
+            int p = st[d];
+            nd[p].v = op(nd[nd[p].l].v, nd[nd[p].r].v);
+        }
+    }
+    T qry(int x, ll l, ll r, ll ql, ll qr) {
+        if (!x || qr <= l || r <= ql) return ID;
+        if (ql <= l && r <= qr) return nd[x].v;
+        ll m = l + (r - l) / 2;
+        return op(qry(nd[x].l, l, m, ql, qr),
+                  qry(nd[x].r, m, r, ql, qr));
+    }
+};
+\end{lstlisting}
+
+\entry{Lazy segment tree}{build $O(n)$, update / query $O(\log n)$ \quad mem $4n$}{%
+A node holds \code{t}, the answer for its own piece, and \code{d}, an update already
+counted into \code{t} but not yet given to its children.\\[0.3ex]
+\begin{ctab}{0.15}{0.80}
+\code{T} & what one element is, and what a query gives back.\\
+\code{F} & one update: exactly what you hand to \code{update(l, r, f)}.\\
+\code{op(a,b)} & merge two neighbouring answers, \code{a} the left one.
+Associative, need not commute.\\
+\code{ID} & neutral for \code{op}; an empty query returns it.\\
+\code{ap(x,f,k)} & a node of \code{k} elements has answer \code{x} and \code{f} now
+hits all \code{k}: return the node's new answer. You never see the elements, only
+\code{x} and \code{k} --- if the new answer is not decided by those two, lazy
+cannot do this update at all.\\
+\code{cm(a,f)} & \code{a} was already waiting and \code{f} lands on top: return the
+single update meaning ``\code{a} first, then \code{f}''.\\
+\code{sh(f,k)} & the same update shifted \code{k} places right. An \code{f} starts at
+the first element it covers, so the left child gets \code{f} and the right child
+\code{sh(f, size of left child)}. Return \code{f} unchanged unless the update varies
+along the range: ``add $m, m{+}1, \dots$'' becomes ``add $m{+}k, m{+}k{+}1, \dots$''.\\
+\code{NOP} & an \code{F} meaning nothing waiting. For assigning updates use a value
+you will never assign (\code{LLONG\_MIN}).\\
+\end{ctab}\\[0.3ex]
+{\ttfamily\footnotesize
+\begin{ctab}{0.30}{0.65}
+f does \hfill query= & ap(x,f,k) \hfill cm(a,f) \hfill ID \hfill NOP\\
+x += f \hfill sum & x + f*k \hfill a+f \hfill 0 \hfill 0\\
+x += f \hfill min & x + f \hfill a+f \hfill INF \hfill 0\\
+x += f \hfill max & x + f \hfill a+f \hfill -INF \hfill 0\\
+x = f \hfill sum & f * k \hfill f \hfill 0 \hfill NONE\\
+x = f \hfill min & f \hfill f \hfill INF \hfill NONE\\
+x = f \hfill max & f \hfill f \hfill -INF \hfill NONE\\
+x \textasciicircum= f \hfill xor & k\&1 ? x\textasciicircum f : x \hfill a\textasciicircum f \hfill 0 \hfill 0\\
+\end{ctab}}\\[0.3ex]
+\code{NONE = LLONG\_MIN}. Affine (one problem mixing ``multiply a range'' and ``add a
+range''): \code{F = pair<ll,ll>}, \code{f = \{p,q\}} means $x \mapsto px+q$,
+\code{ap = f.first*x + f.second*k}, \code{cm(a,f) = \{a.first*f.first,
+f.first*a.second + f.second\}}, \code{NOP = \{1,0\}}.\\[0.3ex]
+Check a new row on paper with
+$\mathrm{op}(\mathrm{ap}(a,f,k_a), \mathrm{ap}(b,\mathrm{sh}(f,k_a),k_b)) = \mathrm{ap}(\mathrm{op}(a,b), f, k_a{+}k_b)$
+and $\mathrm{ap}(\mathrm{ap}(x,a,k),f,k) = \mathrm{ap}(x,\mathrm{cm}(a,f),k)$.
+$\sim$4x slower than \code{Seg} --- use \code{Seg} for point updates.}
+
+%LABEL LazySeg
+\begin{lstlisting}
+struct LazySeg {
+    using T = ll;                            // node value
+    using F = ll;                            // pending update
+    static T op(T a, T b)        { return a + b; }
+    static T ap(T x, F f, int k) { return x + f * k; }
+    static F cm(F a, F f)        { return a + f; }
+    static F sh(F f, int k)      { return f; }
+    static constexpr T ID  = 0;
+    static constexpr F NOP = 0;
+
+    int n; vector<T> t; vector<F> d;
+    LazySeg(int n = 0) : n(n), t(4*n, ID), d(4*n, NOP) {}
+    LazySeg(const vector<T>& a) : LazySeg((int)a.size()) {
+        if (n) build(1, 0, n, a);
+    }
+    void update(int l, int r, F f) {
+        if (l < r) upd(1, 0, n, l, r, f);
+    }
+    T query(int l, int r) {
+        return l < r ? qry(1, 0, n, l, r) : ID;
+    }
+    T operator[](int i) { return query(i, i + 1); }
+
+    // node v covers [l, r)
+    void build(int v, int l, int r, const vector<T>& a) {
+        if (r - l == 1) { t[v] = a[l]; return; }
+        int m = (l + r) / 2;
+        build(2*v, l, m, a); build(2*v+1, m, r, a);
+        t[v] = op(t[2*v], t[2*v+1]);
+    }
+    void put(int v, int k, F f) {
+        t[v] = ap(t[v], f, k); d[v] = cm(d[v], f);
+    }
+    void push(int v, int l, int m, int r) {
+        if (d[v] == NOP) return;
+        put(2*v, m - l, d[v]);
+        put(2*v+1, r - m, sh(d[v], m - l));
+        d[v] = NOP;
+    }
+    void upd(int v, int l, int r, int ql, int qr, F f) {
+        if (ql <= l && r <= qr) { put(v, r - l, f); return; }
+        int m = (l + r) / 2;
+        push(v, l, m, r);
+        if (ql < m) upd(2*v, l, m, ql, qr, f);
+        int c = max(0, m - max(ql, l));   // update left of m
+        if (m < qr) upd(2*v+1, m, r, ql, qr, sh(f, c));
+        t[v] = op(t[2*v], t[2*v+1]);
+    }
+    T qry(int v, int l, int r, int ql, int qr) {
+        if (ql <= l && r <= qr) return t[v];
+        int m = (l + r) / 2;
+        push(v, l, m, r);
+        if (qr <= m) return qry(2*v, l, m, ql, qr);
+        if (m <= ql) return qry(2*v+1, m, r, ql, qr);
+        return op(qry(2*v, l, m, ql, qr),
+                  qry(2*v+1, m, r, ql, qr));
+    }
+};
+\end{lstlisting}
+
+\entry{Implicit treap}{insert / erase / at / query $O(\log n)$ \quad mem $n$}{%
+A \emph{sequence} you can insert into and erase from the middle of, by index --- what
+\code{vector} cannot do and \code{Seg} cannot do. Indices are positions in the
+current sequence, so every insert renumbers everything after it.\\[0.3ex]
+\code{agg} is the subtree fold; change the \code{+} in \code{pull} and the \code{T\{\}}
+in \code{ag} together to get min/max instead of sum. \code{query(l, r)} folds
+\code{[l, r)}.\\[0.3ex]
+\code{Treap<ll> t; t.insert(0, 5); t.insert(1, 7); t.at(0); t.erase(0);}}
+
+\begin{lstlisting}
+mt19937 rng(chrono::steady_clock::now()
+                .time_since_epoch().count());
+
+template<typename T>
+struct Treap {
+    struct Node {
+        T val, agg; ll prio, sz; Node *l, *r;
+        Node(T v) : val(v), agg(v), prio(rng()), sz(1),
+                    l(nullptr), r(nullptr) {}
+    };
+    Node* root = nullptr;
+
+    static ll sz(Node* t) { return t ? t->sz : 0; }
+    static T  ag(Node* t) { return t ? t->agg : T{}; }
+    static void pull(Node* t) {
+        if (!t) return;
+        t->sz  = 1 + sz(t->l) + sz(t->r);
+        t->agg = ag(t->l) + t->val + ag(t->r);   // op
+    }
+    // first k elements -> a, rest -> b
+    static void split(Node* t, ll k, Node*& a, Node*& b) {
+        if (!t) { a = b = nullptr; return; }
+        if (sz(t->l) >= k) { split(t->l, k, a, t->l); b = t; }
+        else { split(t->r, k-sz(t->l)-1, t->r, b); a = t; }
+        pull(t);
+    }
+    static Node* merge(Node* a, Node* b) {
+        if (!a || !b) return a ? a : b;
+        if (a->prio > b->prio) {
+            a->r = merge(a->r, b); pull(a); return a;
+        }
+        b->l = merge(a, b->l); pull(b); return b;
+    }
+    void insert(ll k, T val) {       // ends up at index k
+        Node *a, *b;
+        split(root, k, a, b);
+        root = merge(merge(a, new Node(val)), b);
+    }
+    void erase(ll k) {
+        Node *a, *b, *c;
+        split(root, k, a, b); split(b, 1, b, c);
+        delete b; root = merge(a, c);
+    }
+    T at(ll k) {
+        Node* t = root;
+        while (t) {
+            ll ls = sz(t->l);
+            if (k == ls) return t->val;
+            if (k <  ls) t = t->l;
+            else { k -= ls + 1; t = t->r; }
+        }
+        assert(false);
+    }
+    T query(ll l, ll r) {                  // fold [l, r)
+        Node *a, *b, *c;
+        split(root, l, a, b); split(b, r - l, b, c);
+        T res = ag(b);
+        root = merge(a, merge(b, c));
+        return res;
+    }
+    ll size() const { return sz(root); }
+};
+\end{lstlisting}
+
+\entry{Order-statistic tree}{insert / erase / rank / kth $O(\log n)$}{%
+A \code{set} that also answers ``how many are below $x$'' and ``what is the $k$-th''.
+\code{find\_by\_order(k)} is an iterator to the \code{k}-th smallest (0-indexed);
+\code{order\_of\_key(x)} counts elements \emph{strictly} below \code{x}.\\[0.3ex]
+It is a \emph{set}, so duplicates collapse. For a multiset store
+\code{pair<val, unique\_id>} and query with \code{\{x, 0\}} / \code{\{x, INF\}}.}
+
+\begin{lstlisting}
+#include <ext/pb_ds/assoc_container.hpp>
+using namespace __gnu_pbds;
+template<class T> using Tree = tree<T, null_type,
+    less<T>, rb_tree_tag,
+    tree_order_statistics_node_update>;
+// Tree<ll> s; s.insert(4);
+// *s.find_by_order(0);   s.order_of_key(4);
+\end{lstlisting}
+
+\entry{Line container (CHT)}{add / query $O(\log n)$ \quad mem $n$}{%
+Upper hull of lines: \code{add(k, m)} inserts $y = kx+m$, \code{query(x)} returns the
+\emph{maximum} over all inserted lines at $x$. Lines may arrive in any order.
+For a minimum, insert \code{(-k, -m)} and negate the answer.\\[0.3ex]
+This is the tool for DP transitions of the form
+$dp_i = \max_j (dp_j + a_j \cdot b_i)$ --- insert line
+\code{(a[j], dp[j])} once $dp_j$ is known, then \code{query(b[i])}.
+Integer arithmetic only; \code{div} floors towards $-\infty$.}
+
+\begin{lstlisting}
+struct Line {
+    mutable ll k, m, p;
+    bool operator<(const Line& o) const { return k < o.k; }
+    bool operator<(ll x) const { return p < x; }
+};
+struct LineContainer : multiset<Line, less<>> {
+    static const ll LINF = LLONG_MAX;
+    ll fdiv(ll a, ll b) {      // floored division
+        return a / b - ((a ^ b) < 0 && a % b);
+    }
+    bool isect(iterator x, iterator y) {
+        if (y == end()) return x->p = LINF, 0;
+        if (x->k == y->k) x->p = x->m > y->m ? LINF : -LINF;
+        else x->p = fdiv(y->m - x->m, x->k - y->k);
+        return x->p >= y->p;
+    }
+    void add(ll k, ll m) {
+        auto z = insert({k, m, 0}), y = z++, x = y;
+        while (isect(y, z)) z = erase(z);
+        if (x != begin() && isect(--x, y))
+            isect(x, y = erase(y));
+        while ((y = x) != begin() && (--x)->p >= y->p)
+            isect(x, erase(y));
+    }
+    ll query(ll x) {                   // max over lines
+        assert(!empty());
+        auto l = *lower_bound(x);
+        return l.k * x + l.m;
+    }
+};
+\end{lstlisting}

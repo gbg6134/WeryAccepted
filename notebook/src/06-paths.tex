@@ -1,0 +1,111 @@
+\section{Shortest paths}
+
+\entry{Dijkstra}{$O((n + m) \log n)$ \quad mem $n + m$}{%
+\textbf{Non-negative} weights only --- one negative edge and the answer is silently
+wrong, use \code{bellman}. \code{d[v] == INF} means unreachable. Pass \code{\&par} to
+recover a path: walk \code{par} back from the target and reverse.\\[0.3ex]
+Variants that are the same loop with a different relax step: maximise the bottleneck
+(\code{max(d[u], w)} with a max-heap), count shortest paths (a second array,
+\code{cnt[v] += cnt[u]} on tie), fewest edges among shortest paths (compare
+\code{pair<dist, edges>}). For 0/1 weights use a \code{deque} instead of the heap
+(push\_front on 0) and drop the log.}
+
+%LABEL dijkstra
+\begin{lstlisting}
+// g[u] = {(v, w)}
+vi dijkstra(const vector<vector<pii>>& g, int s,
+            vector<int>* par = nullptr) {
+    int n = (int)g.size();
+    vi d(n, INF);
+    if (par) par->assign(n, -1);
+    priority_queue<pii, vector<pii>, greater<pii>> q;
+    d[s] = 0; q.push({0, s});
+    while (!q.empty()) {
+        auto [dv, u] = q.top(); q.pop();
+        if (dv > d[u]) continue;            // stale entry
+        for (auto [v, w] : g[u])
+            if (dv + w < d[v]) {
+                d[v] = dv + w;
+                if (par) (*par)[v] = (int)u;
+                q.push({d[v], v});
+            }
+    }
+    return d;
+}
+\end{lstlisting}
+
+\entry{Bellman-Ford}{$O(nm)$ \quad mem $n + m$}{%
+Handles negative weights and reports a negative cycle reachable from \code{s}. Stops
+early when a round changes nothing, so it is fast on easy inputs.\\[0.3ex]
+\textbf{Difference constraints.} A system of $x_v - x_u \le w$ is exactly a shortest
+path problem: add edge \code{u -> v} of weight \code{w}, add a super-source with a
+0-edge to every vertex, run this from it. The resulting \code{d} is a feasible
+assignment, and the system is infeasible iff there is a negative cycle. $x_v - x_u \ge
+w$ becomes $x_u - x_v \le -w$; $x_v - x_u = w$ is both.\\[0.3ex]
+To mark every vertex whose distance is truly $-\infty$, run $n$ more rounds and set
+\code{d[v] = -INF} whenever it still relaxes.}
+
+\begin{lstlisting}
+// e = {u, v, w}; neg = a negative cycle is reachable from s
+vi bellman(int n, const vector<array<ll,3>>& e, int s,
+           bool& neg) {
+    vi d(n, INF); d[s] = 0; neg = false;
+    rep(i, 0, n) {
+        bool ch = false;
+        for (auto [u, v, w] : e)
+            if (d[u] < INF && d[u] + w < d[v]) {
+                d[v] = d[u] + w; ch = true;
+                if (i == n - 1) neg = true;
+            }
+        if (!ch) break;
+    }
+    return d;
+}
+\end{lstlisting}
+
+\entry{Floyd-Warshall}{$O(n^3)$ \quad mem $n^2$}{%
+All pairs, negative weights allowed. Fill \code{d[i][i] = 0}, \code{d[i][j]} = the
+\emph{cheapest} edge \code{i -> j} (careful with multi-edges: take a \code{min}), and
+\code{INF} elsewhere. Rewrites \code{d} in place.\\[0.3ex]
+A negative cycle exists iff \code{d[i][i] < 0} for some \code{i} afterwards; then
+\code{d[a][b]} is $-\infty$ whenever \code{d[a][i] < INF} and \code{d[i][b] < INF} for
+such an \code{i}. The \code{k} loop must be outermost. The \code{< INF} guards are what
+stop \code{INF + INF} from wrapping.\\[0.3ex]
+Same triple loop, other semirings: transitive closure (\code{|=} with \code{\&\&}),
+maximum bottleneck (\code{max}/\code{min}), minimax path.}
+
+\begin{lstlisting}
+void floyd(matrix& d) {
+    int n = (int)d.size();
+    rep(k, 0, n) rep(i, 0, n) if (d[i][k] < INF)
+        rep(j, 0, n) if (d[k][j] < INF)
+            d[i][j] = min(d[i][j], d[i][k] + d[k][j]);
+}
+\end{lstlisting}
+
+\entry{K shortest walks}{$O((m + k n)\log)$ \quad mem $n + m$}{%
+The \code{k} smallest \code{s}$\to$\code{t} lengths in ascending order, \textbf{walks}
+--- vertices may repeat, so on a graph with a cycle you get the same path plus loops.
+That is what most ``k-th shortest route'' problems want. Non-negative weights.
+Fewer than \code{k} results means fewer exist.\\[0.3ex]
+For genuinely \emph{simple} k shortest paths you need Yen's algorithm --- much longer,
+and rarely what is asked.}
+
+\begin{lstlisting}
+vi kShortest(const vector<vector<pii>>& g, int s, int t,
+             int k) {
+    int n = (int)g.size();
+    vector<int> cnt(n, 0); vi res;
+    priority_queue<pii, vector<pii>, greater<pii>> q;
+    q.push({0, s});
+    while (!q.empty() && (int)res.size() < k) {
+        auto [d, u] = q.top(); q.pop();
+        if (cnt[u] >= k) continue;
+        cnt[u]++;
+        if (u == t) res.push_back(d);
+        for (auto [v, w] : g[u])
+            if (cnt[v] < k) q.push({d + w, v});
+    }
+    return res;
+}
+\end{lstlisting}

@@ -1,0 +1,3017 @@
+% ===========================================================================
+%  KTH -- Team Reference Document  (NCPC / NWERC)
+%  GENERATED FILE: edit src/*.tex, then run tools/build.sh
+%  Paste notebook.tex into Overleaf and hit Recompile -- plain pdfLaTeX.
+%
+%  Layout matches KACTL exactly: A4 LANDSCAPE, 3 columns, 8pt code.
+%  (kactl uses \documentclass[9pt,a4paper]{extreport} + geometry
+%   a4paper,landscape,hmargin={0.5cm,0.5cm},vmargin={1.0cm,0.4cm}
+%   + multicols*{3} + \footnotesize listings, i.e. 8pt code.)
+%
+%  NWERC rules encoded here: <= 25 pages, single-sided, A4, university name
+%  in the UPPER LEFT, page number in the UPPER RIGHT.
+% ===========================================================================
+\documentclass[9pt,a4paper]{extarticle}
+
+\newcommand{\uni}{KTH Royal Institute of Technology}
+\newcommand{\unishort}{KTH}
+\newcommand{\team}{$O(N^{\text{5h debugging}})$}
+\newcommand{\members}{Ruben \quad Ruiming \quad Martin}
+
+% Code size. 8pt is exactly KACTL's, which is printed for NWERC every year.
+% DO NOT go below it -- raise both numbers if the print looks tight.
+\newcommand{\codesize}{\fontsize{8}{8.8}\selectfont}
+
+% includehead makes geometry reserve the header INSIDE the top margin. Without it
+% LaTeX puts the header box top at 1in+\topmargin, which lands ABOVE the paper edge
+% here and slices the header in half. (KACTL papers over the same problem by setting
+% \headheight to 25pt; reserving the space properly is the honest fix.)
+\usepackage[a4paper,landscape,hmargin={0.5cm,0.5cm},vmargin={0.4cm,0.4cm},
+            includehead,headsep=4pt]{geometry}
+\usepackage{multicol}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{amsmath,amssymb}
+\usepackage{tocloft}
+\usepackage[expansion=false]{microtype}
+
+\definecolor{secbg}{HTML}{1F3B57}
+\definecolor{hdbg}{HTML}{E8ECF1}
+\definecolor{kw}{HTML}{16507B}
+\definecolor{cmt}{HTML}{6B7C6B}
+\definecolor{str}{HTML}{8B3A2E}
+\definecolor{rule}{HTML}{9AA7B4}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\setlength{\columnsep}{4mm}
+\setlength{\columnseprule}{0.2pt}
+
+\newcommand{\secbar}[1]{%
+  \colorbox{secbg}{\parbox{\dimexpr\columnwidth-2\fboxsep}{%
+    \strut\color{white}\bfseries #1}}}
+\titleformat{\section}{\normalfont}{}{0pt}{\secbar}
+\titlespacing{\section}{0pt}{1.1ex}{0.6ex}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.2pt}
+\lhead{\footnotesize\uni}                 % NWERC: university, upper left
+\chead{\footnotesize\team}
+\rhead{\footnotesize\thepage}             % NWERC: page number, upper right
+% headsep is set by geometry above; do not override it here or the header
+% drifts back off the top of the page.
+
+\lstset{
+  language=C++,
+  basicstyle=\ttfamily\codesize,
+  keywordstyle=\color{kw}\bfseries,
+  commentstyle=\color{cmt},
+  stringstyle=\color{str},
+  showstringspaces=false,
+  keepspaces=true,
+  columns=fullflexible,
+  breaklines=false,
+  tabsize=4,
+  aboveskip=0.8ex,
+  belowskip=0.3ex,
+  xleftmargin=0pt,
+  morekeywords={ll,ld,vi,pii,matrix,rep,down,all,i128,ull}
+}
+
+% Compact index: every \section and every \entry gets a table-of-contents line.
+% secnumdepth 0 = unnumbered sections. The section bars show no number either,
+% and with numbering on, \numberline would overprint the title in the index.
+\setcounter{secnumdepth}{0}
+\setcounter{tocdepth}{2}
+\setlength{\cftbeforesecskip}{0.35ex}
+\setlength{\cftbeforesubsecskip}{0pt}
+\setlength{\cftsecindent}{0pt}
+\setlength{\cftsubsecindent}{0.9em}
+\setlength{\cftsecnumwidth}{0em}
+\setlength{\cftsubsecnumwidth}{0em}
+\renewcommand{\cftsecfont}{\bfseries\footnotesize}
+\renewcommand{\cftsecpagefont}{\bfseries\footnotesize}
+\renewcommand{\cftsecleader}{\normalfont\hfill}
+\renewcommand{\cftsubsecfont}{\footnotesize}
+\renewcommand{\cftsubsecpagefont}{\footnotesize}
+\renewcommand{\cftsubsecleader}{\normalfont\hfill}
+\renewcommand{\cftdot}{}
+
+% #1 name, #2 complexity / note, #3 description
+\newcommand{\entry}[3]{%
+  \addcontentsline{toc}{subsection}{#1}%
+  \vspace{0.8ex}%
+  \noindent\colorbox{hdbg}{\parbox{\dimexpr\columnwidth-2\fboxsep}{%
+    \strut\textbf{#1}\hfill{\footnotesize\textsf{#2}}}}\par
+  \vspace{0.4ex}%
+  {\footnotesize #3\par}%
+}
+% same, but no index line -- for a second listing belonging to the entry above
+\newcommand{\entryn}[3]{%
+  \vspace{0.8ex}%
+  \noindent\colorbox{hdbg}{\parbox{\dimexpr\columnwidth-2\fboxsep}{%
+    \strut\textbf{#1}\hfill{\footnotesize\textsf{#2}}}}\par
+  \vspace{0.4ex}%
+  {\footnotesize #3\par}%
+}
+
+\newcommand{\code}[1]{{\ttfamily\small #1}}
+% compact two-column description table, sized for a 93mm column
+\newenvironment{ctab}[2]{%
+  \begingroup\setlength{\tabcolsep}{3pt}%
+  \begin{tabular}{@{}p{#1\columnwidth}p{#2\columnwidth}@{}}}%
+  {\end{tabular}\endgroup}
+
+\begin{document}
+
+% ------------------------------- front page --------------------------------
+\pagestyle{empty}
+\begin{center}
+\vspace*{2.2cm}
+{\fontsize{46}{50}\selectfont\bfseries Notebook}\\[0.5cm]
+{\Large Team Reference Document \quad\textbullet\quad NCPC / NWERC}\\[1.6cm]
+\textcolor{rule}{\rule{0.55\textwidth}{0.8pt}}\\[1.2cm]
+{\fontsize{30}{34}\selectfont\bfseries \team}\\[1.4cm]
+{\LARGE \uni}\\[0.9cm]
+{\Large \members}
+\vfill
+{\footnotesize 25-page limit: this document is 16 pages including this cover.
+Single-sided, A4.\par}
+\vspace{0.8cm}
+\end{center}
+\newpage
+\setcounter{page}{1}
+% The cover uses \pagestyle{empty}; switch back here. \thispagestyle does NOT
+% work for this -- its effect lands on the index page instead of the cover and
+% page 1 of the index loses its header.
+\pagestyle{fancy}
+
+% ------------------------------ index + body -------------------------------
+{\large\bfseries Index}\hfill{\footnotesize\members}
+\vspace{0.5ex}
+\textcolor{rule}{\hrule height 0.6pt}
+\vspace{1.0ex}
+
+\begin{multicols*}{3}
+\renewcommand{\contentsname}{\vspace{-3.5ex}}
+\tableofcontents
+% tocloft forces \thispagestyle{plain} on the table-of-contents page, which
+% wipes the header off the index page. Undo it right here -- verified by
+% bisecting the preamble against a minimal file.
+\thispagestyle{fancy}
+\vspace{1.5ex}
+
+\section{Contest setup}
+
+\entry{Header}{paste first}{%
+Every entry in this document assumes this block. Ranges are \textbf{half-open}
+\code{[l, r)} and graphs are \textbf{0-indexed} unless the entry says otherwise
+--- both are stated wherever it matters.}
+
+%HEADER
+\begin{lstlisting}
+#include <bits/stdc++.h>
+#include <cassert>   // bits/stdc++.h no longer pulls this in
+using namespace std;
+typedef long long ll;
+typedef long double ld;
+typedef unsigned long long ull;
+typedef __int128 i128;
+typedef pair<ll, ll> pii;
+typedef vector<ll> vi;
+typedef vector<vi> matrix;
+#define rep(i, a, b) for(ll i = a; i < b; i++)
+#define down(i, b, a) for(ll i = b - 1; i >= a; i--)
+#define all(v) (v).begin(), (v).end()
+const ll INF = 1e18;
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+}
+\end{lstlisting}
+
+\entry{Compile and stress test}{}{%
+Drop the sanitizers for the real submission --- they cost $\sim$3x.
+\code{-Wconversion} additionally catches silent
+\code{ll}$\rightarrow$\code{int} narrowing.\\[0.3ex]
+Stress test: \code{gen.py} prints a small random case, \code{mine} is the fast
+solution, \code{ans} the slow one you trust.}
+
+%NOCOMPILE
+\begin{lstlisting}
+g++ -std=gnu++17 -O2 -Wall -Wextra -Wshadow \
+    -fsanitize=address,undefined -g a.cpp
+
+for i in $(seq 1000); do
+  python3 gen.py $i > t.txt
+  ./mine < t.txt > o1.txt; ./ans < t.txt > o2.txt
+  cmp -s o1.txt o2.txt || { echo "WA $i"; cat t.txt; break; }
+done
+\end{lstlisting}
+
+\entry{int128 I/O}{}{%
+\code{cin} / \code{cout} cannot handle \code{\_\_int128}. Range is
+$\pm1.7\cdot10^{38}$, so it is the fix for \code{a*b \% m} when $m$ is up to
+$9\cdot10^{18}$: \code{(i128)a * b \% m}.}
+
+\begin{lstlisting}
+i128 read128() {
+    i128 x = 0; int s = 1; char c = getchar();
+    while (c == ' ' || c == '\n') c = getchar();
+    if (c == '-') { s = -1; c = getchar(); }
+    for (; c >= '0' && c <= '9'; c = getchar())
+        x = x * 10 + (c - '0');
+    return s * x;
+}
+void print128(i128 x) {
+    if (x < 0) { putchar('-'); x = -x; }
+    if (x > 9) print128(x / 10);
+    putchar('0' + (int)(x % 10));
+}
+\end{lstlisting}
+
+\section{Range structures}
+
+All ranges are half-open: \code{[l, r)}, \code{r} not included.
+
+\entry{Fenwick (BIT)}{add, sum, kth $O(\log n)$ \quad mem $n$}{%
+Needs an operation with an inverse (sum, xor); min/max/gcd need a segment tree.
+$\sim$3x faster than \code{Seg}, $\sim$15x faster than \code{LazySeg}.\\[0.3ex]
+Range add + point get: \code{add(l, x)}, \code{add(r, -x)}; then \code{sum(i+1)}
+\emph{is} \code{a[i]}. Range add + range sum: two BITs, or \code{LazySeg}.
+\code{kth} needs every \code{a[i] >= 0} and \code{k >= 1}. Xor instead of sum:
+every \code{+=} becomes \code{\textasciicircum=}, and drop the \code{-} in
+\code{sum(l, r)}.}
+
+\begin{lstlisting}
+struct BIT {
+    int n; vector<ll> t;
+    BIT(int n = 0) : n(n), t(n + 1, 0) {}
+    BIT(const vector<ll>& a) : BIT((int)a.size()) {
+        for (int i = 1; i <= n; i++) {
+            t[i] += a[i-1];
+            int j = i + (i & -i);
+            if (j <= n) t[j] += t[i];
+        }
+    }
+    void add(int i, ll x) {                     // a[i] += x
+        for (++i; i <= n; i += i & -i) t[i] += x;
+    }
+    ll sum(int r) {                             // a[0..r)
+        ll s = 0;
+        for (; r > 0; r -= r & -r) s += t[r];
+        return s;
+    }
+    ll sum(int l, int r) {                      // a[l..r)
+        return l < r ? sum(r) - sum(l) : 0;
+    }
+    int kth(ll k) {     // min i with sum(i+1) >= k, else n
+        int p = 0;
+        for (int w = 1 << __lg(max(n, 1)); w; w >>= 1)
+            if (p + w <= n && t[p + w] < k) p += w, k -= t[p];
+        return p;
+    }
+};
+\end{lstlisting}
+
+\entry{Segment tree}{build $O(n)$, set / query $O(\log n)$ \quad mem $2n$}{%
+Point assign + range query.\\[0.3ex]
+\begin{ctab}{0.15}{0.80}
+\code{T} & what one element is, and what a query gives back.\\
+\code{op(a,b)} & answers for two neighbouring pieces, \code{a} the left one;
+return the answer for both together. Associative, need not commute.\\
+\code{ID} & a \code{T} that \code{op} ignores: \code{op(x,ID) = op(ID,x) = x}.
+An empty query returns it.\\
+\end{ctab}\\[0.3ex]
+{\ttfamily\footnotesize
+\begin{ctab}{0.16}{0.79}
+query= & op \hfill ID\\
+sum & \code{a + b} \hfill \code{0}\\
+min & \code{min(a,b)} \hfill \code{LLONG\_MAX}\\
+max & \code{max(a,b)} \hfill \code{LLONG\_MIN}\\
+gcd & \code{\_\_gcd(a,b)} \hfill \code{0}\\
+xor & \code{a \textasciicircum{} b} \hfill \code{0}\\
+and & \code{a \& b} \hfill \code{\textasciitilde 0LL}\\
+or & \code{a | b} \hfill \code{0}\\
+\end{ctab}}\\[0.3ex]
+Count of min: \code{T = pair<ll,int>}, keep the smaller \code{.first} and sum
+\code{.second} on ties, \code{ID = \{LLONG\_MAX, 0\}}. Struct \code{T}: write
+\code{inline static const T ID = T\{...\};}\\[0.3ex]
+Read-modify-write is \code{s.set(i, s[i] + v)}. Range updates need
+\code{LazySeg}. Two different trees in one problem: copy, rename, edit.}
+
+\begin{lstlisting}
+struct Seg {
+    using T = ll;
+    static T op(T a, T b) { return a + b; }
+    static constexpr T ID = 0;
+
+    int n; vector<T> t;
+    Seg(int n = 0) : n(n), t(2 * n, ID) {}
+    Seg(const vector<T>& a)
+            : n((int)a.size()), t(2*a.size()) {
+        copy(a.begin(), a.end(), t.begin() + n);
+        for (int i = n - 1; i > 0; i--)
+            t[i] = op(t[2*i], t[2*i+1]);
+    }
+    T operator[](int i) const { return t[i + n]; }
+    void set(int i, T v) {
+        for (t[i += n] = v; i /= 2;)
+            t[i] = op(t[2*i], t[2*i+1]);
+    }
+    T query(int l, int r) {               // combine a[l..r)
+        T x = ID, y = ID;              // x = left, y = right
+        for (l += n, r += n; l < r; l /= 2, r /= 2) {
+            if (l & 1) x = op(x, t[l++]);
+            if (r & 1) y = op(t[--r], y);
+        }
+        return op(x, y);
+    }
+};
+\end{lstlisting}
+
+\entry{Sparse table}{build $O(n \log n)$, query $O(1)$ \quad mem $n \log n$}{%
+\textbf{Idempotent} \code{op} only --- min, max, gcd, and, or. \code{op(x,x)} must
+be \code{x}, because the two halves of a query overlap. No \code{ID} needed, and
+no updates ever. For sum use \code{BIT}, for updates use \code{Seg}.}
+
+\begin{lstlisting}
+struct SpTab {
+    using T = ll;
+    static T op(T a, T b) { return min(a, b); }
+
+    int n; vector<vector<T>> t;
+    SpTab(const vector<T>& a) : n((int)a.size()), t(1, a) {
+        for (int k = 1; (1 << k) <= n; k++) {
+            t.push_back(vector<T>(n - (1 << k) + 1));
+            for (int i = 0; i < (int)t[k].size(); i++)
+                t[k][i] = op(t[k-1][i],
+                             t[k-1][i + (1 << (k-1))]);
+        }
+    }
+    T query(int l, int r) {          // a[l..r), needs l < r
+        int k = __lg(r - l);
+        return op(t[k][l], t[k][r - (1 << k)]);
+    }
+};
+\end{lstlisting}
+
+\entry{Sparse segment tree}{set / add / query $O(\log C)$ \quad mem $V \log_2 (C/V)$ nodes}{%
+Same \code{T / op / ID} as \code{Seg}, but \code{[lo, hi)} is given at
+construction, may be $10^{18}$ wide or start negative, and nodes appear only where
+you write. \code{ID} is \emph{also} what every untouched position reads as, so pick
+the neutral element you want spread over the whole range.\\[0.3ex]
+\begin{ctab}{0.19}{0.76}
+\code{add(i,v)} & \code{a[i] = op(a[i], v)} in one descent; prefer it over
+\code{set(i, s[i]+v)}, which pays two.\\
+\code{hint} & 3rd ctor arg, how many \code{set}/\code{add} you expect.
+\code{reserve} only; 0 or wrong is safe.\\
+\code{kth(k)} & sum config, all \code{a[i] >= 0}, \code{k >= 1}: smallest
+\code{i} with \code{query(lo, i+1) >= k}, else \code{hi}.\\
+\end{ctab}\\[0.3ex]
+Multiset on a value axis: count config, \code{add(v, 1)} / \code{add(v, -1)},
+\code{query(a, b+1)} counts $[a,b]$, \code{kth} gives order statistics.\\[0.3ex]
+Use it \emph{only} when the positions are not all known up front (interactive, or an
+update that depends on an earlier answer). Otherwise coordinate-compress and use
+\code{BIT}: 3.5x faster, 4.5x less memory. Nodes $\approx 2V + V\log_2(C/V)$, 16 B
+each ($V$ = positions touched), so $V = 3\cdot10^5$ over $C = 10^9$ is $\sim$62 MB.}
+
+\begin{lstlisting}
+struct SparseSeg {
+    using T = ll;
+    static T op(T a, T b) { return a + b; }
+    static constexpr T ID = 0;
+
+    struct Nd { int l, r; T v; };
+    ll lo, hi;
+    vector<Nd> nd;               // node 0 = null, 1 = root
+
+    SparseSeg(ll lo = 0, ll hi = 1, int hint = 0)
+            : lo(lo), hi(hi) {
+        ll C = max(hi - lo, 1LL), h = max(hint, 1);
+        size_t cap = 2 + h * (3 + (C > h ? __lg(C / h) : 0));
+        nd.reserve(cap);
+        node(); node();
+    }
+    int node() {
+        nd.push_back({0, 0, ID});
+        return (int)nd.size() - 1;
+    }
+    void set(ll i, T v) { pt(i, v, true);  }
+    void add(ll i, T v) { pt(i, v, false); }
+    T operator[](ll i) { return query(i, i + 1); }
+    T query(ll l, ll r) {                      // fold a[l..r)
+        return l < r ? qry(1, lo, hi, l, r) : ID;
+    }
+    ll kth(T k) {
+        if (nd[1].v < k) return hi;
+        int x = 1; ll l = lo, r = hi;
+        while (r - l > 1) {
+            ll m = l + (r - l) / 2;
+            if (nd[nd[x].l].v >= k) { x = nd[x].l; r = m; }
+            else { k -= nd[nd[x].l].v; x = nd[x].r; l = m; }
+        }
+        return l;
+    }
+    void pt(ll i, T v, bool assign) {
+        int st[64], d = 0, x = 1; ll l = lo, r = hi;
+        while (r - l > 1) {
+            st[d++] = x;
+            ll m = l + (r - l) / 2;
+            if (i < m) {
+                if (!nd[x].l) { int c = node(); nd[x].l = c; }
+                x = nd[x].l; r = m;
+            } else {
+                if (!nd[x].r) { int c = node(); nd[x].r = c; }
+                x = nd[x].r; l = m;
+            }
+        }
+        nd[x].v = assign ? v : op(nd[x].v, v);
+        while (d--) {
+            int p = st[d];
+            nd[p].v = op(nd[nd[p].l].v, nd[nd[p].r].v);
+        }
+    }
+    T qry(int x, ll l, ll r, ll ql, ll qr) {
+        if (!x || qr <= l || r <= ql) return ID;
+        if (ql <= l && r <= qr) return nd[x].v;
+        ll m = l + (r - l) / 2;
+        return op(qry(nd[x].l, l, m, ql, qr),
+                  qry(nd[x].r, m, r, ql, qr));
+    }
+};
+\end{lstlisting}
+
+\entry{Lazy segment tree}{build $O(n)$, update / query $O(\log n)$ \quad mem $4n$}{%
+A node holds \code{t}, the answer for its own piece, and \code{d}, an update already
+counted into \code{t} but not yet given to its children.\\[0.3ex]
+\begin{ctab}{0.15}{0.80}
+\code{T} & what one element is, and what a query gives back.\\
+\code{F} & one update: exactly what you hand to \code{update(l, r, f)}.\\
+\code{op(a,b)} & merge two neighbouring answers, \code{a} the left one.
+Associative, need not commute.\\
+\code{ID} & neutral for \code{op}; an empty query returns it.\\
+\code{ap(x,f,k)} & a node of \code{k} elements has answer \code{x} and \code{f} now
+hits all \code{k}: return the node's new answer. You never see the elements, only
+\code{x} and \code{k} --- if the new answer is not decided by those two, lazy
+cannot do this update at all.\\
+\code{cm(a,f)} & \code{a} was already waiting and \code{f} lands on top: return the
+single update meaning ``\code{a} first, then \code{f}''.\\
+\code{sh(f,k)} & the same update shifted \code{k} places right. An \code{f} starts at
+the first element it covers, so the left child gets \code{f} and the right child
+\code{sh(f, size of left child)}. Return \code{f} unchanged unless the update varies
+along the range: ``add $m, m{+}1, \dots$'' becomes ``add $m{+}k, m{+}k{+}1, \dots$''.\\
+\code{NOP} & an \code{F} meaning nothing waiting. For assigning updates use a value
+you will never assign (\code{LLONG\_MIN}).\\
+\end{ctab}\\[0.3ex]
+{\ttfamily\footnotesize
+\begin{ctab}{0.30}{0.65}
+f does \hfill query= & ap(x,f,k) \hfill cm(a,f) \hfill ID \hfill NOP\\
+x += f \hfill sum & x + f*k \hfill a+f \hfill 0 \hfill 0\\
+x += f \hfill min & x + f \hfill a+f \hfill INF \hfill 0\\
+x += f \hfill max & x + f \hfill a+f \hfill -INF \hfill 0\\
+x = f \hfill sum & f * k \hfill f \hfill 0 \hfill NONE\\
+x = f \hfill min & f \hfill f \hfill INF \hfill NONE\\
+x = f \hfill max & f \hfill f \hfill -INF \hfill NONE\\
+x \textasciicircum= f \hfill xor & k\&1 ? x\textasciicircum f : x \hfill a\textasciicircum f \hfill 0 \hfill 0\\
+\end{ctab}}\\[0.3ex]
+\code{NONE = LLONG\_MIN}. Affine (one problem mixing ``multiply a range'' and ``add a
+range''): \code{F = pair<ll,ll>}, \code{f = \{p,q\}} means $x \mapsto px+q$,
+\code{ap = f.first*x + f.second*k}, \code{cm(a,f) = \{a.first*f.first,
+f.first*a.second + f.second\}}, \code{NOP = \{1,0\}}.\\[0.3ex]
+Check a new row on paper with
+$\mathrm{op}(\mathrm{ap}(a,f,k_a), \mathrm{ap}(b,\mathrm{sh}(f,k_a),k_b)) = \mathrm{ap}(\mathrm{op}(a,b), f, k_a{+}k_b)$
+and $\mathrm{ap}(\mathrm{ap}(x,a,k),f,k) = \mathrm{ap}(x,\mathrm{cm}(a,f),k)$.
+$\sim$4x slower than \code{Seg} --- use \code{Seg} for point updates.}
+
+%LABEL LazySeg
+\begin{lstlisting}
+struct LazySeg {
+    using T = ll;                            // node value
+    using F = ll;                            // pending update
+    static T op(T a, T b)        { return a + b; }
+    static T ap(T x, F f, int k) { return x + f * k; }
+    static F cm(F a, F f)        { return a + f; }
+    static F sh(F f, int k)      { return f; }
+    static constexpr T ID  = 0;
+    static constexpr F NOP = 0;
+
+    int n; vector<T> t; vector<F> d;
+    LazySeg(int n = 0) : n(n), t(4*n, ID), d(4*n, NOP) {}
+    LazySeg(const vector<T>& a) : LazySeg((int)a.size()) {
+        if (n) build(1, 0, n, a);
+    }
+    void update(int l, int r, F f) {
+        if (l < r) upd(1, 0, n, l, r, f);
+    }
+    T query(int l, int r) {
+        return l < r ? qry(1, 0, n, l, r) : ID;
+    }
+    T operator[](int i) { return query(i, i + 1); }
+
+    // node v covers [l, r)
+    void build(int v, int l, int r, const vector<T>& a) {
+        if (r - l == 1) { t[v] = a[l]; return; }
+        int m = (l + r) / 2;
+        build(2*v, l, m, a); build(2*v+1, m, r, a);
+        t[v] = op(t[2*v], t[2*v+1]);
+    }
+    void put(int v, int k, F f) {
+        t[v] = ap(t[v], f, k); d[v] = cm(d[v], f);
+    }
+    void push(int v, int l, int m, int r) {
+        if (d[v] == NOP) return;
+        put(2*v, m - l, d[v]);
+        put(2*v+1, r - m, sh(d[v], m - l));
+        d[v] = NOP;
+    }
+    void upd(int v, int l, int r, int ql, int qr, F f) {
+        if (ql <= l && r <= qr) { put(v, r - l, f); return; }
+        int m = (l + r) / 2;
+        push(v, l, m, r);
+        if (ql < m) upd(2*v, l, m, ql, qr, f);
+        int c = max(0, m - max(ql, l));   // update left of m
+        if (m < qr) upd(2*v+1, m, r, ql, qr, sh(f, c));
+        t[v] = op(t[2*v], t[2*v+1]);
+    }
+    T qry(int v, int l, int r, int ql, int qr) {
+        if (ql <= l && r <= qr) return t[v];
+        int m = (l + r) / 2;
+        push(v, l, m, r);
+        if (qr <= m) return qry(2*v, l, m, ql, qr);
+        if (m <= ql) return qry(2*v+1, m, r, ql, qr);
+        return op(qry(2*v, l, m, ql, qr),
+                  qry(2*v+1, m, r, ql, qr));
+    }
+};
+\end{lstlisting}
+
+\entry{Implicit treap}{insert / erase / at / query $O(\log n)$ \quad mem $n$}{%
+A \emph{sequence} you can insert into and erase from the middle of, by index --- what
+\code{vector} cannot do and \code{Seg} cannot do. Indices are positions in the
+current sequence, so every insert renumbers everything after it.\\[0.3ex]
+\code{agg} is the subtree fold; change the \code{+} in \code{pull} and the \code{T\{\}}
+in \code{ag} together to get min/max instead of sum. \code{query(l, r)} folds
+\code{[l, r)}.\\[0.3ex]
+\code{Treap<ll> t; t.insert(0, 5); t.insert(1, 7); t.at(0); t.erase(0);}}
+
+\begin{lstlisting}
+mt19937 rng(chrono::steady_clock::now()
+                .time_since_epoch().count());
+
+template<typename T>
+struct Treap {
+    struct Node {
+        T val, agg; ll prio, sz; Node *l, *r;
+        Node(T v) : val(v), agg(v), prio(rng()), sz(1),
+                    l(nullptr), r(nullptr) {}
+    };
+    Node* root = nullptr;
+
+    static ll sz(Node* t) { return t ? t->sz : 0; }
+    static T  ag(Node* t) { return t ? t->agg : T{}; }
+    static void pull(Node* t) {
+        if (!t) return;
+        t->sz  = 1 + sz(t->l) + sz(t->r);
+        t->agg = ag(t->l) + t->val + ag(t->r);   // op
+    }
+    // first k elements -> a, rest -> b
+    static void split(Node* t, ll k, Node*& a, Node*& b) {
+        if (!t) { a = b = nullptr; return; }
+        if (sz(t->l) >= k) { split(t->l, k, a, t->l); b = t; }
+        else { split(t->r, k-sz(t->l)-1, t->r, b); a = t; }
+        pull(t);
+    }
+    static Node* merge(Node* a, Node* b) {
+        if (!a || !b) return a ? a : b;
+        if (a->prio > b->prio) {
+            a->r = merge(a->r, b); pull(a); return a;
+        }
+        b->l = merge(a, b->l); pull(b); return b;
+    }
+    void insert(ll k, T val) {       // ends up at index k
+        Node *a, *b;
+        split(root, k, a, b);
+        root = merge(merge(a, new Node(val)), b);
+    }
+    void erase(ll k) {
+        Node *a, *b, *c;
+        split(root, k, a, b); split(b, 1, b, c);
+        delete b; root = merge(a, c);
+    }
+    T at(ll k) {
+        Node* t = root;
+        while (t) {
+            ll ls = sz(t->l);
+            if (k == ls) return t->val;
+            if (k <  ls) t = t->l;
+            else { k -= ls + 1; t = t->r; }
+        }
+        assert(false);
+    }
+    T query(ll l, ll r) {                  // fold [l, r)
+        Node *a, *b, *c;
+        split(root, l, a, b); split(b, r - l, b, c);
+        T res = ag(b);
+        root = merge(a, merge(b, c));
+        return res;
+    }
+    ll size() const { return sz(root); }
+};
+\end{lstlisting}
+
+\entry{Order-statistic tree}{insert / erase / rank / kth $O(\log n)$}{%
+A \code{set} that also answers ``how many are below $x$'' and ``what is the $k$-th''.
+\code{find\_by\_order(k)} is an iterator to the \code{k}-th smallest (0-indexed);
+\code{order\_of\_key(x)} counts elements \emph{strictly} below \code{x}.\\[0.3ex]
+It is a \emph{set}, so duplicates collapse. For a multiset store
+\code{pair<val, unique\_id>} and query with \code{\{x, 0\}} / \code{\{x, INF\}}.}
+
+\begin{lstlisting}
+#include <ext/pb_ds/assoc_container.hpp>
+using namespace __gnu_pbds;
+template<class T> using Tree = tree<T, null_type,
+    less<T>, rb_tree_tag,
+    tree_order_statistics_node_update>;
+// Tree<ll> s; s.insert(4);
+// *s.find_by_order(0);   s.order_of_key(4);
+\end{lstlisting}
+
+\entry{Line container (CHT)}{add / query $O(\log n)$ \quad mem $n$}{%
+Upper hull of lines: \code{add(k, m)} inserts $y = kx+m$, \code{query(x)} returns the
+\emph{maximum} over all inserted lines at $x$. Lines may arrive in any order.
+For a minimum, insert \code{(-k, -m)} and negate the answer.\\[0.3ex]
+This is the tool for DP transitions of the form
+$dp_i = \max_j (dp_j + a_j \cdot b_i)$ --- insert line
+\code{(a[j], dp[j])} once $dp_j$ is known, then \code{query(b[i])}.
+Integer arithmetic only; \code{div} floors towards $-\infty$.}
+
+\begin{lstlisting}
+struct Line {
+    mutable ll k, m, p;
+    bool operator<(const Line& o) const { return k < o.k; }
+    bool operator<(ll x) const { return p < x; }
+};
+struct LineContainer : multiset<Line, less<>> {
+    static const ll LINF = LLONG_MAX;
+    ll fdiv(ll a, ll b) {      // floored division
+        return a / b - ((a ^ b) < 0 && a % b);
+    }
+    bool isect(iterator x, iterator y) {
+        if (y == end()) return x->p = LINF, 0;
+        if (x->k == y->k) x->p = x->m > y->m ? LINF : -LINF;
+        else x->p = fdiv(y->m - x->m, x->k - y->k);
+        return x->p >= y->p;
+    }
+    void add(ll k, ll m) {
+        auto z = insert({k, m, 0}), y = z++, x = y;
+        while (isect(y, z)) z = erase(z);
+        if (x != begin() && isect(--x, y))
+            isect(x, y = erase(y));
+        while ((y = x) != begin() && (--x)->p >= y->p)
+            isect(x, erase(y));
+    }
+    ll query(ll x) {                   // max over lines
+        assert(!empty());
+        auto l = *lower_bound(x);
+        return l.k * x + l.m;
+    }
+};
+\end{lstlisting}
+
+\section{Union-find and MST}
+
+\entry{DSU}{$O(\alpha(n))$ amortised \quad mem $n$}{%
+\code{p[a] < 0} marks a root and then \code{-p[a]} is its component size, otherwise
+\code{p[a]} is the parent. Union by size plus path compression.}
+
+%LABEL DSU
+\begin{lstlisting}
+struct DSU {
+    vector<int> p;
+    DSU(int n = 0) : p(n, -1) {}
+    int find(int a) { return p[a]<0 ? a : p[a]=find(p[a]); }
+    int size(int a) { return -p[find(a)]; }
+    bool same(int a, int b) { return find(a) == find(b); }
+    bool join(int a, int b) {   // false if already joined
+        a = find(a); b = find(b);
+        if (a == b) return false;
+        if (p[a] > p[b]) swap(a, b);         // a = bigger
+        p[a] += p[b]; p[b] = a;
+        return true;
+    }
+};
+\end{lstlisting}
+
+\entry{DSU with rollback}{join / find $O(\log n)$, undo $O(1)$ \quad mem $n+q$}{%
+Union-find where every join can be taken back. Path compression is dropped because it
+cannot be undone, so \code{find} costs a log. \code{snap()} records the current state,
+\code{undo(t)} restores it exactly.\\[0.3ex]
+Use it when merges happen on the way \emph{down} a recursion and must be un-merged on
+the way back up: offline dynamic connectivity (segment tree over time, see
+\code{Trees}), or a batch of MST/connectivity queries that each add a different set of
+edges on top of a common prefix.}
+
+\begin{lstlisting}
+struct RDSU {
+    vector<int> p;
+    vector<pair<int,int>> hist;  // (joined root, its old p)
+    RDSU(int n = 0) : p(n, -1) {}
+    int find(int a) { while (p[a] >= 0) a = p[a]; return a; }
+    int size(int a) { return -p[find(a)]; }
+    bool same(int a, int b) { return find(a) == find(b); }
+    bool join(int a, int b) {
+        a = find(a); b = find(b);
+        if (a == b) return false;
+        if (p[a] > p[b]) swap(a, b);
+        hist.push_back({b, p[b]});
+        p[a] += p[b]; p[b] = a;
+        return true;
+    }
+    int snap() { return (int)hist.size(); }
+    void undo(int t) {
+        while ((int)hist.size() > t) {
+            auto [b, old] = hist.back(); hist.pop_back();
+            p[p[b]] -= old; p[b] = old;
+        }
+    }
+};
+\end{lstlisting}
+
+\entry{Weighted DSU (potentials)}{$O(\log n)$ \quad mem $n$}{%
+Union-find that also remembers \emph{differences}. \code{join(a, b, w)} asserts
+$w(a) - w(b) = w$ and returns \code{false} if that contradicts what is already known
+--- so a run of \code{join} calls decides whether a system of
+``$x_i - x_j = c$'' equations is consistent. \code{diff(a, b)} gives
+$w(a) - w(b)$, meaningful only when \code{same(a, b)}.\\[0.3ex]
+For $\bmod\ k$ versions (``these two are on opposite sides'') use $k = 2$ and keep
+every weight in $\{0,1\}$: that is bipartiteness under edge insertions.}
+
+%LABEL WDSU
+\begin{lstlisting}
+struct WDSU {
+    vector<int> p, sz; vector<ll> d;  // d[x]=w(x)-w(root)
+    WDSU(int n = 0) : p(n), sz(n, 1), d(n, 0) {
+        iota(all(p), 0);
+    }
+    int find(int a) {
+        if (p[a] == a) return a;
+        int r = find(p[a]);
+        d[a] += d[p[a]]; p[a] = r;     // parent first!
+        return r;
+    }
+    ll pot(int a) { find(a); return d[a]; }
+    ll diff(int a, int b) { return pot(a) - pot(b); }
+    bool same(int a, int b) { return find(a) == find(b); }
+    bool join(int a, int b, ll w) {    // w(a) - w(b) == w
+        ll da = pot(a), db = pot(b);
+        int ra = find(a), rb = find(b);
+        if (ra == rb) return da - db == w;
+        if (sz[ra] < sz[rb]) {
+            swap(ra, rb); swap(da, db); w = -w;
+        }
+        p[rb] = ra; sz[ra] += sz[rb];
+        d[rb] = da - db - w;
+        return true;
+    }
+};
+\end{lstlisting}
+
+\entry{Kruskal}{$O(m \log m)$ \quad mem $n + m$}{%
+Needs \code{DSU}. Sort by weight, keep an edge iff it joins two components.
+\code{mst.size() < n-1} means the graph was disconnected.\\[0.3ex]
+What you usually want is not the tree but the \emph{join order}: after processing all
+edges of weight $\le w$ the components are exactly the connected components at that
+threshold.\\[0.3ex]
+The max edge on the MST path between $a$ and $b$ equals the minimum, over all
+$a$--$b$ paths, of the max edge on it (minimax path) --- answer those with \code{LCA}
+carrying a max table, not with a new search. For ``is this edge in some MST'' and for
+the second-best MST, process all edges of equal weight as one block.}
+
+%DEP DSU
+\begin{lstlisting}
+// e = {w, a, b}. returns {total cost, chosen edges}
+pair<ll, vector<array<ll,3>>>
+kruskal(int n, vector<array<ll,3>> e) {
+    sort(all(e));
+    DSU d(n); ll cost = 0; vector<array<ll,3>> mst;
+    for (auto [w, a, b] : e)
+        if (d.join(a, b)) {
+            cost += w; mst.push_back({w, a, b});
+        }
+    return {cost, mst};
+}
+\end{lstlisting}
+
+\section{Trees}
+
+\entry{Euler tour}{$O(n)$ \quad mem $n$}{%
+The subtree of \code{u} is the range \code{[tin[u], tout[u])} in any array indexed by
+\code{tin}, and \code{u} is an ancestor of \code{v} iff
+\code{tin[u] <= tin[v] < tout[u]}. Turns ``update / query a whole subtree'' into a
+range operation, so pair it with \code{BIT} / \code{Seg} / \code{LazySeg}. Edge values
+go on the \emph{lower} endpoint of the edge.\\[0.3ex]
+Iterative, so depth never matters.}
+
+\begin{lstlisting}
+void euler(const vector<vector<int>>& g, int root,
+           vector<int>& tin, vector<int>& tout) {
+    int n = (int)g.size(), t = 0;
+    tin.assign(n, 0); tout.assign(n, 0);
+    vector<int> par(n, -1), it(n, 0), st{root};
+    tin[root] = t++;
+    while (!st.empty()) {
+        int u = st.back();
+        if (it[u] < (int)g[u].size()) {
+            int v = g[u][it[u]++];
+            if (v == par[u]) continue;
+            par[v] = u; tin[v] = t++; st.push_back(v);
+        } else { tout[u] = t; st.pop_back(); }
+    }
+}
+\end{lstlisting}
+
+\entry{LCA (binary lifting)}{build $O(n \log n)$, query $O(\log n)$ \quad mem $n \log n$}{%
+\code{up[k][v]} is the $2^k$-th ancestor of \code{v}; the root is its own ancestor so
+jumps past it clamp there. Lift the deeper vertex to the other's depth, then jump both
+up together while the ancestors differ. Built by BFS, so no recursion depth
+trouble.\\[0.3ex]
+Max / min / sum edge on a path: add a second table \code{mx} with \code{mx[0][v]} =
+weight of the edge to the parent, \code{mx[0][root] = ID},
+\code{mx[k][v] = op(mx[k-1][v], mx[k-1][up[k-1][v]])}, and merge \code{mx[i][v]} into
+the answer at every jump taken in \code{kth} and \code{lca}.}
+
+\begin{lstlisting}
+struct LCA {
+    int LG; vector<vector<int>> up; vector<int> dep;
+    LCA(const vector<vector<int>>& g, int root = 0) {
+        int n = g.size(); LG = 1 + __lg(max(n, 2));
+        up.assign(LG, vector<int>(n, root)); dep.assign(n, 0);
+        vector<int> order{root};
+        vector<bool> seen(n); seen[root] = true;
+        for (int i = 0; i < (int)order.size(); i++) {
+            int u = order[i];
+            for (int v : g[u]) if (!seen[v]) {
+                seen[v] = true; up[0][v] = u;
+                dep[v] = dep[u] + 1; order.push_back(v);
+            }
+        }
+        for (int k = 1; k < LG; k++)
+            for (int v = 0; v < n; v++)
+                up[k][v] = up[k-1][up[k-1][v]];
+    }
+    int kth(int v, int k) {        // root if k is too big
+        k = min(k, dep[v]);
+        for (int i = 0; k; k >>= 1, i++)
+            if (k & 1) v = up[i][v];
+        return v;
+    }
+    int lca(int a, int b) {
+        if (dep[a] < dep[b]) swap(a, b);
+        a = kth(a, dep[a] - dep[b]);
+        if (a == b) return a;
+        down(k, LG, 0) if (up[k][a] != up[k][b])
+            a = up[k][a], b = up[k][b];
+        return up[0][a];
+    }
+    int dist(int a, int b) {
+        return dep[a] + dep[b] - 2 * dep[lca(a, b)];
+    }
+};
+\end{lstlisting}
+
+\entry{Heavy-light decomposition}{build $O(n)$, path / subtree $O(\log^2 n)$ \quad mem $n$}{%
+Every vertex points at its heaviest child, so a root-to-leaf walk changes chain at most
+$\log n$ times. Positions are handed out so that each chain and each subtree is a
+contiguous range; feed those to \code{Seg} / \code{LazySeg} / \code{BIT}, which is the
+second log. \code{lca} comes for free, no extra table.\\[0.3ex]
+\code{path} calls \code{f} on $O(\log n)$ ranges in \emph{arbitrary} order, so
+\code{op} must commute. For a non-commutative op keep two trees, one on \code{pos} and
+one on reversed \code{pos}, and collect the two sides of the LCA separately.
+\code{edges = true} stores each edge at its lower endpoint and skips the LCA itself;
+then \code{sub} should start at \code{pos[u] + 1} too. Recursion depth is $O(n)$ ---
+on a path of $2\cdot10^5$ vertices raise the stack or rewrite the two \code{dfs}
+calls iteratively.\\[0.3ex]
+\code{HLD h(g); Seg s(n); s.set(h.pos[u], val[u]);}\\
+\code{h.path(a, b, [\&](int l, int r)\{ ... s.query(l, r) ... \});}}
+
+\begin{lstlisting}
+struct HLD {
+    int n, t = 0;
+    vector<vector<int>> g;      // heavy child kept first
+    vector<int> par, dep, sz, head, pos;
+
+    HLD(vector<vector<int>> adj, int root = 0)
+        : n(adj.size()), g(move(adj)), par(n, -1), dep(n),
+          sz(n), head(n, root), pos(n) {
+        dfs(root); build(root, root);
+    }
+    void dfs(int u) {
+        if (par[u] != -1) g[u].erase(find(all(g[u]), par[u]));
+        sz[u] = 1;
+        for (int& v : g[u]) {
+            par[v] = u; dep[v] = dep[u] + 1;
+            dfs(v); sz[u] += sz[v];
+            if (sz[v] > sz[g[u][0]]) swap(v, g[u][0]);
+        }
+    }
+    void build(int u, int h) {      // heavy child keeps head
+        head[u] = h; pos[u] = t++;
+        for (int i = 0; i < (int)g[u].size(); i++)
+            build(g[u][i], i ? g[u][i] : h);
+    }
+    int lca(int a, int b) {
+        for (; head[a] != head[b]; b = par[head[b]])
+            if (dep[head[a]] > dep[head[b]]) swap(a, b);
+        return dep[a] < dep[b] ? a : b;
+    }
+    pair<int,int> sub(int u) {              // subtree range
+        return {pos[u], pos[u] + sz[u]};
+    }
+    template<class F>
+    void path(int a, int b, F f, bool edges = false) {
+        for (; head[a] != head[b]; b = par[head[b]]) {
+            if (dep[head[a]] > dep[head[b]]) swap(a, b);
+            f(pos[head[b]], pos[b] + 1);
+        }
+        if (dep[a] > dep[b]) swap(a, b);
+        f(pos[a] + edges, pos[b] + 1);
+    }
+};
+\end{lstlisting}
+
+\entry{Tree diameter}{$O(n)$ \quad mem $n$}{%
+Two BFS runs: the farthest vertex from anywhere is an endpoint of some diameter, and
+the farthest vertex from \emph{that} is the other endpoint. Unweighted only --- with
+weights use the same shape with Dijkstra, or a single DFS keeping the two deepest
+children per vertex. Iterative.}
+
+\begin{lstlisting}
+// returns {length in edges, endpoint a, endpoint b}
+array<int,3> diameter(const vector<vector<int>>& g) {
+    int n = (int)g.size();
+    auto bfs = [&](int s) {
+        vector<int> d(n, -1); d[s] = 0;
+        vector<int> q{s};
+        for (int i = 0; i < (int)q.size(); i++)
+            for (int v : g[q[i]]) if (d[v] < 0) {
+                d[v] = d[q[i]] + 1; q.push_back(v);
+            }
+        int b = s;
+        for (int i = 0; i < n; i++)
+            if (d[i] > d[b]) b = i;
+        return pair<int,int>{b, d[b]};
+    };
+    int a = bfs(0).first;
+    auto [b, len] = bfs(a);
+    return {len, a, b};
+}
+\end{lstlisting}
+
+\entry{Centroid}{$O(n)$ \quad mem $n$}{%
+The centroid minimises the largest component left after deleting it; that component is
+always $\le n/2$. Every tree has one or two, and two only when they are
+adjacent.\\[0.3ex]
+Recurse on the pieces (removing the centroid each time) and you get centroid
+decomposition: $O(\log n)$ levels, every path in the tree passes through the centroid
+of exactly one level, which is how ``count paths with property X'' problems are
+solved in $O(n \log n)$.}
+
+\begin{lstlisting}
+vector<int> centroids(const vector<vector<int>>& g) {
+    int n = (int)g.size();
+    vector<int> sub(n, 1), par(n, -1), it(n, 0), st{0}, ord;
+    while (!st.empty()) {              // iterative dfs order
+        int u = st.back();
+        if (it[u] < (int)g[u].size()) {
+            int v = g[u][it[u]++];
+            if (v == par[u]) continue;
+            par[v] = u; st.push_back(v);
+        } else { ord.push_back(u); st.pop_back(); }
+    }
+    for (int u : ord)                        // children first
+        if (par[u] >= 0) sub[par[u]] += sub[u];
+    vector<int> res;
+    for (int u = 0; u < n; u++) {
+        int mx = n - sub[u];
+        for (int v : g[u]) if (v != par[u])
+            mx = max(mx, sub[v]);
+        if (mx <= n / 2) res.push_back(u);
+    }
+    return res;
+}
+\end{lstlisting}
+
+\entry{Rerooting DP}{$O(n)$ \quad mem $n$}{%
+Answers a subtree DP for \emph{every} root at once, in two passes: up to collect each
+subtree, then down to hand each child what the rest of the tree contributes. Shown for
+$\mathrm{ans}[u] = \sum_v \mathrm{dist}(u,v)$.\\[0.3ex]
+The pattern generalises: whatever \code{dp} accumulates from children, in the second
+pass give child \code{v} the value ``everything except \code{v}'s subtree'', which for
+a sum is \code{dp[u] - contribution(v)} and for a max needs the top two children.}
+
+\begin{lstlisting}
+// ans[u] = sum over v of dist(u, v)
+vi sumOfDists(const vector<vector<int>>& g) {
+    int n = (int)g.size();
+    vi sub(n, 1), dp(n, 0), ans(n, 0);
+    vector<int> par(n, -1), it(n, 0), st{0}, ord;
+    while (!st.empty()) {
+        int u = st.back();
+        if (it[u] < (int)g[u].size()) {
+            int v = g[u][it[u]++];
+            if (v == par[u]) continue;
+            par[v] = u; st.push_back(v);
+        } else { ord.push_back(u); st.pop_back(); }
+    }
+    for (int u : ord) if (par[u] >= 0) {     // up: children
+        sub[par[u]] += sub[u];
+        dp[par[u]]  += dp[u] + sub[u];
+    }
+    ans[ord.back()] = dp[ord.back()];        // root
+    down(i, (ll)ord.size(), 0) {             // down: parents
+        int u = ord[i];
+        if (par[u] >= 0)
+            ans[u] = ans[par[u]] + n - 2 * sub[u];
+    }
+    return ans;
+}
+\end{lstlisting}
+
+\entry{Offline DFS + rollback}{$O((n + q) \cdot \mathrm{apply})$ \quad mem $n + q$}{%
+Not a structure, a shape. Bucket every query at the vertex it belongs to, then run
+\emph{one} DFS from the root holding a global structure that always describes the
+current root-to-\code{u} path. Apply \code{u}'s updates on entry, answer \code{u}'s
+queries, recurse, and on exit undo exactly what was applied --- so the structure is
+correct at every vertex without ever being rebuilt. Needs invertible updates and
+offline queries.\\[0.3ex]
+\begin{ctab}{0.33}{0.62}
+array / counter & subtract what you added\\
+diff array by depth & \code{d[dep] += x}, \code{d[dep+len+1] -= x}, prefix-summed
+along the path\\
+\code{BIT} & \code{add(i, x)} then \code{add(i, -x)}\\
+\code{RDSU} & \code{snap()} then \code{undo(t)}\\
+\end{ctab}\\[0.3ex]
+Replace the recursion over the tree with a recursion over a segment tree of
+\emph{time} and the same shape becomes offline dynamic connectivity: put each edge on
+the $O(\log q)$ nodes covering the interval it is alive, DFS that tree, \code{join} on
+entry, \code{undo} on exit. That is the only place \code{RDSU} is really needed ---
+with an array or a BIT the undo is just the negated update.}
+
+%NOCOMPILE
+\begin{lstlisting}
+void dfs(int u, int par) {
+    int t = snapshot();                // e.g. rdsu.snap()
+    for (auto& upd : at[u]) apply(upd);          // enter
+    for (auto& q : qs[u]) ans[q.id] = get(q);
+    for (int v : g[u]) if (v != par) dfs(v, u);
+    undo(t);                     // exit: exact inverse
+}
+\end{lstlisting}
+
+\section{Connectivity}
+
+\entry{SCC (Tarjan, iterative)}{$O(n + m)$ \quad mem $n + m$}{%
+Directed. Takes any adjacency of an integer type. No recursion, so depth never matters;
+self-loops and multi-edges are fine.\\[0.3ex]
+\code{comp} is in \textbf{topological} order --- every edge \code{u -> v} has
+\code{comp[u] <= comp[v]} --- so a DP over the condensation is just a loop over
+\code{0 .. nc-1}, no toposort. \code{members()} gives the vertices of each comp,
+\code{dag()} the condensation with duplicates removed.\\[0.3ex]
+A comp holds a cycle iff it has $\ge 2$ vertices, or 1 with a self-loop; the graph is a
+DAG iff \code{nc == n} and no self-loop exists. Sources of the condensation have
+in-degree 0 in \code{dag()}, sinks out-degree 0 --- count degrees, \code{comp[v] == 0}
+is not enough.\\[0.3ex]
+\textbf{2-SAT.} Node \code{2i} is $x_i$ false, \code{2i+1} is true, so \code{n = 2*vars}.
+A clause $(a \lor b)$ adds \emph{both} \code{!a -> b} and \code{!b -> a}; forcing $a$
+true is the single edge \code{!a -> a}. Satisfiable iff
+\code{comp[2i] != comp[2i+1]} for every $i$, and then
+$x_i$ = \code{comp[2i+1] > comp[2i]} (needs \code{comp} topological, as here).}
+
+%LABEL SCC
+\begin{lstlisting}
+struct SCC {
+    int n, nc = 0;              // nc = number of comps
+    vector<vector<int>> g;
+    vector<int> comp;           // topological order
+
+    template<class G>          // any vector<vector<intlike>>
+    SCC(const G& adj) : n(adj.size()), g(n), comp(n, -1) {
+        for (int u = 0; u < n; u++)
+            for (auto v : adj[u]) g[u].push_back((int)v);
+        vector<int> tin(n, -1), low(n), ptr(n, 0), stk, cs;
+        vector<char> on(n, 0);
+        int timer = 0;
+        for (int r = 0; r < n; r++) {
+            if (tin[r] != -1) continue;
+            tin[r] = low[r] = timer++;
+            stk.push_back(r); on[r] = 1; cs.push_back(r);
+            while (!cs.empty()) {
+                int u = cs.back();
+                if (ptr[u] < (int)g[u].size()) {
+                    int v = g[u][ptr[u]++];
+                    if (tin[v] == -1) {
+                        tin[v] = low[v] = timer++;
+                        stk.push_back(v); on[v] = 1;
+                        cs.push_back(v);
+                    } else if (on[v])
+                        low[u] = min(low[u], tin[v]);
+                } else {
+                    cs.pop_back();
+                    if (!cs.empty()) {
+                        int p = cs.back();
+                        low[p] = min(low[p], low[u]);
+                    }
+                    if (low[u] == tin[u]) {  // u roots comp
+                        int w;
+                        do {
+                            w = stk.back(); stk.pop_back();
+                            on[w] = 0; comp[w] = nc;
+                        } while (w != u);
+                        nc++;
+                    }
+                }
+            }
+        }
+        for (int v = 0; v < n; v++)         // -> topological
+            comp[v] = nc - 1 - comp[v];
+    }
+    vector<vector<int>> members() {
+        vector<vector<int>> c(nc);
+        for (int v = 0; v < n; v++) c[comp[v]].push_back(v);
+        return c;
+    }
+    vector<vector<int>> dag() {      // condensation, dedup
+        vector<vector<int>> d(nc);
+        for (int u = 0; u < n; u++)
+            for (int v : g[u])
+                if (comp[u] != comp[v])
+                    d[comp[u]].push_back(comp[v]);
+        for (auto& a : d) {
+            sort(all(a));
+            a.erase(unique(all(a)), a.end());
+        }
+        return d;
+    }
+};
+\end{lstlisting}
+
+\entry{Bridges, cut vertices, 2ECC}{$O(n + m)$ \quad mem $n + m$}{%
+Undirected, given as an \textbf{edge list} (pairs, 2-element arrays or tuples of any
+integer type), so \code{bri[i]} indexes your own input. Multi-edges and self-loops are
+safe, disconnected input is fine, no recursion.\\[0.3ex]
+\begin{ctab}{0.15}{0.80}
+\code{bri[i]} & input edge \code{i} is a bridge.\\
+\code{art[v]} & \code{v} is a cut vertex.\\
+\code{comp[v]} & 2-edge-connected comp: all you reach without crossing a bridge.\\
+\code{tree()} & the bridge forest on those comps.\\
+\end{ctab}\\[0.3ex]
+Bridges are exactly the edges between comps, so \code{tree()} is a forest, one tree per
+connected component --- feed it to \code{LCA} / \code{HLD} for ``how many bridges on
+the \code{u}--\code{v} path''. Adding one edge kills every bridge on the path joining
+its two comps.\\[0.3ex]
+The parent edge is skipped by \textbf{edge id}, never by vertex --- by vertex reports
+parallel edges as bridges, which is the usual wrong answer. A bridge endpoint need not
+be a cut vertex (degree 1) and a cut vertex need not carry one (two cycles sharing it);
+the DFS root is one iff it has $\ge 2$ children.}
+
+\begin{lstlisting}
+struct Bridges {
+    int n, m, nc = 0;                  // nc = number of 2ecc
+    vector<vector<pair<int,int>>> g;   // (to, edge id)
+    vector<int> comp;                  // 2ecc id per vertex
+    vector<char> bri, art;             // per edge / vertex
+    vector<pair<int,int>> es;
+
+    template<class E>      // list of pair / array / tuple
+    Bridges(int n, const E& edges)
+            : n(n), m(edges.size()), g(n), comp(n, -1),
+              bri(m, 0), art(n, 0) {
+        es.reserve(m);
+        for (auto& e : edges)
+            es.push_back({(int)get<0>(e), (int)get<1>(e)});
+        vector<int> deg(n, 0);
+        for (int i = 0; i < m; i++) {
+            deg[es[i].first]++; deg[es[i].second]++;
+        }
+        for (int v = 0; v < n; v++) g[v].reserve(deg[v]);
+        for (int i = 0; i < m; i++) {
+            g[es[i].first].push_back({es[i].second, i});
+            g[es[i].second].push_back({es[i].first, i});
+        }
+        vector<int> tin(n, -1), low(n), ptr(n, 0), cs;
+        vector<int> pe(n, -1);
+        int timer = 0;
+        for (int r = 0; r < n; r++) {
+            if (tin[r] != -1) continue;
+            int kids = 0;
+            tin[r] = low[r] = timer++; cs.push_back(r);
+            while (!cs.empty()) {
+                int u = cs.back();
+                if (ptr[u] < (int)g[u].size()) {
+                    auto [v, id] = g[u][ptr[u]++];
+                    if (id == pe[u]) continue;   // skip by ID
+                    if (tin[v] == -1) {
+                        pe[v] = id; tin[v] = low[v] = timer++;
+                        cs.push_back(v); kids += (u == r);
+                    } else low[u] = min(low[u], tin[v]);
+                } else {
+                    cs.pop_back();
+                    if (cs.empty()) break;
+                    int p = cs.back();
+                    low[p] = min(low[p], low[u]);
+                    if (low[u] > tin[p]) bri[pe[u]] = 1;
+                    if (low[u] >= tin[p]) art[p] = 1;
+                }
+            }
+            art[r] = kids >= 2;                  // root rule
+        }
+        vector<int> q;                // 2ecc: drop bridges
+        for (int r = 0; r < n; r++) {
+            if (comp[r] != -1) continue;
+            comp[r] = nc; q.clear(); q.push_back(r);
+            while (!q.empty()) {
+                int u = q.back(); q.pop_back();
+                for (auto [v, id] : g[u])
+                    if (!bri[id] && comp[v] == -1) {
+                        comp[v] = nc; q.push_back(v);
+                    }
+            }
+            nc++;
+        }
+    }
+    Bridges(int n, initializer_list<pair<int,int>> e)
+            : Bridges(n, vector<pair<int,int>>(e)) {}
+
+    vector<vector<int>> tree() {     // bridge forest
+        vector<vector<int>> t(nc);
+        for (int i = 0; i < m; i++) if (bri[i]) {
+            int a = comp[es[i].first], b = comp[es[i].second];
+            t[a].push_back(b); t[b].push_back(a);
+        }
+        return t;
+    }
+};
+\end{lstlisting}
+
+\entry{Topological sort (Kahn)}{$O(n + m)$ \quad mem $n$}{%
+Directed. Returns an empty vector iff the graph has a cycle, so it doubles as a cycle
+test. If you already built \code{SCC} you have a topological order for free in
+\code{comp} --- use this only when you do not need the components.\\[0.3ex]
+Pop from the back instead of the front and you get a DFS-flavoured order; use a
+\code{priority\_queue} for the lexicographically smallest one.}
+
+\begin{lstlisting}
+vector<int> topo(const vector<vector<int>>& g) {
+    int n = (int)g.size();
+    vector<int> deg(n, 0), q;
+    for (int u = 0; u < n; u++)
+        for (int v : g[u]) deg[v]++;
+    for (int u = 0; u < n; u++) if (!deg[u]) q.push_back(u);
+    for (int i = 0; i < (int)q.size(); i++)
+        for (int v : g[q[i]])
+            if (--deg[v] == 0) q.push_back(v);
+    return (int)q.size() == n ? q : vector<int>{};
+}
+\end{lstlisting}
+
+\section{Shortest paths}
+
+\entry{Dijkstra}{$O((n + m) \log n)$ \quad mem $n + m$}{%
+\textbf{Non-negative} weights only --- one negative edge and the answer is silently
+wrong, use \code{bellman}. \code{d[v] == INF} means unreachable. Pass \code{\&par} to
+recover a path: walk \code{par} back from the target and reverse.\\[0.3ex]
+Variants that are the same loop with a different relax step: maximise the bottleneck
+(\code{max(d[u], w)} with a max-heap), count shortest paths (a second array,
+\code{cnt[v] += cnt[u]} on tie), fewest edges among shortest paths (compare
+\code{pair<dist, edges>}). For 0/1 weights use a \code{deque} instead of the heap
+(push\_front on 0) and drop the log.}
+
+%LABEL dijkstra
+\begin{lstlisting}
+// g[u] = {(v, w)}
+vi dijkstra(const vector<vector<pii>>& g, int s,
+            vector<int>* par = nullptr) {
+    int n = (int)g.size();
+    vi d(n, INF);
+    if (par) par->assign(n, -1);
+    priority_queue<pii, vector<pii>, greater<pii>> q;
+    d[s] = 0; q.push({0, s});
+    while (!q.empty()) {
+        auto [dv, u] = q.top(); q.pop();
+        if (dv > d[u]) continue;            // stale entry
+        for (auto [v, w] : g[u])
+            if (dv + w < d[v]) {
+                d[v] = dv + w;
+                if (par) (*par)[v] = (int)u;
+                q.push({d[v], v});
+            }
+    }
+    return d;
+}
+\end{lstlisting}
+
+\entry{Bellman-Ford}{$O(nm)$ \quad mem $n + m$}{%
+Handles negative weights and reports a negative cycle reachable from \code{s}. Stops
+early when a round changes nothing, so it is fast on easy inputs.\\[0.3ex]
+\textbf{Difference constraints.} A system of $x_v - x_u \le w$ is exactly a shortest
+path problem: add edge \code{u -> v} of weight \code{w}, add a super-source with a
+0-edge to every vertex, run this from it. The resulting \code{d} is a feasible
+assignment, and the system is infeasible iff there is a negative cycle. $x_v - x_u \ge
+w$ becomes $x_u - x_v \le -w$; $x_v - x_u = w$ is both.\\[0.3ex]
+To mark every vertex whose distance is truly $-\infty$, run $n$ more rounds and set
+\code{d[v] = -INF} whenever it still relaxes.}
+
+\begin{lstlisting}
+// e = {u, v, w}; neg = a negative cycle is reachable from s
+vi bellman(int n, const vector<array<ll,3>>& e, int s,
+           bool& neg) {
+    vi d(n, INF); d[s] = 0; neg = false;
+    rep(i, 0, n) {
+        bool ch = false;
+        for (auto [u, v, w] : e)
+            if (d[u] < INF && d[u] + w < d[v]) {
+                d[v] = d[u] + w; ch = true;
+                if (i == n - 1) neg = true;
+            }
+        if (!ch) break;
+    }
+    return d;
+}
+\end{lstlisting}
+
+\entry{Floyd-Warshall}{$O(n^3)$ \quad mem $n^2$}{%
+All pairs, negative weights allowed. Fill \code{d[i][i] = 0}, \code{d[i][j]} = the
+\emph{cheapest} edge \code{i -> j} (careful with multi-edges: take a \code{min}), and
+\code{INF} elsewhere. Rewrites \code{d} in place.\\[0.3ex]
+A negative cycle exists iff \code{d[i][i] < 0} for some \code{i} afterwards; then
+\code{d[a][b]} is $-\infty$ whenever \code{d[a][i] < INF} and \code{d[i][b] < INF} for
+such an \code{i}. The \code{k} loop must be outermost. The \code{< INF} guards are what
+stop \code{INF + INF} from wrapping.\\[0.3ex]
+Same triple loop, other semirings: transitive closure (\code{|=} with \code{\&\&}),
+maximum bottleneck (\code{max}/\code{min}), minimax path.}
+
+\begin{lstlisting}
+void floyd(matrix& d) {
+    int n = (int)d.size();
+    rep(k, 0, n) rep(i, 0, n) if (d[i][k] < INF)
+        rep(j, 0, n) if (d[k][j] < INF)
+            d[i][j] = min(d[i][j], d[i][k] + d[k][j]);
+}
+\end{lstlisting}
+
+\entry{K shortest walks}{$O((m + k n)\log)$ \quad mem $n + m$}{%
+The \code{k} smallest \code{s}$\to$\code{t} lengths in ascending order, \textbf{walks}
+--- vertices may repeat, so on a graph with a cycle you get the same path plus loops.
+That is what most ``k-th shortest route'' problems want. Non-negative weights.
+Fewer than \code{k} results means fewer exist.\\[0.3ex]
+For genuinely \emph{simple} k shortest paths you need Yen's algorithm --- much longer,
+and rarely what is asked.}
+
+\begin{lstlisting}
+vi kShortest(const vector<vector<pii>>& g, int s, int t,
+             int k) {
+    int n = (int)g.size();
+    vector<int> cnt(n, 0); vi res;
+    priority_queue<pii, vector<pii>, greater<pii>> q;
+    q.push({0, s});
+    while (!q.empty() && (int)res.size() < k) {
+        auto [d, u] = q.top(); q.pop();
+        if (cnt[u] >= k) continue;
+        cnt[u]++;
+        if (u == t) res.push_back(d);
+        for (auto [v, w] : g[u])
+            if (cnt[v] < k) q.push({d + w, v});
+    }
+    return res;
+}
+\end{lstlisting}
+
+\section{Flow and matching}
+
+\entry{Dinic (max flow)}{$O(n^2 m)$, unit caps $O(m\sqrt m)$ \quad mem $n + m$}{%
+\code{addEdge} returns the edge id, and after \code{maxflow} the flow actually pushed
+along it is \code{flowOn(id)} (only meaningful when it was added with \code{rcap = 0}).
+For an undirected edge pass \code{rcap = cap}.\\[0.3ex]
+\begin{ctab}{0.22}{0.73}
+\code{cut()} & after \code{maxflow}: \code{c[v]} true iff \code{v} is on the
+\code{s} side of a minimum cut. The cut edges are those with \code{c[u] \&\& !c[v]}.\\
+\end{ctab}\\[0.3ex]
+\textbf{Recipes.} Bipartite matching: source$\to$left cap 1, left$\to$right cap 1,
+right$\to$sink cap 1; with unit caps this runs in $O(m\sqrt n)$, i.e. the same bound as
+Hopcroft-Karp, so there is no separate template here.
+Min vertex cover in a bipartite graph = max matching (K\"onig), and max independent set
+= $n$ minus that.
+Vertex capacities: split \code{v} into \code{v\_in -> v\_out} with that capacity.
+Minimum path cover of a DAG = $n$ minus max matching on the split graph.
+Project selection / max closure: source$\to$profit nodes, cost nodes$\to$sink,
+prerequisites as \code{INF} edges, answer = total profit $-$ max flow.\\[0.3ex]
+\code{dfs} recurses to depth $O(n)$; fine at contest sizes, but it is the thing to
+rewrite if $n$ is huge.}
+
+%LABEL Dinic
+\begin{lstlisting}
+struct Dinic {
+    struct E { int to; ll cap; };
+    int n; vector<E> e; vector<vector<int>> g;
+    vector<int> lvl, it;
+    Dinic(int n = 0) : n(n), g(n) {}
+
+    int addEdge(int u, int v, ll cap, ll rcap = 0) {
+        g[u].push_back((int)e.size()); e.push_back({v, cap});
+        g[v].push_back((int)e.size()); e.push_back({u, rcap});
+        return (int)e.size() - 2;               // edge id
+    }
+    ll dfs(int u, int t, ll f) {
+        if (u == t || !f) return f;
+        for (int& i = it[u]; i < (int)g[u].size(); i++) {
+            int id = g[u][i];
+            if (lvl[e[id].to] != lvl[u] + 1 || !e[id].cap)
+                continue;
+            if (ll d = dfs(e[id].to, t, min(f, e[id].cap))) {
+                e[id].cap -= d; e[id ^ 1].cap += d;
+                return d;
+            }
+        }
+        return 0;
+    }
+    ll maxflow(int s, int t) {
+        ll fl = 0;
+        while (true) {
+            lvl.assign(n, -1); lvl[s] = 0;
+            vector<int> q{s};
+            for (int i = 0; i < (int)q.size(); i++)
+                for (int id : g[q[i]])
+                    if (e[id].cap && lvl[e[id].to] < 0) {
+                        lvl[e[id].to] = lvl[q[i]] + 1;
+                        q.push_back(e[id].to);
+                    }
+            if (lvl[t] < 0) return fl;
+            it.assign(n, 0);
+            while (ll d = dfs(s, t, INF)) fl += d;
+        }
+    }
+    vector<char> cut() {          // true = s side of min cut
+        vector<char> c(n);
+        for (int i = 0; i < n; i++) c[i] = lvl[i] >= 0;
+        return c;
+    }
+    ll flowOn(int id) { return e[id ^ 1].cap; }
+};
+\end{lstlisting}
+
+\entry{Min cost max flow}{$O(\mathrm{flow} \cdot nm)$ \quad mem $n + m$}{%
+SPFA-based, so \textbf{negative edge costs are fine} (negative \emph{cycles} are not).
+Returns \code{\{flow, cost\}}. Pass \code{maxf} to cap the flow, which is how you ask
+for ``cheapest way to ship exactly $k$ units''.\\[0.3ex]
+For \emph{min cost flow of any size} rather than min cost \emph{max} flow, stop as soon
+as \code{d[t] >= 0}: further augmentation only adds cost.\\[0.3ex]
+Assignment problems fit here (left$\to$right with cost, unit caps) but
+\code{hungarian} is $O(n^3)$ and much faster for a dense square matrix.}
+
+%LABEL MCMF
+\begin{lstlisting}
+struct MCMF {
+    struct E { int to; ll cap, cost; };
+    int n; vector<E> e; vector<vector<int>> g;
+    MCMF(int n = 0) : n(n), g(n) {}
+
+    void addEdge(int u, int v, ll cap, ll cost) {
+        g[u].push_back((int)e.size());
+        e.push_back({v, cap, cost});
+        g[v].push_back((int)e.size());
+        e.push_back({u, 0, -cost});
+    }
+    pair<ll,ll> run(int s, int t, ll maxf = INF) {
+        ll fl = 0, cost = 0;
+        while (fl < maxf) {
+            vi d(n, INF); vector<int> pe(n, -1);
+            vector<char> inq(n, 0);
+            deque<int> q{s}; d[s] = 0; inq[s] = 1;
+            while (!q.empty()) {              // SPFA
+                int u = q.front(); q.pop_front(); inq[u] = 0;
+                for (int id : g[u]) {
+                    if (!e[id].cap) continue;
+                    int v = e[id].to;
+                    if (d[u] + e[id].cost < d[v]) {
+                        d[v] = d[u] + e[id].cost; pe[v] = id;
+                        if (!inq[v]) {
+                            inq[v] = 1; q.push_back(v);
+                        }
+                    }
+                }
+            }
+            if (d[t] >= INF) break;
+            ll push = maxf - fl;
+            for (int v = t; v != s; v = e[pe[v] ^ 1].to)
+                push = min(push, e[pe[v]].cap);
+            for (int v = t; v != s; v = e[pe[v] ^ 1].to) {
+                e[pe[v]].cap -= push;
+                e[pe[v] ^ 1].cap += push;
+            }
+            fl += push; cost += push * d[t];
+        }
+        return {fl, cost};
+    }
+};
+\end{lstlisting}
+
+\entry{Bipartite matching (Kuhn)}{$O(nm)$ \quad mem $n + m$}{%
+Left side \code{[0, n1)}, right side \code{[0, n2)}, \code{addEdge(u, v)} with
+\code{u} left and \code{v} right. After \code{maxMatching()}, \code{matchL[u]} /
+\code{matchR[v]} give the partner or \code{-1}.\\[0.3ex]
+Short and fast enough for a few thousand vertices. Above that build a unit-capacity
+\code{Dinic} instead --- same graph, $O(m\sqrt n)$.\\[0.3ex]
+\textbf{K\"onig, minimum vertex cover.} Let $Z$ be everything reachable by alternating
+paths from the \emph{unmatched} left vertices. Then a minimum vertex cover is
+$(L \setminus Z) \cup (R \cap Z)$ and a maximum independent set is its complement; both
+have the expected sizes.}
+
+%LABEL Matching
+\begin{lstlisting}
+struct Matching {
+    int n1, n2;
+    vector<vector<int>> g;
+    vector<int> matchL, matchR;
+    vector<char> vis;
+    Matching(int n1 = 0, int n2 = 0) : n1(n1), n2(n2), g(n1),
+        matchL(n1, -1), matchR(n2, -1) {}
+    void addEdge(int u, int v) { g[u].push_back(v); }
+
+    bool tryKuhn(int u) {
+        for (int v : g[u]) if (!vis[v]) {
+            vis[v] = 1;
+            if (matchR[v] == -1 || tryKuhn(matchR[v])) {
+                matchL[u] = v; matchR[v] = u;
+                return true;
+            }
+        }
+        return false;
+    }
+    int maxMatching() {
+        int r = 0;
+        for (int u = 0; u < n1; u++) {
+            vis.assign(n2, 0);
+            if (tryKuhn(u)) r++;
+        }
+        return r;
+    }
+};
+\end{lstlisting}
+
+\entry{Hungarian (assignment)}{$O(n^2 m)$ \quad mem $nm$}{%
+Minimum-cost \textbf{perfect} matching on a cost matrix, rows $\le$ columns: every row
+gets its own column, cheapest in total. Returns \code{\{cost, asg\}} with
+\code{asg[row] = column}. Input is 0-indexed; the internals are 1-indexed, which is why
+the matrix is read as \code{a[i0-1][j-1]}.\\[0.3ex]
+\textbf{Maximise} instead: negate every cost, then negate the answer. Forbidden pairs:
+a large finite cost, not \code{INF} (\code{INF} arithmetic overflows here) --- something
+like $10^{12}$ with real costs below $10^6$.\\[0.3ex]
+Not the same thing as \code{Matching}: that one maximises the \emph{number} of pairs,
+this one fixes the number and minimises the \emph{cost}. Costs may be negative.}
+
+%LABEL hungarian
+\begin{lstlisting}
+// a = cost matrix, a.size() <= a[0].size()
+pair<ll, vector<int>> hungarian(const matrix& a) {
+    int n = (int)a.size(), m = (int)a[0].size();
+    // 1-indexed inside; column 0 is virtual, p[j]==0 => free
+    vi u(n + 1, 0), v(m + 1, 0), minv(m + 1);
+    vector<int> p(m + 1, 0), way(m + 1, 0);
+    for (int i = 1; i <= n; i++) {
+        p[0] = i; int j0 = 0;
+        fill(all(minv), INF);
+        vector<char> used(m + 1, 0);
+        do {
+            used[j0] = 1;
+            int i0 = p[j0], j1 = 0; ll delta = INF;
+            for (int j = 1; j <= m; j++) if (!used[j]) {
+                ll cur = a[i0-1][j-1] - u[i0] - v[j];
+                if (cur < minv[j]) {
+                    minv[j] = cur; way[j] = j0;
+                }
+                if (minv[j] < delta) {
+                    delta = minv[j]; j1 = j;
+                }
+            }
+            for (int j = 0; j <= m; j++) {
+                if (used[j]) {
+                    u[p[j]] += delta; v[j] -= delta;
+                } else minv[j] -= delta;
+            }
+            j0 = j1;
+        } while (p[j0] != 0);
+        do {                          // flip the path back
+            int j1 = way[j0]; p[j0] = p[j1]; j0 = j1;
+        } while (j0);
+    }
+    vector<int> asg(n);
+    for (int j = 1; j <= m; j++) if (p[j]) asg[p[j]-1] = j-1;
+    ll cost = 0;
+    for (int i = 0; i < n; i++) cost += a[i][asg[i]];
+    return {cost, asg};
+}
+\end{lstlisting}
+
+\entry{Eulerian path}{$O(n + m)$ \quad mem $n + m$}{%
+Hierholzer, iterative, handles both directions with the \code{dir} flag. Returns the
+\textbf{vertex} sequence, length \code{m+1}, using every edge exactly once --- or an
+empty vector when none exists (wrong degrees, or the edges are disconnected). A closed
+tour comes back with \code{path.front() == path.back()}.\\[0.3ex]
+Existence: \emph{directed} needs \code{out-in} equal to 0 everywhere except possibly one
+$+1$ (the start) and one $-1$ (the end); \emph{undirected} needs zero or exactly two odd
+vertices. Both also need all edges in one connected component --- which the final
+\code{size() != m+1} test catches, so isolated vertices do not matter.\\[0.3ex]
+For the edge sequence instead, record \code{id} alongside each pop.}
+
+%LABEL eulerPath
+\begin{lstlisting}
+vector<int> eulerPath(int n, const vector<pii>& es,
+                      bool dir) {
+    int m = (int)es.size();
+    if (!m) return {};
+    vector<vector<pii>> g(n);          // (to, edge id)
+    vi outd(n, 0), ind(n, 0);
+    for (int i = 0; i < m; i++) {
+        int a = (int)es[i].first, b = (int)es[i].second;
+        g[a].push_back({b, i}); outd[a]++; ind[b]++;
+        if (!dir) {
+            g[b].push_back({a, i}); outd[b]++; ind[a]++;
+        }
+    }
+    int s = -1;
+    if (dir) {
+        int plus = 0, minus = 0;
+        for (int v = 0; v < n; v++) {
+            ll df = outd[v] - ind[v];
+            if (df == 1) { plus++; s = v; }
+            else if (df == -1) minus++;
+            else if (df) return {};
+        }
+        if (plus > 1 || minus > 1) return {};
+    } else {
+        int odd = 0;
+        for (int v = 0; v < n; v++)
+            if (outd[v] & 1) { odd++; s = v; }
+        if (odd != 0 && odd != 2) return {};
+    }
+    if (s < 0)
+        for (int v = 0; v < n; v++)
+            if (outd[v]) { s = v; break; }
+    vector<int> it(n, 0), st{s}, path;
+    vector<char> used(m, 0);
+    while (!st.empty()) {
+        int u = st.back();
+        while (it[u] < (int)g[u].size()
+               && used[g[u][it[u]].second]) it[u]++;
+        if (it[u] == (int)g[u].size()) {
+            path.push_back(u); st.pop_back();
+        } else {
+            auto [v, id] = g[u][it[u]++];
+            used[id] = 1; st.push_back((int)v);
+        }
+    }
+    if ((int)path.size() != m + 1) return {};   // disjoint
+    reverse(all(path));
+    return path;
+}
+\end{lstlisting}
+
+\section{Bitmask and DP}
+
+\entry{PathDP (bitmask)}{$O(2^n n^2)$ \quad mem $2^n n$}{%
+Folds every simple path covering \emph{exactly} a mask into one value, $n \le 20$.
+Directed --- fill both directions for undirected. Pick a row of the table, edit the 5
+config lines, done. The constructor does all the work; every call below is a
+lookup.\\[0.3ex]
+{\ttfamily\scriptsize
+\begingroup\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{@{}llllll@{}}
+want & T & UNIT & NONE & ext(x,wt) & merge(a,b)\\
+shortest path & ll & 0 & INF & x + wt & min(a, b)\\
+longest path & ll & 0 & -INF & x + wt & max(a, b)\\
+count paths & ll & 1 & 0 & x & a + b\\
+count mod p & ll & 1 & 0 & x & (a + b) \% p\\
+min bottleneck & ll & 0 & INF & max(x, wt) & min(a, b)\\
+max probability & double & 1 & 0 & x * wt & max(a, b)\\
+reachable lengths & bitset & 1<<0 & 0 & x << wt & a | b\\
+\end{tabular}\endgroup}\\[0.3ex]
+\begin{ctab}{0.25}{0.70}
+\code{PathDP p(w,st,cn)} & \code{w[u][v]} = weight, \code{INF} = no edge.\\
+\code{val(m,v)} & paths covering exactly \code{m}, ending at \code{v}.\\
+\code{hamPath()} & over \code{v} of \code{val(full, v)}.\\
+\code{hamPathTo(v)} & \code{val(full, v)}.\\
+\code{hamCycle(s)} & closes \code{w[v][s]}; build with \code{st = 1LL<<s}.\\
+\code{endingAt(v)} & over every mask, ending at \code{v}.\\
+\code{bySize(k)} & over the masks of exactly \code{k} vertices.\\
+\code{anyPath()} & over every mask and every \code{v}.\\
+\code{cycles()} & over every simple cycle; build with \code{cn = true}.\\
+\code{path(m,v)} & vertex order; \code{MIN} / \code{MAX} only.\\
+\code{induced(g,vs)} & \code{w} for the vertices \code{vs}, weights all 1, local
+\code{i} is \code{vs[i]}; translate back with \code{vs[x]}.\\
+\end{ctab}\\[0.3ex]
+\code{st} is a \textbf{mask}, not a vertex: \code{-1} = any start, \code{1LL<<s} pins
+it. \code{cn} makes every path begin at the lowest vertex of its mask, for
+\code{cycles()} only.\\[0.3ex]
+\code{val(m,v)} is exactly \code{m}, not a subset, and \code{v} must be inside
+\code{m}. Undirected counts come out $2\times$. \code{ext} must distribute over
+\code{merge}, and \code{merge} must commute. Struct or bitset \code{T}:
+\code{inline static const}, not \code{constexpr}. Unmodded counts overflow \code{ll} by
+dense $n = 18$. At \code{-O2}, 30\% density: $n{=}16$ 0.01 s 13 MB, $n{=}18$ 0.05 s
+44 MB, $n{=}20$ 0.22 s 184 MB.}
+
+\begin{lstlisting}
+struct PathDP {
+    using T = ll;
+    static T ext(T x, ll wt) { return x + wt; }
+    static T merge(T a, T b) { return min(a, b); }
+    static constexpr T UNIT = 0;
+    static constexpr T NONE = 1e18;
+    static constexpr ll INF = 1e18;      // missing edge in w
+
+    int n; ll starts, full;
+    matrix w; vector<T> dp; vector<char> par;
+
+    PathDP(const matrix& wt, ll ss = -1, bool canon = false)
+            : n(wt.size()), starts(ss), full((1LL << n) - 1),
+              w(wt) {
+        dp.assign((full + 1) * n, NONE);
+        par.assign((full + 1) * n, -1);
+        rep(v, 0, n) if (starts >> v & 1)
+            dp[(1LL << v) * n + v] = UNIT;
+        vector<ll> nb(n, 0);        // out-edges of u as bits
+        rep(u, 0, n) rep(v, 0, n)
+            if (w[u][v] < INF) nb[u] |= 1LL << v;
+        rep(m, 1, full + 1) {
+            ll base = m * n;
+            for (ll b = m; b; b &= b - 1) {   // set bits of m
+                int u = __builtin_ffsll(b) - 1;
+                T cur = dp[base + u];
+                if (cur == NONE) continue;
+                for (ll c = nb[u] & ~m; c; c &= c - 1) {
+                    int v = __builtin_ffsll(c) - 1;
+                    if (canon && (1LL << v) < (m & -m))
+                        continue;
+                    ll t = (m | 1LL << v) * n + v;
+                    T nv = merge(dp[t], ext(cur, w[u][v]));
+                    if (nv != dp[t]) {
+                        dp[t] = nv; par[t] = (char)u;
+                    }
+                }
+            }
+        }
+    }
+    T val(ll m, int v) { return dp[m * n + v]; }
+    T hamPathTo(int v) { return val(full, v); }
+    T hamPath() {
+        T r = NONE;
+        rep(v, 0, n) r = merge(r, val(full, v));
+        return r;
+    }
+    T hamCycle(int s) {          // build with 1LL << s
+        T r = NONE;
+        rep(v, 0, n) {
+            T d = val(full, v);
+            if (d != NONE && w[v][s] < INF)
+                r = merge(r, ext(d, w[v][s]));
+        }
+        return r;
+    }
+    T endingAt(int v) {
+        T r = NONE;
+        rep(m, 1, full + 1) r = merge(r, val(m, v));
+        return r;
+    }
+    T bySize(int k) {            // exactly k vertices
+        T r = NONE;
+        rep(m, 1, full + 1) if (__builtin_popcountll(m) == k)
+            rep(v, 0, n) r = merge(r, val(m, v));
+        return r;
+    }
+    T anyPath() {
+        T r = NONE;
+        rep(m, 1, full + 1) rep(v, 0, n)
+            r = merge(r, val(m, v));
+        return r;
+    }
+    T cycles() {                 // build with canon
+        T r = NONE;
+        rep(m, 1, full + 1) {
+            if (__builtin_popcountll(m) < 3) continue;
+            int s = 0;
+            while (!(m >> s & 1)) s++;   // lowest of m
+            rep(v, 0, n) {
+                T d = val(m, v);
+                if (v != s && d != NONE && w[v][s] < INF)
+                    r = merge(r, ext(d, w[v][s]));
+            }
+        }
+        return r;
+    }
+    vi path(ll m, int v) {               // MIN / MAX only
+        vi p;
+        while (v >= 0) {
+            p.push_back(v);
+            int u = par[m * n + v]; m ^= 1LL << v; v = u;
+        }
+        reverse(p.begin(), p.end());
+        return p;
+    }
+    template<class G, class V>    // g, vs: any integer type
+    static matrix induced(const G& g, const V& vs) {
+        static vi idx;        // reused, all -1 on entry
+        if (idx.size() < g.size()) idx.assign(g.size(), -1);
+        int k = (int)vs.size();
+        rep(i, 0, k) idx[vs[i]] = i;
+        matrix w(k, vi(k, INF));
+        rep(i, 0, k) for (ll u : g[vs[i]])
+            if (idx[u] >= 0) w[i][idx[u]] = 1;
+        rep(i, 0, k) idx[vs[i]] = -1;   // wipe what we set
+        return w;
+    }
+};
+\end{lstlisting}
+
+\entry{Subset sums (SOS / zeta)}{$O(2^n n)$ \quad mem $2^n$}{%
+\code{sos(n, a)[m]} is the sum of \code{a[s]} over \emph{all} submasks \code{s} of
+\code{m}. Replace \code{+=} with \code{|=} / \code{max} for ``or over submasks'' /
+``best submask''. Supersets instead: flip the condition to
+\code{if (!(m >> b \& 1)) f[m] += f[m | 1LL<<b]}.\\[0.3ex]
+Inverse (M\"obius, recovers \code{a} from \code{f}): same loops with \code{-=}.
+Subset convolution and ``count pairs with \code{a \& b == 0}'' both reduce to
+this.\\[0.3ex]
+To walk the submasks of one mask only: \code{for (ll s = m; s; s = (s-1) \& m)}, which
+visits every nonempty submask once --- $O(3^n)$ over all masks.}
+
+\begin{lstlisting}
+// f has size 1<<n and holds a on entry
+vi sos(int n, vi f) {
+    rep(b, 0, n) rep(m, 0, 1LL << n)
+        if (m >> b & 1) f[m] += f[m ^ (1LL << b)];
+    return f;
+}
+\end{lstlisting}
+
+\entry{LIS}{$O(n \log n)$ \quad mem $n$}{%
+\code{c[k]} ends up as the smallest possible tail of an increasing subsequence of
+length \code{k+1}, so \code{c.size()} is the answer. \code{c} itself is \emph{not} a
+valid subsequence.\\[0.3ex]
+\code{lower\_bound} gives \textbf{strictly} increasing; \code{upper\_bound} gives
+non-decreasing. Longest decreasing: reverse the input, or negate it. Minimum number of
+non-increasing chains covering the sequence = length of the LIS (Dilworth).\\[0.3ex]
+To reconstruct, store for each element the index it was placed at plus the predecessor
+\code{c}-index, then walk back from the last placement.}
+
+\begin{lstlisting}
+ll lis(const vi& a) {
+    vi c;
+    for (ll e : a) {
+        auto it = lower_bound(all(c), e);
+        if (it == c.end()) c.push_back(e);
+        else *it = e;
+    }
+    return (ll)c.size();
+}
+\end{lstlisting}
+
+\entry{Interval DP}{$O(n^3)$, optimised $O(n^2)$ \quad mem $n^2$}{%
+Shortest interval first, so both halves are ready when you need them. Circular
+versions: double the array to length $2n$ and take the best window of length
+$n$.\\[0.3ex]
+\textbf{Knuth} cuts it to $O(n^2)$ when \code{opt[i][j-1] <= opt[i][j] <= opt[i+1][j]}
+--- restrict \code{k} to that window and keep an \code{opt} table. It holds when the
+cost satisfies the quadrangle inequality, which is true for the classic ``merge
+adjacent piles, cost = sum of the pile'' problem. \textbf{Divide and conquer
+optimisation} is the same idea one layer at a time, for
+\code{dp[i][j] = min over k of dp[i-1][k] + C(k,j)} with monotone \code{opt}:
+recurse on \code{(jlo,jhi,klo,khi)}, evaluate the midpoint, split. Both are worth it
+only when $n^3$ is too slow --- check the bound first.}
+
+%NOCOMPILE
+\begin{lstlisting}
+rep(len, 2, n + 1)
+  rep(i, 0, n - len + 1) {
+    ll j = i + len - 1;                  // inclusive
+    dp[i][j] = INF;
+    rep(k, i, j)                         // split point
+      dp[i][j] = min(dp[i][j],
+                     dp[i][k] + dp[k+1][j] + cost(i, j));
+  }
+\end{lstlisting}
+
+\section{Number theory}
+
+\entry{Modular basics}{$O(\log)$ each}{%
+\code{power(a, b, m)} is $a^b \bmod m$; it needs $m < 2^{31}$ or the \code{a*a} inside
+overflows --- for bigger moduli cast to \code{i128}.\\[0.3ex]
+\code{ext\_gcd(a, b, x, y)} returns $g=\gcd$ and fills $ax+by=g$. \code{inv(a, m)}
+gives $a^{-1} \bmod m$ for \emph{any} \code{m} with $\gcd(a,m)=1$, and \code{-1} when
+none exists. When \code{m} is prime, \code{power(a, m-2, m)} is the same thing and
+shorter.\\[0.3ex]
+$a^b \bmod m$ with a \emph{gigantic} $b$: read $b$ as a string, reduce it mod
+$\varphi(m)$ --- but only add $\varphi(m)$ back (i.e. use $b \bmod \varphi(m) +
+\varphi(m)$) when the true $b \ge \varphi(m)$, otherwise you get the wrong answer for
+small $b$. That correction is needed exactly when $\gcd(a,m) \ne 1$.}
+
+%LABEL modbasics
+\begin{lstlisting}
+ll power(ll a, ll b, ll mod) {         // a^b % mod
+    a %= mod; ll res = 1;
+    for (; b > 0; b >>= 1, a = a * a % mod)
+        if (b & 1) res = res * a % mod;
+    return res;
+}
+ll ext_gcd(ll a, ll b, ll &x, ll &y) {     // a*x + b*y = g
+    if (b == 0) { x = 1; y = 0; return a; }
+    ll x1, y1;
+    ll g = ext_gcd(b, a % b, x1, y1);
+    x = y1;
+    y = x1 - (a / b) * y1;
+    return g;
+}
+ll inv(ll a, ll m) {                 // -1 if none exists
+    ll x, y;
+    if (ext_gcd(a, m, x, y) != 1) return -1;
+    return ((x % m) + m) % m;
+}
+\end{lstlisting}
+
+\entry{CRT}{$O(\log)$ \quad }{%
+Merges $x \equiv r_1 \pmod{m_1}$ and $x \equiv r_2 \pmod{m_2}$ into one congruence
+modulo $\mathrm{lcm}(m_1,m_2)$. Moduli need \emph{not} be coprime; returns
+\code{\{-1,-1\}} when the two are incompatible. Fold a list by merging one at a
+time.\\[0.3ex]
+Watch the size: the intermediate \code{m1 / g * m2} must fit, so with several moduli
+near $10^9$ switch to \code{i128}.}
+
+%LABEL crt
+%DEP modbasics
+\begin{lstlisting}
+// x = r1 (mod m1), x = r2 (mod m2)  ->  {r, lcm} or {-1,-1}
+pair<ll,ll> crt(ll r1, ll m1, ll r2, ll m2) {
+    ll x, y, g = ext_gcd(m1, m2, x, y);
+    if ((r2 - r1) % g) return {-1, -1};
+    ll l = m1 / g * m2, t = m2 / g;
+    ll k = ((r2 - r1) / g % t) * (x % t) % t;
+    ll r = (r1 + (i128)m1 * k) % l;
+    return {(r % l + l) % l, l};
+}
+\end{lstlisting}
+
+\entry{Sieves}{$O(n \log\log n)$ / $O(n)$ \quad mem $n$}{%
+\code{sieve(n)} lists the primes up to \code{n} inclusive. \code{spf(n)} gives the
+smallest prime factor of every number, which factorises any \code{x <= n} in
+$O(\log x)$ by dividing repeatedly --- that is the one to build when you must factorise
+many numbers. \code{phis(n)} computes Euler's $\varphi$ for everything at once by the
+linear sieve.\\[0.3ex]
+$\varphi(n) = n \prod_{p \mid n} (1 - 1/p)$; $\sum_{d \mid n} \varphi(d) = n$. Number of
+divisors and their sum are multiplicative, so the same linear sieve shape computes
+them.}
+
+%LABEL sieves
+\begin{lstlisting}
+vector<int> sieve(int n) {
+    vector<char> comp(n + 1, 0); vector<int> ps;
+    for (int i = 2; i <= n; i++) if (!comp[i]) {
+        ps.push_back(i);
+        for (ll j = (ll)i * i; j <= n; j += i) comp[j] = 1;
+    }
+    return ps;
+}
+vector<int> spf(int n) {         // smallest prime factor
+    vector<int> s(n + 1);
+    iota(all(s), 0);
+    for (int i = 2; (ll)i * i <= n; i++) if (s[i] == i)
+        for (int j = i * i; j <= n; j += i)
+            if (s[j] == j) s[j] = i;
+    return s;
+}
+vi phis(int n) {                      // linear sieve
+    vi phi(n + 1); vector<int> ps;
+    vector<char> comp(n + 1, 0);
+    phi[1] = 1;
+    for (int i = 2; i <= n; i++) {
+        if (!comp[i]) { ps.push_back(i); phi[i] = i - 1; }
+        for (int p : ps) {
+            if ((ll)p * i > n) break;
+            comp[p * i] = 1;
+            if (i % p == 0) { phi[p*i] = p * phi[i]; break; }
+            phi[p * i] = (p - 1) * phi[i];
+        }
+    }
+    return phi;
+}
+\end{lstlisting}
+
+\entry{Miller-Rabin + Pollard rho}{$O(\log^2 n)$ / $O(n^{1/4})$}{%
+\code{isPrime} is \textbf{deterministic} for every \code{n} that fits in
+\code{ll}: those 12 bases are proven sufficient below $3.3\cdot10^{24}$.
+\code{factor(n)} returns the prime factors with multiplicity, unsorted --- sort if you
+want them grouped. Both use \code{i128} for the multiplications, so \code{n} up to
+$9\cdot10^{18}$ is safe.\\[0.3ex]
+Use trial division up to $\sqrt n$ instead when $n \le 10^{12}$ or so; it is shorter and
+you will not mistype it under pressure.}
+
+%LABEL pollard
+\begin{lstlisting}
+ll mulm(ll a, ll b, ll m) { return (i128)a * b % m; }
+ll powm(ll a, ll b, ll m) {
+    ll r = 1; a %= m;
+    for (; b; b >>= 1, a = mulm(a, a, m))
+        if (b & 1) r = mulm(r, a, m);
+    return r;
+}
+bool isPrime(ll n) {
+    if (n < 2) return false;
+    for (ll p : {2,3,5,7,11,13,17,19,23,29,31,37})
+        if (n % p == 0) return n == p;
+    ll d = n - 1; int s = 0;
+    while (!(d & 1)) d >>= 1, s++;
+    for (ll a : {2,3,5,7,11,13,17,19,23,29,31,37}) {
+        ll x = powm(a, d, n);
+        if (x == 1 || x == n - 1) continue;
+        bool ok = false;
+        rep(i, 1, s) {
+            x = mulm(x, x, n);
+            if (x == n - 1) { ok = true; break; }
+        }
+        if (!ok) return false;
+    }
+    return true;
+}
+ll pollard(ll n) {                 // a nontrivial factor
+    if (!(n & 1)) return 2;
+    static mt19937_64 rr(88172645463325252ULL);
+    while (true) {
+        ll x = rr() % n, c = rr() % n + 1, y = x, d = 1;
+        auto f = [&](ll v){ return (mulm(v,v,n)+c) % n; };
+        while (d == 1) {
+            x = f(x); y = f(f(y));
+            if (x == y) break;
+            d = __gcd(x > y ? x - y : y - x, n);
+        }
+        if (d != 1 && d != n) return d;
+    }
+}
+void factor(ll n, vi& out) {
+    if (n == 1) return;
+    if (isPrime(n)) { out.push_back(n); return; }
+    ll d = pollard(n);
+    factor(d, out); factor(n / d, out);
+}
+\end{lstlisting}
+
+\entry{Binomials mod p}{precompute $O(n)$, query $O(1)$ \quad mem $n$}{%
+Call \code{precompute()} once, then \code{C(n, k)}. \code{MOD} must be \textbf{prime}
+and larger than \code{MAXN}. Returns 0 outside the triangle, so no guards at the call
+site.\\[0.3ex]
+Non-prime modulus, or $n$ small: build Pascal's triangle instead
+(\code{c[i][j] = c[i-1][j-1] + c[i-1][j]}), which needs no inverses. Huge $n$ with small
+prime $p$: Lucas' theorem, multiply \code{C} of the base-$p$ digits.\\[0.3ex]
+Stars and bars: ways to write $n$ as an ordered sum of $k$ non-negative parts is
+\code{C(n+k-1, k-1)}. Catalan $C_n = $ \code{C(2n,n) * inv(n+1)}.}
+
+%DEP modbasics
+%LABEL binom
+\begin{lstlisting}
+const ll MOD = 1000000007, MAXN = 500001;
+ll fact[MAXN], inv_fact[MAXN];
+
+void precompute() {
+    fact[0] = 1;
+    rep(i, 1, MAXN) fact[i] = fact[i-1] * i % MOD;
+    inv_fact[MAXN-1] = power(fact[MAXN-1], MOD - 2, MOD);
+    down(i, MAXN - 1, 0)
+        inv_fact[i] = inv_fact[i+1] * (i+1) % MOD;
+}
+ll C(ll n, ll k) {
+    if (n < 0 || k < 0 || k > n || n >= MAXN) return 0;
+    return fact[n] * inv_fact[k] % MOD
+                   * inv_fact[n-k] % MOD;
+}
+\end{lstlisting}
+
+\entry{Matrix power}{$O(k^3 \log n)$ \quad mem $k^2$}{%
+For linear recurrences: put the recurrence in a $k\times k$ matrix, raise it, read off
+an entry. Fibonacci is \code{\{\{1,1\},\{1,0\}\}} to the $n$, entry \code{[0][1]}.\\[0.3ex]
+Same code with \code{min}/\code{+} instead of \code{+}/\code{*} gives ``cheapest walk
+using exactly $n$ edges''; with \code{or}/\code{and} it gives reachability in exactly
+$n$ steps. \code{MOD} is only used in \code{mul}, so drop it for those.}
+
+%DEP modbasics binom
+\begin{lstlisting}
+matrix mul(const matrix& a, const matrix& b) {   // % MOD
+    int n = (int)a.size(), m = (int)b[0].size(),
+        k = (int)b.size();
+    matrix c(n, vi(m, 0));
+    rep(i, 0, n) rep(j, 0, k) if (a[i][j])
+        rep(l, 0, m)
+            c[i][l] = (c[i][l] + a[i][j] * b[j][l]) % MOD;
+    return c;
+}
+matrix mpow(matrix a, ll e) {
+    int n = (int)a.size();
+    matrix r(n, vi(n, 0));
+    rep(i, 0, n) r[i][i] = 1;
+    for (; e; e >>= 1, a = mul(a, a))
+        if (e & 1) r = mul(r, a);
+    return r;
+}
+\end{lstlisting}
+
+\entry{Gaussian elimination}{$O(n^3)$ \quad mem $n^2$}{%
+Solves $Ax=b$ over the reals. Returns the rank; \code{x} holds \emph{a} solution with
+free variables set to 0. Check consistency yourself afterwards: if a row of \code{a} is
+all zero but its \code{b} is not, there is no solution; if \code{rank < n} and it is
+consistent, there are infinitely many.\\[0.3ex]
+Partial pivoting (largest absolute pivot) is what keeps it stable --- do not remove it.
+\code{eps} at $10^{-9}$ suits inputs of moderate size; raise it for large
+coefficients.\\[0.3ex]
+Over $\mathbb{F}_2$ use \code{bitset<N>} rows and \code{\textasciicircum=}, which is
+64x faster and exact --- that is the version for XOR-basis and lights-out problems.
+Mod a prime: replace \code{/} with \code{inv}.}
+
+%LABEL gauss
+\begin{lstlisting}
+// solves a*x = b in place; returns the rank
+int gauss(vector<vector<ld>> a, vector<ld> b,
+          vector<ld>& x) {
+    int n = (int)a.size(), m = (int)a[0].size(), rank = 0;
+    const ld eps = 1e-9;
+    vector<int> where(m, -1);
+    for (int col = 0; col < m && rank < n; col++) {
+        int sel = rank;
+        for (int i = rank; i < n; i++)
+            if (fabsl(a[i][col]) > fabsl(a[sel][col]))
+                sel = i;
+        if (fabsl(a[sel][col]) < eps) continue;
+        swap(a[sel], a[rank]); swap(b[sel], b[rank]);
+        where[col] = rank;
+        for (int i = 0; i < n; i++) if (i != rank) {
+            ld c = a[i][col] / a[rank][col];
+            for (int j = col; j < m; j++)
+                a[i][j] -= c * a[rank][j];
+            b[i] -= c * b[rank];
+        }
+        rank++;
+    }
+    x.assign(m, 0);
+    for (int j = 0; j < m; j++)
+        if (where[j] != -1)
+            x[j] = b[where[j]] / a[where[j]][j];
+    return rank;
+}
+\end{lstlisting}
+
+\entry{FFT / NTT (convolution)}{$O(n \log n)$ \quad mem $n$}{%
+\code{conv(a, b)} multiplies two polynomials: \code{c[i] = sum a[j]*b[i-j]}, length
+\code{a.size()+b.size()-1}. This is also ``for every pair of elements, bucket their
+sum'' --- count pairs summing to $s$, subset-sum counts, string matching with
+wildcards.\\[0.3ex]
+\textbf{NTT}, exact, mod \code{P = 998244353} (a prime with $2^{23} \mid P-1$, root 3).
+So the result must be wanted mod that prime, and the transform length must be a power
+of two $\le 2^{23}$. Other friendly primes: $1004535809$ (root 3),
+$167772161$ (root 3).\\[0.3ex]
+If the true coefficients are needed exactly and exceed \code{P}, run it under two
+different primes and \code{crt} the results. For real/complex input use a
+\code{complex<double>} FFT instead --- but it loses precision above $\sim10^{14}$ in the
+output, so prefer NTT whenever the answer is modular.}
+
+%LABEL ntt
+\begin{lstlisting}
+const ll P = 998244353, G = 3;
+ll pw(ll a, ll b, ll m = P) {
+    ll r = 1; a %= m;
+    for (; b; b >>= 1, a = a * a % m)
+        if (b & 1) r = r * a % m;
+    return r;
+}
+void ntt(vi& a, bool inv) {
+    int n = (int)a.size();
+    for (int i = 1, j = 0; i < n; i++) {
+        int b = n >> 1;
+        for (; j & b; b >>= 1) j ^= b;
+        j ^= b;
+        if (i < j) swap(a[i], a[j]);
+    }
+    for (int len = 1; len < n; len <<= 1) {
+        ll w = pw(G, (P - 1) / (2 * len));
+        if (inv) w = pw(w, P - 2);
+        for (int i = 0; i < n; i += 2 * len) {
+            ll cur = 1;
+            rep(j, 0, len) {
+                ll u = a[i+j], v = a[i+j+len] * cur % P;
+                a[i+j] = (u + v) % P;
+                a[i+j+len] = (u - v + P) % P;
+                cur = cur * w % P;
+            }
+        }
+    }
+    if (inv) {
+        ll ni = pw(n, P - 2);
+        for (ll& x : a) x = x * ni % P;
+    }
+}
+vi conv(vi a, vi b) {
+    if (a.empty() || b.empty()) return {};
+    int need = (int)(a.size() + b.size() - 1), n = 1;
+    while (n < need) n <<= 1;
+    a.resize(n); b.resize(n);
+    ntt(a, false); ntt(b, false);
+    rep(i, 0, n) a[i] = a[i] * b[i] % P;
+    ntt(a, true);
+    a.resize(need);
+    return a;
+}
+\end{lstlisting}
+
+\section{Strings}
+
+\entry{KMP}{$O(n + m)$ \quad mem $n$}{%
+\code{failure(p)[i]} is the length of the longest proper prefix of \code{p[0..i]} that is
+also a suffix --- so \code{m - failure.back()} is the shortest period of \code{p}, and
+\code{p} is a repetition of that period iff the period divides \code{m}.
+\code{kmp(txt, pat)} returns every 0-indexed start where \code{pat} occurs, overlaps
+included.\\[0.3ex]
+Borders of \code{p} are \code{m}, \code{f[m-1]}, \code{f[f[m-1]-1]}, \dots\ --- walk the
+chain. Counting occurrences of every prefix: add 1 at each \code{f} position and push
+the counts down the chain in reverse order.}
+
+%LABEL kmp
+\begin{lstlisting}
+vector<int> failure(const string& p) {
+    int m = (int)p.size(); vector<int> f(m, 0);
+    for (int i = 1, k = 0; i < m; i++) {
+        while (k && p[i] != p[k]) k = f[k-1];
+        if (p[i] == p[k]) k++;
+        f[i] = k;
+    }
+    return f;
+}
+vector<int> kmp(const string& txt, const string& pat) {
+    vector<int> r;
+    if (pat.empty()) return r;
+    vector<int> f = failure(pat);
+    int n = (int)txt.size(), m = (int)pat.size();
+    for (int i = 0, k = 0; i < n; i++) {
+        while (k && txt[i] != pat[k]) k = f[k-1];
+        if (txt[i] == pat[k]) k++;
+        if (k == m) { r.push_back(i - m + 1); k = f[k-1]; }
+    }
+    return r;
+}
+\end{lstlisting}
+
+\entry{Z function}{$O(n)$ \quad mem $n$}{%
+\code{z[i]} is the length of the longest common prefix of \code{s} and \code{s[i..]}
+(\code{z[0]} is left 0). Pattern matching: build \code{pat + '\textbackslash1' + txt} and
+look for \code{z[i] == pat.size()}; the separator must not occur in either
+string.\\[0.3ex]
+Often replaces KMP, and is the easier one to get right. Distinct substrings, smallest
+rotation, and ``is this a repetition'' all fall out of it.}
+
+%LABEL zfunc
+\begin{lstlisting}
+vector<int> zfunc(const string& s) {
+    int n = (int)s.size();
+    vector<int> z(n, 0);
+    for (int i = 1, l = 0, r = 0; i < n; i++) {
+        if (i < r) z[i] = min(r - i, z[i - l]);
+        while (i + z[i] < n && s[z[i]] == s[i + z[i]]) z[i]++;
+        if (i + z[i] > r) { l = i; r = i + z[i]; }
+    }
+    return z;
+}
+\end{lstlisting}
+
+\entry{Manacher}{$O(n)$ \quad mem $n$}{%
+Every palindromic substring at once. \code{d1[i]} is the radius of the longest
+\emph{odd} palindrome centred at \code{i} (always $\ge 1$), \code{d2[i]} the radius of
+the longest \emph{even} one centred between \code{i-1} and \code{i} (may be 0). The
+number of palindromic substrings is $\sum d1 + \sum d2$.\\[0.3ex]
+\code{isPal(l, r)} answers ``is \code{s[l..r)} a palindrome'' in $O(1)$, which is what
+you usually actually want --- e.g. for ``split the string into the fewest
+palindromes'' DP. Longest palindromic substring:
+$\max(2 d1[i] - 1, 2 d2[i])$.}
+
+%LABEL manacher
+\begin{lstlisting}
+struct Manacher {
+    int n; vector<int> d1, d2;
+    Manacher(const string& s) : n((int)s.size()),
+                                d1(n, 0), d2(n, 0) {
+        for (int i = 0, l = 0, r = -1; i < n; i++) {
+            int k = i > r ? 1 : min(d1[l+r-i], r-i+1);
+            while (i-k >= 0 && i+k < n && s[i-k] == s[i+k])
+                k++;
+            d1[i] = k--;
+            if (i + k > r) { l = i - k; r = i + k; }
+        }
+        for (int i = 0, l = 0, r = -1; i < n; i++) {
+            int k = i > r ? 0 : min(d2[l+r-i+1], r-i+1);
+            while (i - k - 1 >= 0 && i + k < n
+                   && s[i-k-1] == s[i+k]) k++;
+            d2[i] = k--;
+            if (i + k > r) { l = i - k - 1; r = i + k; }
+        }
+    }
+    bool isPal(int l, int r) {                // s[l..r)
+        int len = r - l, c = l + len / 2;
+        return len % 2 ? 2*d1[c]-1 >= len : 2*d2[c] >= len;
+    }
+};
+\end{lstlisting}
+
+\entry{String hashing}{build $O(n)$, compare $O(1)$ \quad mem $n$}{%
+\code{get(l, r)} is the hash of \code{s[l..r)}; two substrings are equal iff their
+hashes match. Two independent moduli, so a collision needs both to fail at once ---
+with a single 64-bit overflow hash an adversarial test \emph{will} break you.\\[0.3ex]
+This is the workhorse: compare any two substrings, binary-search the longest common
+prefix of two suffixes, dedupe substrings by putting \code{get} results in a
+\code{set}, Rabin-Karp matching. Often replaces a suffix array
+outright.\\[0.3ex]
+For randomised bases (safer against hash-killers) pick \code{B1}, \code{B2} at run time
+from \code{mt19937} in $[256, M)$.}
+
+%LABEL hash
+\begin{lstlisting}
+struct Hash {
+    static constexpr ll M1 = 1000000007, M2 = 998244353,
+                        B1 = 131, B2 = 137;
+    int n; vi h1, h2, p1, p2;
+    Hash(const string& s) : n((int)s.size()), h1(n+1, 0),
+            h2(n+1, 0), p1(n+1, 1), p2(n+1, 1) {
+        rep(i, 0, n) {
+            h1[i+1] = (h1[i] * B1 + s[i]) % M1;
+            h2[i+1] = (h2[i] * B2 + s[i]) % M2;
+            p1[i+1] = p1[i] * B1 % M1;
+            p2[i+1] = p2[i] * B2 % M2;
+        }
+    }
+    pii get(int l, int r) {                   // s[l..r)
+        ll a = (h1[r] - h1[l] * p1[r-l]) % M1;
+        ll b = (h2[r] - h2[l] * p2[r-l]) % M2;
+        return {(a + M1) % M1, (b + M2) % M2};
+    }
+};
+\end{lstlisting}
+
+\entry{Suffix array + LCP}{$O(n \log n)$ \quad mem $n$}{%
+\code{sa[i]} is the start of the \code{i}-th smallest suffix; \code{rnk} is its inverse;
+\code{lcp[i]} is the longest common prefix of \code{sa[i]} and \code{sa[i+1]}.
+The input must not contain the byte \code{1}, which is used as a
+sentinel.\\[0.3ex]
+Number of distinct substrings is $\frac{n(n+1)}{2} - \sum \mathrm{lcp}$. Longest
+repeated substring is $\max \mathrm{lcp}$. Longest common substring of two strings: join
+with a separator and take the best \code{lcp} between suffixes from different sides.
+LCP of two arbitrary suffixes = range-min of \code{lcp} between their ranks --- feed
+\code{lcp} to \code{SpTab}.\\[0.3ex]
+Consider \code{Hash} plus binary search first: shorter to write, usually fast enough.}
+
+%LABEL sufarr
+\begin{lstlisting}
+struct SuffixArray {
+    int n; vector<int> sa, rnk, lcp;
+    SuffixArray(const string& str) {
+        string s = str; s += char(1);       // sentinel
+        n = (int)s.size();
+        vector<int> p(n), c(n), pn(n), cn(n);
+        vector<int> cnt(max(256, n), 0);
+        for (int i = 0; i < n; i++)
+            cnt[(unsigned char)s[i]]++;
+        for (int i = 1; i < 256; i++) cnt[i] += cnt[i-1];
+        for (int i = 0; i < n; i++)
+            p[--cnt[(unsigned char)s[i]]] = i;
+        int cls = 1; c[p[0]] = 0;
+        for (int i = 1; i < n; i++) {
+            if (s[p[i]] != s[p[i-1]]) cls++;
+            c[p[i]] = cls - 1;
+        }
+        for (int h = 0; (1 << h) < n; h++) {
+            for (int i = 0; i < n; i++) {
+                pn[i] = p[i] - (1 << h);
+                if (pn[i] < 0) pn[i] += n;
+            }
+            fill(cnt.begin(), cnt.begin() + cls, 0);
+            for (int i = 0; i < n; i++) cnt[c[pn[i]]]++;
+            for (int i = 1; i < cls; i++) cnt[i] += cnt[i-1];
+            for (int i = n - 1; i >= 0; i--)
+                p[--cnt[c[pn[i]]]] = pn[i];
+            cn[p[0]] = 0; cls = 1;
+            for (int i = 1; i < n; i++) {
+                int a = p[i], b = p[i-1], d = 1 << h;
+                if (c[a] != c[b]
+                    || c[(a+d) % n] != c[(b+d) % n]) cls++;
+                cn[a] = cls - 1;
+            }
+            c = cn;
+        }
+        sa.assign(p.begin() + 1, p.end());   // drop sentinel
+        n--;
+        rnk.assign(n, 0);
+        for (int i = 0; i < n; i++) rnk[sa[i]] = i;
+        lcp.assign(max(n - 1, 0), 0);
+        for (int i = 0, k = 0; i < n; i++) {
+            if (rnk[i] == n - 1) { k = 0; continue; }
+            int j = sa[rnk[i] + 1];
+            while (i + k < n && j + k < n
+                   && str[i+k] == str[j+k]) k++;
+            lcp[rnk[i]] = k;
+            if (k) k--;
+        }
+    }
+};
+\end{lstlisting}
+
+\entry{Aho-Corasick}{build $O(\Sigma \cdot \mathrm{tot})$, scan $O(n + \mathrm{hits})$ \quad mem $\Sigma \cdot \mathrm{tot}$}{%
+Many patterns at once. \code{add(s, id)} before \code{build()}, then \code{match(txt, f)}
+calls \code{f(i, id)} for every pattern \code{id} ending at text position \code{i}.
+Lowercase \code{a-z}; change the 26 and the \code{- 'a'} for another
+alphabet.\\[0.3ex]
+\code{out} is the \emph{output link} --- the nearest fail-ancestor that is itself a
+pattern end --- so reporting costs $O(1)$ per hit instead of walking the whole fail
+chain, which is the difference between $O(n + \mathrm{hits})$ and $O(n \cdot
+\mathrm{depth})$. Empty patterns are not allowed (the root is never a match).\\[0.3ex]
+To \emph{count} hits per pattern without listing them, mark \code{cnt[u]++} per text
+position and push counts along \code{fail} in reverse BFS order --- $O(n +
+\mathrm{tot})$ regardless of how many matches there are.}
+
+%LABEL aho
+\begin{lstlisting}
+struct Aho {
+    struct Nd { int go[26], fail = 0, out = 0, head = -1; };
+    vector<Nd> t;
+    vector<int> idv, nxt;        // id lists on terminal nodes
+    Aho() { newNode(); }
+    int newNode() {
+        t.push_back(Nd{});
+        fill(t.back().go, t.back().go + 26, -1);
+        return (int)t.size() - 1;
+    }
+    void add(const string& s, int id) {  // nonempty s
+        int u = 0;
+        for (char ch : s) {
+            int c = ch - 'a';
+            if (t[u].go[c] < 0) {
+                int v = newNode(); t[u].go[c] = v;
+            }
+            u = t[u].go[c];
+        }
+        idv.push_back(id); nxt.push_back(t[u].head);
+        t[u].head = (int)idv.size() - 1;
+    }
+    void build() {
+        vector<int> q;
+        for (int c = 0; c < 26; c++) {
+            int v = t[0].go[c];
+            if (v < 0) t[0].go[c] = 0;
+            else { t[v].fail = 0; q.push_back(v); }
+        }
+        for (int i = 0; i < (int)q.size(); i++) {
+            int u = q[i], f = t[u].fail;
+            t[u].out = t[f].head >= 0 ? f : t[f].out;
+            for (int c = 0; c < 26; c++) {
+                int v = t[u].go[c], w = t[f].go[c];
+                if (v < 0) t[u].go[c] = w;
+                else { t[v].fail = w; q.push_back(v); }
+            }
+        }
+    }
+    template<class F>       // f(end index, pattern id)
+    void match(const string& s, F f) {
+        int u = 0;
+        for (int i = 0; i < (int)s.size(); i++) {
+            u = t[u].go[s[i] - 'a'];
+            for (int v = t[u].head >= 0 ? u : t[u].out; v;
+                 v = t[v].out)
+                for (int e = t[v].head; e >= 0; e = nxt[e])
+                    f(i, idv[e]);
+        }
+    }
+};
+\end{lstlisting}
+
+\entry{XOR trie}{insert / query $O(\mathrm{BITS})$ \quad mem $n \cdot \mathrm{BITS}$}{%
+\code{maxXor(x)} is the largest \code{x \textasciicircum{} y} over everything inserted:
+walk from the top bit and always take the opposite branch if it exists. Raise
+\code{BITS} to 62 for \code{ll} values.\\[0.3ex]
+Keep a counter per node and you can also answer ``how many \code{y} with
+\code{x \textasciicircum{} y < k}'', and delete by decrementing. Maximum XOR
+\emph{subarray}: insert prefix xors as you sweep.\\[0.3ex]
+A plain prefix trie over letters is the same shape with 26 children --- see
+\code{Aho} without the fail links.}
+
+\begin{lstlisting}
+struct XorTrie {
+    static const int BITS = 30;
+    vector<array<int,2>> ch{{-1, -1}};
+    void insert(ll x) {
+        int u = 0;
+        down(b, BITS + 1, 0) {
+            int c = x >> b & 1;
+            if (ch[u][c] < 0) {
+                ch.push_back({-1, -1});
+                ch[u][c] = (int)ch.size() - 1;
+            }
+            u = ch[u][c];
+        }
+    }
+    ll maxXor(ll x) {         // needs >= 1 inserted value
+        int u = 0; ll r = 0;
+        down(b, BITS + 1, 0) {
+            int c = (x >> b & 1) ^ 1;
+            if (ch[u][c] >= 0) { r |= 1LL<<b; u = ch[u][c]; }
+            else u = ch[u][c ^ 1];
+        }
+        return r;
+    }
+};
+\end{lstlisting}
+
+\section{Geometry}
+
+\entry{Point / vector}{}{%
+One template instead of a float-only \code{Point}. \code{Pl} is \code{P<ll>} and is
+\textbf{exact} --- use it for everything decided by a sign (orientation, hulls,
+point-in-polygon, segment crossing) and you have no \code{eps} to tune and no wrong
+answers. \code{Pd} is \code{P<ld>}, for the metric answers where you must divide or take
+a root.\\[0.3ex]
+\begin{ctab}{0.22}{0.73}
+\code{cross(p)} & $x p_y - y p_x$. Sign = which side; $|\cdot|$ = area of the
+parallelogram.\\
+\code{a.cross(b,c)} & \code{(b-a).cross(c-a)}, the turn at \code{a}.\\
+\code{dot(p)} & $<0$ means the angle is obtuse.\\
+\code{dist2()} & squared length, exact for \code{Pl}. Compare these, never
+\code{dist()}.\\
+\code{perp()} & rotate $90^\circ$ counter-clockwise.\\
+\code{angle()} & \code{atan2}, in $(-\pi, \pi]$.\\
+\end{ctab}\\[0.3ex]
+\code{unit()} and \code{rotate()} only make sense for \code{Pd} (they divide / call
+\code{cos}); they simply will not compile for \code{Pl}, which is the point.
+Overflow: \code{cross} on coordinates up to $10^9$ reaches $2\cdot10^{18}$, just inside
+\code{ll} --- above that use \code{i128}.\\[0.3ex]
+\code{ccw(a,b,c)} is \code{+1} if \code{a->b->c} turns left, \code{-1} right, \code{0}
+collinear. Nearly every predicate below is built from it.}
+
+%LABEL point
+\begin{lstlisting}
+template<class T> struct P {
+    T x, y;
+    P(T x = 0, T y = 0) : x(x), y(y) {}
+    P operator+(P p) const { return {x + p.x, y + p.y}; }
+    P operator-(P p) const { return {x - p.x, y - p.y}; }
+    P operator*(T k) const { return {x * k, y * k}; }
+    P operator/(T k) const { return {x / k, y / k}; }
+    T dot(P p)   const { return x * p.x + y * p.y; }
+    T cross(P p) const { return x * p.y - y * p.x; }
+    T cross(P a, P b) const {         // turn at *this
+        return (a - *this).cross(b - *this);
+    }
+    T dist2()  const { return x * x + y * y; }
+    ld dist()  const { return sqrtl((ld)dist2()); }
+    ld angle() const { return atan2l((ld)y, (ld)x); }
+    P perp()   const { return {-y, x}; }      // 90 deg ccw
+    P unit() const { return *this / (T)dist(); } // Pd only
+    P rotate(ld a) const {             // Pd only
+        return {x * cosl(a) - y * sinl(a),
+                x * sinl(a) + y * cosl(a)};
+    }
+    bool operator<(P p) const {
+        return tie(x, y) < tie(p.x, p.y);
+    }
+    bool operator==(P p) const {
+        return tie(x, y) == tie(p.x, p.y);
+    }
+};
+using Pl = P<ll>;          // exact: signs, hulls, areas
+using Pd = P<ld>;          // metric: distances, intersections
+
+template<class T> int sgn(T v) { return (v > 0) - (v < 0); }
+template<class T> int ccw(P<T> a, P<T> b, P<T> c) {
+    return sgn(a.cross(b, c));
+}
+\end{lstlisting}
+
+\entry{Segments and lines}{exact where it matters}{%
+\code{onSeg} and \code{segInter} are \textbf{exact} on \code{Pl} and handle every
+degenerate case --- collinear overlap, shared endpoints, zero-length segments. That is
+the usual source of wrong answers, so prefer these over an orientation-only
+test.\\[0.3ex]
+\code{lineInter} works on infinite lines and returns \code{false} when they are parallel
+(including identical). \code{segDist} is point-to-\emph{segment}; for
+segment-to-segment take the min of the four endpoint-to-segment distances, or 0 if they
+cross.}
+
+%DEP point
+%LABEL seg
+\begin{lstlisting}
+bool onSeg(Pl p, Pl a, Pl b) {          // p on segment ab
+    return (b - a).cross(p - a) == 0
+        && (a - p).dot(b - p) <= 0;
+}
+bool segInter(Pl a, Pl b, Pl c, Pl d) {
+    int d1 = ccw(c, d, a), d2 = ccw(c, d, b);
+    int d3 = ccw(a, b, c), d4 = ccw(a, b, d);
+    if (d1 * d2 < 0 && d3 * d4 < 0) return true;
+    return onSeg(a, c, d) || onSeg(b, c, d)
+        || onSeg(c, a, b) || onSeg(d, a, b);
+}
+// lines ab and cd; false if parallel
+bool lineInter(Pd a, Pd b, Pd c, Pd d, Pd& out) {
+    ld den = (b - a).cross(d - c);
+    if (fabsl(den) < 1e-12) return false;
+    out = a + (b - a) * ((c - a).cross(d - c) / den);
+    return true;
+}
+ld segDist(Pd p, Pd a, Pd b) {          // point to segment
+    if (a == b) return (p - a).dist();
+    ld t = (p - a).dot(b - a) / (ld)(b - a).dist2();
+    t = max((ld)0, min((ld)1, t));
+    return (p - (a + (b - a) * t)).dist();
+}
+\end{lstlisting}
+
+\entry{Polygons}{$O(n)$, \code{inConvex} $O(\log n)$}{%
+\code{area2} is \emph{twice} the signed area (shoelace), exact: positive means the
+vertices are counter-clockwise. The real area is \code{abs(area2)/2.0} --- keep the
+doubled integer as long as you can.\\[0.3ex]
+\code{inPoly} works for any simple polygon, convex or not, and returns \code{2} on the
+boundary so you can decide what counts. \code{inConvex} is the $O(\log n)$ version and
+needs a strictly convex counter-clockwise polygon, i.e. exactly what \code{hull}
+returns.\\[0.3ex]
+\textbf{Pick's theorem} (lattice polygon): $A = I + B/2 - 1$, so with \code{area2} and
+the boundary count $B = \sum \gcd(|dx|, |dy|)$ over the edges, the interior count is
+$I = (\texttt{area2} - B + 2)/2$.}
+
+%DEP point seg
+%LABEL poly
+\begin{lstlisting}
+ll area2(const vector<Pl>& p) {        // signed, 2x area
+    ll a = 0; int n = (int)p.size();
+    rep(i, 0, n) a += p[i].cross(p[(i+1) % n]);
+    return a;
+}
+// 0 = outside, 1 = inside, 2 = on the boundary
+int inPoly(const vector<Pl>& p, Pl q) {
+    int n = (int)p.size(), c = 0;
+    rep(i, 0, n) {
+        Pl a = p[i], b = p[(i+1) % n];
+        if (onSeg(q, a, b)) return 2;
+        if (a.y > b.y) swap(a, b);
+        if (a.y <= q.y && q.y < b.y
+            && (b - a).cross(q - a) > 0) c ^= 1;
+    }
+    return c;
+}
+// p = strictly convex, ccw (what hull() gives)
+int inConvex(const vector<Pl>& p, Pl q) {
+    int n = (int)p.size();
+    if (n == 1) return p[0] == q ? 2 : 0;
+    if (n == 2) return onSeg(q, p[0], p[1]) ? 2 : 0;
+    if (ccw(p[0], p[1], q) < 0) return 0;
+    if (ccw(p[0], p[n-1], q) > 0) return 0;
+    int lo = 1, hi = n - 1;
+    while (hi - lo > 1) {
+        int m = (lo + hi) / 2;
+        if (ccw(p[0], p[m], q) >= 0) lo = m; else hi = m;
+    }
+    int c = ccw(p[lo], p[lo+1], q);
+    if (c < 0) return 0;
+    if (c == 0) return 2;
+    if (onSeg(q, p[0], p[1]) || onSeg(q, p[0], p[n-1]))
+        return 2;
+    return 1;
+}
+\end{lstlisting}
+
+\entry{Convex hull}{$O(n \log n)$ \quad mem $n$}{%
+Andrew's monotone chain. Counter-clockwise, \textbf{no collinear points}, first vertex
+not repeated at the end. Duplicates in the input are removed. Fewer than 3 distinct
+points come back as-is.\\[0.3ex]
+To \emph{keep} collinear boundary points change \code{<= 0} to \code{< 0} --- but then
+the ``is every input point on the hull'' test becomes
+\code{hull(p).size() == p.size()}, which is what Ruiming's original was checking.\\[0.3ex]
+Diameter of a point set = farthest pair on the hull: rotating calipers, or just
+$O(h^2)$ over hull vertices when $h$ is small. Minimum-width / minimum-area enclosing
+rectangle also come from calipers on the hull.}
+
+%DEP point
+%LABEL hull
+\begin{lstlisting}
+vector<Pl> hull(vector<Pl> p) {
+    sort(all(p)); p.erase(unique(all(p)), p.end());
+    int n = (int)p.size();
+    if (n < 3) return p;
+    vector<Pl> h;
+    rep(phase, 0, 2) {              // lower, then upper
+        size_t start = h.size();
+        for (Pl q : p) {
+            while (h.size() >= start + 2
+                   && ccw(h[h.size()-2], h.back(), q) <= 0)
+                h.pop_back();
+            h.push_back(q);
+        }
+        h.pop_back();
+        reverse(all(p));
+    }
+    return h;
+}
+\end{lstlisting}
+
+\entry{Closest pair}{$O(n \log n)$ \quad mem $n$}{%
+Returns the smallest \textbf{squared} distance and the two points. Exact on \code{Pl};
+the only floating point is a deliberately generous \code{sqrtl} bound on the sweep
+window, so rounding cannot lose the answer. Needs $n \ge 2$; duplicate points give 0,
+which is the correct answer.\\[0.3ex]
+Sweep in \code{x}, keep a \code{set} ordered by \code{y} holding everything within the
+current best distance, and only compare against the \code{y}-band. Coordinates up to
+$10^9$ keep \code{dist2} inside \code{ll}.}
+
+%DEP point
+%LABEL closest
+\begin{lstlisting}
+pair<ll, pair<Pl,Pl>> closest(vector<Pl> p) {
+    sort(all(p));                        // by x, then y
+    ll best = LLONG_MAX;
+    pair<Pl,Pl> bp{p[0], p[1]};
+    set<pii> s;                          // (y, x)
+    int j = 0;
+    rep(i, 0, (ll)p.size()) {
+        while (j < i) {
+            ll dx = p[i].x - p[j].x;
+            if (dx * dx <= best) break;
+            s.erase({p[j].y, p[j].x}); j++;
+        }
+        ll d = (ll)sqrtl((ld)best) + 1;
+        auto lo = s.lower_bound({p[i].y - d, LLONG_MIN});
+        auto hi = s.upper_bound({p[i].y + d, LLONG_MAX});
+        for (auto it = lo; it != hi; ++it) {
+            Pl q(it->second, it->first);
+            ll dd = (p[i] - q).dist2();
+            if (dd < best) { best = dd; bp = {q, p[i]}; }
+        }
+        s.insert({p[i].y, p[i].x});
+    }
+    return {best, bp};
+}
+\end{lstlisting}
+
+\entry{Circles}{}{%
+\code{circleLine} intersects a circle with the \emph{infinite} line through \code{a,b};
+\code{circleCircle} with another circle. Both return 0, 1 (tangent) or 2 points. For a
+\emph{segment} instead, intersect with the line and then test each result with
+\code{segDist} or a parameter check.\\[0.3ex]
+Two identical circles return \code{\{\}} --- infinitely many points is not something the
+caller can use, so check that case yourself.\\[0.3ex]
+Tangent length from an outside point \code{p} to circle \code{(c,r)} is
+$\sqrt{|pc|^2 - r^2}$. Circle through three points: the circumcentre is the intersection
+of two perpendicular bisectors, i.e. \code{lineInter} of
+\code{(m1, m1+(b-a).perp())} and \code{(m2, m2+(c-a).perp())} with \code{m} the
+midpoints.}
+
+%DEP point
+%LABEL circle
+\begin{lstlisting}
+vector<Pd> circleLine(Pd c, ld r, Pd a, Pd b) {
+    Pd ab = b - a;
+    Pd m = a + ab * ((c - a).dot(ab) / ab.dist2());
+    ld h2 = r * r - (m - c).dist2();
+    if (h2 < -1e-12) return {};
+    if (h2 <= 1e-12) return {m};
+    Pd h = ab.unit() * sqrtl(h2);
+    return {m - h, m + h};
+}
+vector<Pd> circleCircle(Pd c1, ld r1, Pd c2, ld r2) {
+    Pd d = c2 - c1;
+    ld dd = d.dist2(), dist = sqrtl(dd);
+    if (dist < 1e-12) return {};          // concentric
+    if (dist > r1 + r2 + 1e-12) return {};
+    if (dist < fabsl(r1 - r2) - 1e-12) return {};
+    ld a = (dd + r1 * r1 - r2 * r2) / (2 * dist);
+    ld h2 = r1 * r1 - a * a;
+    Pd m = c1 + d.unit() * a;
+    if (h2 <= 1e-12) return {m};
+    Pd per = d.unit().perp() * sqrtl(h2);
+    return {m - per, m + per};
+}
+\end{lstlisting}
+
+\section{Searching}
+
+\entry{Binary search on a predicate}{$O(\log)$}{%
+\code{pred} must be monotone false$\dots$false true$\dots$true. Returns the first
+\code{x} in \code{[lo, hi]} with \code{pred(x)}, or \code{hi+1} if none --- so test the
+return value before using it.\\[0.3ex]
+``Largest \code{x} that still works'' is the same call on the negated predicate minus
+one, or just search for the first failing \code{x} and subtract 1. Almost every
+``minimise the maximum'' / ``can we do it within $k$'' problem is this function plus a
+greedy check.\\[0.3ex]
+Reals: fix the iteration count (100 halvings covers any range to $10^{-30}$) rather than
+looping on a tolerance, which can spin forever.}
+
+\begin{lstlisting}
+template<class F>
+ll bsearch(ll lo, ll hi, F pred) {   // first true in [lo,hi]
+    hi++;                            // hi = "none found"
+    while (lo < hi) {
+        ll m = lo + (hi - lo) / 2;   // no overflow
+        if (pred(m)) hi = m; else lo = m + 1;
+    }
+    return lo;
+}
+template<class F>
+ld bsearchReal(ld lo, ld hi, F pred) {
+    rep(it, 0, 100) {
+        ld m = (lo + hi) / 2;
+        if (pred(m)) hi = m; else lo = m;
+    }
+    return lo;
+}
+\end{lstlisting}
+
+\entry{Ternary search}{$O(\log)$}{%
+For a \textbf{strictly unimodal} function --- one valley, no flat stretches. A flat
+region breaks it silently, so if ties are possible make the comparison
+\code{<=} vs \code{<} deliberately, or binary-search on
+\code{f(m+1) - f(m)} instead, which is the more robust trick.\\[0.3ex]
+The integer version finishes by scanning the last three candidates, which is where
+off-by-ones normally live. For a maximum, negate \code{f}.}
+
+\begin{lstlisting}
+template<class F>              // argmin of a unimodal f
+ll tsearch(ll lo, ll hi, F f) {
+    while (hi - lo > 2) {
+        ll m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
+        if (f(m1) < f(m2)) hi = m2; else lo = m1;
+    }
+    ll best = lo;
+    for (ll x = lo + 1; x <= hi; x++)
+        if (f(x) < f(best)) best = x;
+    return best;
+}
+template<class F>
+ld tsearchReal(ld lo, ld hi, F f) {
+    rep(it, 0, 200) {
+        ld m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
+        if (f(m1) < f(m2)) hi = m2; else lo = m1;
+    }
+    return (lo + hi) / 2;
+}
+\end{lstlisting}
+
+\entry{Coordinate compression}{$O(n \log n)$}{%
+Maps arbitrary values onto \code{0 .. k-1} keeping order, so a \code{BIT} or \code{Seg}
+can index them. This is what lets you avoid \code{SparseSeg} whenever the whole input is
+readable up front --- which is almost always.\\[0.3ex]
+Remember to compress \emph{every} value you will ever look up, queries included, not
+just the ones in the array. For half-open interval problems add both \code{l} and
+\code{r} (and sometimes \code{r+1}).}
+
+\begin{lstlisting}
+// returns the sorted distinct values; id(v) is v's index
+vi compress(vi vals) {
+    sort(all(vals));
+    vals.erase(unique(all(vals)), vals.end());
+    return vals;
+}
+int id(const vi& c, ll v) {
+    return (int)(lower_bound(all(c), v) - c.begin());
+}
+\end{lstlisting}
+
+\section{Reference}
+
+\entry{What fits in the time limit}{$\sim10^8$ simple ops/s at \code{-O2}}{%
+{\ttfamily\footnotesize
+\begin{ctab}{0.20}{0.75}
+n <= 10 & O(n!) \hfill brute force permutations\\
+n <= 20 & O(2\^{}n n) \hfill bitmask DP, PathDP\\
+n <= 40 & O(2\^{}(n/2)) \hfill meet in the middle\\
+n <= 100 & O(n\^{}4) \hfill 4 nested loops, Hungarian\\
+n <= 500 & O(n\^{}3) \hfill Floyd, matrix, interval DP\\
+n <= 5000 & O(n\^{}2) \hfill pairwise DP\\
+n <= 1e5 & O(n log\^{}2 n) \hfill HLD + Seg\\
+n <= 1e6 & O(n log n) \hfill sort, Seg, Dijkstra\\
+n <= 1e7 & O(n) \hfill sieve, two pointers\\
+n <= 1e18 & O(log n) \hfill binary search, matrix power\\
+\end{ctab}}\\[0.3ex]
+A \code{map} / \code{set} operation costs $\sim$10x a \code{vector} one; sorting
+$10^6$ \code{ll} is $\sim$0.1 s; $10^8$ additions is $\sim$0.1 s but $10^8$ random
+memory accesses is $\sim$1 s. If $n \le 18$ and nothing else fits, it is a bitmask.}
+
+\entry{Overflow and precision}{read this when a big test fails}{%
+\code{ll} holds $9.2\cdot10^{18}$, \code{int} only $2.1\cdot10^9$ --- and
+\code{n*(n-1)/2} already overflows \code{int} at \code{n = 1e5}.\\[0.3ex]
+Use \code{INF = 1e18}, never \code{LLONG\_MAX}: \code{INF + INF} still fits, so a
+forgotten guard gives a wrong answer instead of undefined behaviour. Guard anyway.\\[0.3ex]
+\code{a * b \% m} overflows once $m > 3\cdot10^9$ --- cast to \code{i128}.
+\code{cross} on coordinates up to $10^9$ reaches $2\cdot10^{18}$: fine, barely.\\[0.3ex]
+\code{-7 \% 3 == -1} in C++. Normalise with \code{((x \% m) + m) \% m}.\\[0.3ex]
+\code{pow(10, 2)} can return \code{99.999...}; never use \code{pow} for integers.
+\code{sqrt(x)} likewise --- take \code{(ll)sqrtl(x)} then fix up by $\pm1$ in a loop.\\[0.3ex]
+Compare squared distances, never \code{sqrt}ed ones. \code{double} has 15--16 significant
+digits, \code{long double} 18--19 on x86.}
+
+\entry{Pitfalls}{the usual wrong answers}{%
+\textbf{Multiple test cases:} clear every global, resize every vector, reset
+\code{cnt}/\code{timer}. The most common repeat-offender bug there is.\\[0.3ex]
+\textbf{Recursion depth:} a DFS on a path of $2\cdot10^5$ vertices can blow the stack.
+The iterative \code{euler}, \code{SCC}, \code{Bridges}, \code{centroids} and
+\code{eulerPath} here are safe; \code{HLD}, \code{Dinic::dfs} and \code{Matching} are
+not.\\[0.3ex]
+\textbf{Output:} \code{'\textbackslash n'} not \code{endl} (\code{endl} flushes).
+Keep \code{sync\_with\_stdio(false)}, and then never mix \code{printf} with
+\code{cout}.\\[0.3ex]
+\textbf{\code{unordered\_map}} is $O(n)$ per operation against a crafted test; use
+\code{map}, or add a random offset to every key.\\[0.3ex]
+\textbf{Comparators} must be a strict weak ordering --- \code{<=} in a \code{sort}
+comparator is a crash, not a wrong answer.\\[0.3ex]
+\textbf{\code{vector<bool>}} is a proxy type; \code{auto\& x = v[i]} does not do what you
+expect. \textbf{Iterators} invalidate on \code{push\_back}.\\[0.3ex]
+\textbf{Reading:} after \code{cin >> n}, a following \code{getline} reads the rest of that
+line. Interactive problems need an explicit flush.\\[0.3ex]
+\textbf{Edge cases:} $n = 1$, $n = 0$, an empty string, all elements equal, a
+disconnected graph, self-loops, multi-edges, duplicate points, collinear points.}
+
+\entry{Combinatorics}{}{%
+$\binom{n}{k} = \binom{n-1}{k-1} + \binom{n-1}{k}$; hockey stick
+$\sum_{i=r}^{n}\binom{i}{r} = \binom{n+1}{r+1}$; Vandermonde
+$\sum_k \binom{m}{k}\binom{n}{p-k} = \binom{m+n}{p}$.\\[0.3ex]
+\textbf{Stars and bars.} $n$ identical items into $k$ ordered boxes:
+$\binom{n+k-1}{k-1}$, and $\binom{n-1}{k-1}$ if every box must be non-empty.\\[0.3ex]
+\textbf{Catalan} $C_n = \frac{1}{n+1}\binom{2n}{n}$: balanced bracket strings,
+binary trees on $n$ nodes, triangulations of an $(n{+}2)$-gon, paths under the
+diagonal. $1, 1, 2, 5, 14, 42, 132, 429$.\\[0.3ex]
+\textbf{Derangements} $D_n = (n-1)(D_{n-1} + D_{n-2})$, $D_0 = 1$, $D_1 = 0$.\\[0.3ex]
+\textbf{Inclusion-exclusion}
+$|\bigcup A_i| = \sum|A_i| - \sum|A_i \cap A_j| + \dots$ --- over $\le 20$ sets this is
+a mask loop with $(-1)^{\mathrm{popcount}}$.\\[0.3ex]
+\textbf{Burnside.} Orbits = average number of fixed points over the group. Necklaces of
+$n$ beads in $k$ colours under rotation: $\frac{1}{n}\sum_{i=0}^{n-1} k^{\gcd(i,n)}$.\\[0.3ex]
+\textbf{Lucas.} $\binom{n}{k} \bmod p$ for prime $p$ = product of
+$\binom{n_i}{k_i}$ over the base-$p$ digits (0 if any $k_i > n_i$).\\[0.3ex]
+$\sum_{i\le n} i = \frac{n(n+1)}{2}$, $\sum i^2 = \frac{n(n+1)(2n+1)}{6}$,
+$\sum i^3 = \left(\frac{n(n+1)}{2}\right)^2$.}
+
+\entry{Number theory}{}{%
+$\gcd(a,b)\cdot\mathrm{lcm}(a,b) = ab$ --- compute \code{a / gcd * b} to avoid
+overflow.\\[0.3ex]
+$\varphi(n) = n\prod_{p\mid n}(1-\frac1p)$; $\sum_{d\mid n}\varphi(d) = n$.
+Fermat: $a^{p-1} \equiv 1$ for prime $p \nmid a$. Euler:
+$a^{\varphi(m)} \equiv 1$ when $\gcd(a,m)=1$.\\[0.3ex]
+$d(n) = \prod(e_i+1)$ divisors, $\sigma(n) = \prod\frac{p_i^{e_i+1}-1}{p_i-1}$.
+The number of divisors stays small: at most 240 below $10^9$, 1344 below
+$10^{18}$.\\[0.3ex]
+\textbf{Legendre.} The exponent of $p$ in $n!$ is
+$\sum_{i\ge1}\lfloor n/p^i \rfloor$ --- that is how you count trailing zeros of a
+factorial.\\[0.3ex]
+\textbf{M\"obius} $\mu(n)$ is $0$ with a squared factor, else $(-1)^{\#\text{primes}}$;
+$\sum_{d\mid n}\mu(d) = [n=1]$, which turns ``count coprime pairs'' into a divisor
+sum.\\[0.3ex]
+Primes below $10^k$: $4$, $25$, $168$, $1229$, $9592$, $78498$, $664579$, $5761455$.
+The gap between consecutive primes near $10^{18}$ stays under 1500.}
+
+\entry{Graph facts}{}{%
+\textbf{Max flow = min cut.} \textbf{K\"onig} (bipartite): max matching = min vertex
+cover, and max independent set $= n - $ max matching. \textbf{Hall:} a perfect matching
+on the left exists iff every subset $S$ of the left has
+$|N(S)| \ge |S|$.\\[0.3ex]
+\textbf{Dilworth:} the minimum number of chains covering a poset equals the largest
+antichain --- in practice a bipartite matching or an LIS.\\[0.3ex]
+Bipartite iff no odd cycle. A tree has $n-1$ edges and a unique path between any two
+vertices. A connected graph has an Euler circuit iff every degree is even (directed: in
+= out everywhere).\\[0.3ex]
+\textbf{Planar:} $V - E + F = 2$, so $E \le 3V - 6$ and some vertex has degree
+$\le 5$. Four colours always suffice, five are easy to find.\\[0.3ex]
+\textbf{Spanning trees:} Cayley gives $n^{n-2}$ labelled trees on $n$ vertices; for a
+general graph it is any cofactor of the Laplacian (Matrix-Tree), i.e. one
+\code{gauss} determinant.\\[0.3ex]
+\textbf{Pick:} a lattice polygon has $A = I + B/2 - 1$, with
+$B = \sum \gcd(|dx|,|dy|)$ over the edges.}
+
+\entry{When stuck}{}{%
+Re-read the statement and the constraints. The bound on $n$ usually names the intended
+complexity outright --- check the table above before designing anything.\\[0.3ex]
+Write the brute force first, then stress test against it. A wrong answer on $n=3$ is
+worth more than an hour of staring.\\[0.3ex]
+Reframe: is it a graph? a flow? a matching? Can you binary-search the answer? Sort the
+input? Process queries offline, sorted? Think backwards from the end? Count the
+complement? Fix one variable and see what is left?\\[0.3ex]
+Check the samples \emph{by hand}. If the sample passes but the judge does not, the bug is
+almost always an edge case from the Pitfalls list --- most often multiple test cases, or
+an overflow.\\[0.3ex]
+\footnotesize
+\emph{Sources: templates by Ruben, Ruiming and Martin, consolidated;
+\code{LineContainer} is adapted from KACTL (KTH, CC0). Provenance and the per-entry diff
+against the original files are in \code{notebook/README.md}.}}
+
+
+\end{multicols*}
+\end{document}
+

@@ -1,0 +1,325 @@
+\section{Number theory}
+
+\entry{Modular basics}{$O(\log)$ each}{%
+\code{power(a, b, m)} is $a^b \bmod m$; it needs $m < 2^{31}$ or the \code{a*a} inside
+overflows --- for bigger moduli cast to \code{i128}.\\[0.3ex]
+\code{ext\_gcd(a, b, x, y)} returns $g=\gcd$ and fills $ax+by=g$. \code{inv(a, m)}
+gives $a^{-1} \bmod m$ for \emph{any} \code{m} with $\gcd(a,m)=1$, and \code{-1} when
+none exists. When \code{m} is prime, \code{power(a, m-2, m)} is the same thing and
+shorter.\\[0.3ex]
+$a^b \bmod m$ with a \emph{gigantic} $b$: read $b$ as a string, reduce it mod
+$\varphi(m)$ --- but only add $\varphi(m)$ back (i.e. use $b \bmod \varphi(m) +
+\varphi(m)$) when the true $b \ge \varphi(m)$, otherwise you get the wrong answer for
+small $b$. That correction is needed exactly when $\gcd(a,m) \ne 1$.}
+
+%LABEL modbasics
+\begin{lstlisting}
+ll power(ll a, ll b, ll mod) {         // a^b % mod
+    a %= mod; ll res = 1;
+    for (; b > 0; b >>= 1, a = a * a % mod)
+        if (b & 1) res = res * a % mod;
+    return res;
+}
+ll ext_gcd(ll a, ll b, ll &x, ll &y) {     // a*x + b*y = g
+    if (b == 0) { x = 1; y = 0; return a; }
+    ll x1, y1;
+    ll g = ext_gcd(b, a % b, x1, y1);
+    x = y1;
+    y = x1 - (a / b) * y1;
+    return g;
+}
+ll inv(ll a, ll m) {                 // -1 if none exists
+    ll x, y;
+    if (ext_gcd(a, m, x, y) != 1) return -1;
+    return ((x % m) + m) % m;
+}
+\end{lstlisting}
+
+\entry{CRT}{$O(\log)$ \quad }{%
+Merges $x \equiv r_1 \pmod{m_1}$ and $x \equiv r_2 \pmod{m_2}$ into one congruence
+modulo $\mathrm{lcm}(m_1,m_2)$. Moduli need \emph{not} be coprime; returns
+\code{\{-1,-1\}} when the two are incompatible. Fold a list by merging one at a
+time.\\[0.3ex]
+Watch the size: the intermediate \code{m1 / g * m2} must fit, so with several moduli
+near $10^9$ switch to \code{i128}.}
+
+%LABEL crt
+%DEP modbasics
+\begin{lstlisting}
+// x = r1 (mod m1), x = r2 (mod m2)  ->  {r, lcm} or {-1,-1}
+pair<ll,ll> crt(ll r1, ll m1, ll r2, ll m2) {
+    ll x, y, g = ext_gcd(m1, m2, x, y);
+    if ((r2 - r1) % g) return {-1, -1};
+    ll l = m1 / g * m2, t = m2 / g;
+    ll k = ((r2 - r1) / g % t) * (x % t) % t;
+    ll r = (r1 + (i128)m1 * k) % l;
+    return {(r % l + l) % l, l};
+}
+\end{lstlisting}
+
+\entry{Sieves}{$O(n \log\log n)$ / $O(n)$ \quad mem $n$}{%
+\code{sieve(n)} lists the primes up to \code{n} inclusive. \code{spf(n)} gives the
+smallest prime factor of every number, which factorises any \code{x <= n} in
+$O(\log x)$ by dividing repeatedly --- that is the one to build when you must factorise
+many numbers. \code{phis(n)} computes Euler's $\varphi$ for everything at once by the
+linear sieve.\\[0.3ex]
+$\varphi(n) = n \prod_{p \mid n} (1 - 1/p)$; $\sum_{d \mid n} \varphi(d) = n$. Number of
+divisors and their sum are multiplicative, so the same linear sieve shape computes
+them.}
+
+%LABEL sieves
+\begin{lstlisting}
+vector<int> sieve(int n) {
+    vector<char> comp(n + 1, 0); vector<int> ps;
+    for (int i = 2; i <= n; i++) if (!comp[i]) {
+        ps.push_back(i);
+        for (ll j = (ll)i * i; j <= n; j += i) comp[j] = 1;
+    }
+    return ps;
+}
+vector<int> spf(int n) {         // smallest prime factor
+    vector<int> s(n + 1);
+    iota(all(s), 0);
+    for (int i = 2; (ll)i * i <= n; i++) if (s[i] == i)
+        for (int j = i * i; j <= n; j += i)
+            if (s[j] == j) s[j] = i;
+    return s;
+}
+vi phis(int n) {                      // linear sieve
+    vi phi(n + 1); vector<int> ps;
+    vector<char> comp(n + 1, 0);
+    phi[1] = 1;
+    for (int i = 2; i <= n; i++) {
+        if (!comp[i]) { ps.push_back(i); phi[i] = i - 1; }
+        for (int p : ps) {
+            if ((ll)p * i > n) break;
+            comp[p * i] = 1;
+            if (i % p == 0) { phi[p*i] = p * phi[i]; break; }
+            phi[p * i] = (p - 1) * phi[i];
+        }
+    }
+    return phi;
+}
+\end{lstlisting}
+
+\entry{Miller-Rabin + Pollard rho}{$O(\log^2 n)$ / $O(n^{1/4})$}{%
+\code{isPrime} is \textbf{deterministic} for every \code{n} that fits in
+\code{ll}: those 12 bases are proven sufficient below $3.3\cdot10^{24}$.
+\code{factor(n)} returns the prime factors with multiplicity, unsorted --- sort if you
+want them grouped. Both use \code{i128} for the multiplications, so \code{n} up to
+$9\cdot10^{18}$ is safe.\\[0.3ex]
+Use trial division up to $\sqrt n$ instead when $n \le 10^{12}$ or so; it is shorter and
+you will not mistype it under pressure.}
+
+%LABEL pollard
+\begin{lstlisting}
+ll mulm(ll a, ll b, ll m) { return (i128)a * b % m; }
+ll powm(ll a, ll b, ll m) {
+    ll r = 1; a %= m;
+    for (; b; b >>= 1, a = mulm(a, a, m))
+        if (b & 1) r = mulm(r, a, m);
+    return r;
+}
+bool isPrime(ll n) {
+    if (n < 2) return false;
+    for (ll p : {2,3,5,7,11,13,17,19,23,29,31,37})
+        if (n % p == 0) return n == p;
+    ll d = n - 1; int s = 0;
+    while (!(d & 1)) d >>= 1, s++;
+    for (ll a : {2,3,5,7,11,13,17,19,23,29,31,37}) {
+        ll x = powm(a, d, n);
+        if (x == 1 || x == n - 1) continue;
+        bool ok = false;
+        rep(i, 1, s) {
+            x = mulm(x, x, n);
+            if (x == n - 1) { ok = true; break; }
+        }
+        if (!ok) return false;
+    }
+    return true;
+}
+ll pollard(ll n) {                 // a nontrivial factor
+    if (!(n & 1)) return 2;
+    static mt19937_64 rr(88172645463325252ULL);
+    while (true) {
+        ll x = rr() % n, c = rr() % n + 1, y = x, d = 1;
+        auto f = [&](ll v){ return (mulm(v,v,n)+c) % n; };
+        while (d == 1) {
+            x = f(x); y = f(f(y));
+            if (x == y) break;
+            d = __gcd(x > y ? x - y : y - x, n);
+        }
+        if (d != 1 && d != n) return d;
+    }
+}
+void factor(ll n, vi& out) {
+    if (n == 1) return;
+    if (isPrime(n)) { out.push_back(n); return; }
+    ll d = pollard(n);
+    factor(d, out); factor(n / d, out);
+}
+\end{lstlisting}
+
+\entry{Binomials mod p}{precompute $O(n)$, query $O(1)$ \quad mem $n$}{%
+Call \code{precompute()} once, then \code{C(n, k)}. \code{MOD} must be \textbf{prime}
+and larger than \code{MAXN}. Returns 0 outside the triangle, so no guards at the call
+site.\\[0.3ex]
+Non-prime modulus, or $n$ small: build Pascal's triangle instead
+(\code{c[i][j] = c[i-1][j-1] + c[i-1][j]}), which needs no inverses. Huge $n$ with small
+prime $p$: Lucas' theorem, multiply \code{C} of the base-$p$ digits.\\[0.3ex]
+Stars and bars: ways to write $n$ as an ordered sum of $k$ non-negative parts is
+\code{C(n+k-1, k-1)}. Catalan $C_n = $ \code{C(2n,n) * inv(n+1)}.}
+
+%DEP modbasics
+%LABEL binom
+\begin{lstlisting}
+const ll MOD = 1000000007, MAXN = 500001;
+ll fact[MAXN], inv_fact[MAXN];
+
+void precompute() {
+    fact[0] = 1;
+    rep(i, 1, MAXN) fact[i] = fact[i-1] * i % MOD;
+    inv_fact[MAXN-1] = power(fact[MAXN-1], MOD - 2, MOD);
+    down(i, MAXN - 1, 0)
+        inv_fact[i] = inv_fact[i+1] * (i+1) % MOD;
+}
+ll C(ll n, ll k) {
+    if (n < 0 || k < 0 || k > n || n >= MAXN) return 0;
+    return fact[n] * inv_fact[k] % MOD
+                   * inv_fact[n-k] % MOD;
+}
+\end{lstlisting}
+
+\entry{Matrix power}{$O(k^3 \log n)$ \quad mem $k^2$}{%
+For linear recurrences: put the recurrence in a $k\times k$ matrix, raise it, read off
+an entry. Fibonacci is \code{\{\{1,1\},\{1,0\}\}} to the $n$, entry \code{[0][1]}.\\[0.3ex]
+Same code with \code{min}/\code{+} instead of \code{+}/\code{*} gives ``cheapest walk
+using exactly $n$ edges''; with \code{or}/\code{and} it gives reachability in exactly
+$n$ steps. \code{MOD} is only used in \code{mul}, so drop it for those.}
+
+%DEP modbasics binom
+\begin{lstlisting}
+matrix mul(const matrix& a, const matrix& b) {   // % MOD
+    int n = (int)a.size(), m = (int)b[0].size(),
+        k = (int)b.size();
+    matrix c(n, vi(m, 0));
+    rep(i, 0, n) rep(j, 0, k) if (a[i][j])
+        rep(l, 0, m)
+            c[i][l] = (c[i][l] + a[i][j] * b[j][l]) % MOD;
+    return c;
+}
+matrix mpow(matrix a, ll e) {
+    int n = (int)a.size();
+    matrix r(n, vi(n, 0));
+    rep(i, 0, n) r[i][i] = 1;
+    for (; e; e >>= 1, a = mul(a, a))
+        if (e & 1) r = mul(r, a);
+    return r;
+}
+\end{lstlisting}
+
+\entry{Gaussian elimination}{$O(n^3)$ \quad mem $n^2$}{%
+Solves $Ax=b$ over the reals. Returns the rank; \code{x} holds \emph{a} solution with
+free variables set to 0. Check consistency yourself afterwards: if a row of \code{a} is
+all zero but its \code{b} is not, there is no solution; if \code{rank < n} and it is
+consistent, there are infinitely many.\\[0.3ex]
+Partial pivoting (largest absolute pivot) is what keeps it stable --- do not remove it.
+\code{eps} at $10^{-9}$ suits inputs of moderate size; raise it for large
+coefficients.\\[0.3ex]
+Over $\mathbb{F}_2$ use \code{bitset<N>} rows and \code{\textasciicircum=}, which is
+64x faster and exact --- that is the version for XOR-basis and lights-out problems.
+Mod a prime: replace \code{/} with \code{inv}.}
+
+%LABEL gauss
+\begin{lstlisting}
+// solves a*x = b in place; returns the rank
+int gauss(vector<vector<ld>> a, vector<ld> b,
+          vector<ld>& x) {
+    int n = (int)a.size(), m = (int)a[0].size(), rank = 0;
+    const ld eps = 1e-9;
+    vector<int> where(m, -1);
+    for (int col = 0; col < m && rank < n; col++) {
+        int sel = rank;
+        for (int i = rank; i < n; i++)
+            if (fabsl(a[i][col]) > fabsl(a[sel][col]))
+                sel = i;
+        if (fabsl(a[sel][col]) < eps) continue;
+        swap(a[sel], a[rank]); swap(b[sel], b[rank]);
+        where[col] = rank;
+        for (int i = 0; i < n; i++) if (i != rank) {
+            ld c = a[i][col] / a[rank][col];
+            for (int j = col; j < m; j++)
+                a[i][j] -= c * a[rank][j];
+            b[i] -= c * b[rank];
+        }
+        rank++;
+    }
+    x.assign(m, 0);
+    for (int j = 0; j < m; j++)
+        if (where[j] != -1)
+            x[j] = b[where[j]] / a[where[j]][j];
+    return rank;
+}
+\end{lstlisting}
+
+\entry{FFT / NTT (convolution)}{$O(n \log n)$ \quad mem $n$}{%
+\code{conv(a, b)} multiplies two polynomials: \code{c[i] = sum a[j]*b[i-j]}, length
+\code{a.size()+b.size()-1}. This is also ``for every pair of elements, bucket their
+sum'' --- count pairs summing to $s$, subset-sum counts, string matching with
+wildcards.\\[0.3ex]
+\textbf{NTT}, exact, mod \code{P = 998244353} (a prime with $2^{23} \mid P-1$, root 3).
+So the result must be wanted mod that prime, and the transform length must be a power
+of two $\le 2^{23}$. Other friendly primes: $1004535809$ (root 3),
+$167772161$ (root 3).\\[0.3ex]
+If the true coefficients are needed exactly and exceed \code{P}, run it under two
+different primes and \code{crt} the results. For real/complex input use a
+\code{complex<double>} FFT instead --- but it loses precision above $\sim10^{14}$ in the
+output, so prefer NTT whenever the answer is modular.}
+
+%LABEL ntt
+\begin{lstlisting}
+const ll P = 998244353, G = 3;
+ll pw(ll a, ll b, ll m = P) {
+    ll r = 1; a %= m;
+    for (; b; b >>= 1, a = a * a % m)
+        if (b & 1) r = r * a % m;
+    return r;
+}
+void ntt(vi& a, bool inv) {
+    int n = (int)a.size();
+    for (int i = 1, j = 0; i < n; i++) {
+        int b = n >> 1;
+        for (; j & b; b >>= 1) j ^= b;
+        j ^= b;
+        if (i < j) swap(a[i], a[j]);
+    }
+    for (int len = 1; len < n; len <<= 1) {
+        ll w = pw(G, (P - 1) / (2 * len));
+        if (inv) w = pw(w, P - 2);
+        for (int i = 0; i < n; i += 2 * len) {
+            ll cur = 1;
+            rep(j, 0, len) {
+                ll u = a[i+j], v = a[i+j+len] * cur % P;
+                a[i+j] = (u + v) % P;
+                a[i+j+len] = (u - v + P) % P;
+                cur = cur * w % P;
+            }
+        }
+    }
+    if (inv) {
+        ll ni = pw(n, P - 2);
+        for (ll& x : a) x = x * ni % P;
+    }
+}
+vi conv(vi a, vi b) {
+    if (a.empty() || b.empty()) return {};
+    int need = (int)(a.size() + b.size() - 1), n = 1;
+    while (n < need) n <<= 1;
+    a.resize(n); b.resize(n);
+    ntt(a, false); ntt(b, false);
+    rep(i, 0, n) a[i] = a[i] * b[i] % P;
+    ntt(a, true);
+    a.resize(need);
+    return a;
+}
+\end{lstlisting}

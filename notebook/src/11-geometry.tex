@@ -1,0 +1,267 @@
+\section{Geometry}
+
+\entry{Point / vector}{}{%
+One template instead of a float-only \code{Point}. \code{Pl} is \code{P<ll>} and is
+\textbf{exact} --- use it for everything decided by a sign (orientation, hulls,
+point-in-polygon, segment crossing) and you have no \code{eps} to tune and no wrong
+answers. \code{Pd} is \code{P<ld>}, for the metric answers where you must divide or take
+a root.\\[0.3ex]
+\begin{ctab}{0.22}{0.73}
+\code{cross(p)} & $x p_y - y p_x$. Sign = which side; $|\cdot|$ = area of the
+parallelogram.\\
+\code{a.cross(b,c)} & \code{(b-a).cross(c-a)}, the turn at \code{a}.\\
+\code{dot(p)} & $<0$ means the angle is obtuse.\\
+\code{dist2()} & squared length, exact for \code{Pl}. Compare these, never
+\code{dist()}.\\
+\code{perp()} & rotate $90^\circ$ counter-clockwise.\\
+\code{angle()} & \code{atan2}, in $(-\pi, \pi]$.\\
+\end{ctab}\\[0.3ex]
+\code{unit()} and \code{rotate()} only make sense for \code{Pd} (they divide / call
+\code{cos}); they simply will not compile for \code{Pl}, which is the point.
+Overflow: \code{cross} on coordinates up to $10^9$ reaches $2\cdot10^{18}$, just inside
+\code{ll} --- above that use \code{i128}.\\[0.3ex]
+\code{ccw(a,b,c)} is \code{+1} if \code{a->b->c} turns left, \code{-1} right, \code{0}
+collinear. Nearly every predicate below is built from it.}
+
+%LABEL point
+\begin{lstlisting}
+template<class T> struct P {
+    T x, y;
+    P(T x = 0, T y = 0) : x(x), y(y) {}
+    P operator+(P p) const { return {x + p.x, y + p.y}; }
+    P operator-(P p) const { return {x - p.x, y - p.y}; }
+    P operator*(T k) const { return {x * k, y * k}; }
+    P operator/(T k) const { return {x / k, y / k}; }
+    T dot(P p)   const { return x * p.x + y * p.y; }
+    T cross(P p) const { return x * p.y - y * p.x; }
+    T cross(P a, P b) const {         // turn at *this
+        return (a - *this).cross(b - *this);
+    }
+    T dist2()  const { return x * x + y * y; }
+    ld dist()  const { return sqrtl((ld)dist2()); }
+    ld angle() const { return atan2l((ld)y, (ld)x); }
+    P perp()   const { return {-y, x}; }      // 90 deg ccw
+    P unit() const { return *this / (T)dist(); } // Pd only
+    P rotate(ld a) const {             // Pd only
+        return {x * cosl(a) - y * sinl(a),
+                x * sinl(a) + y * cosl(a)};
+    }
+    bool operator<(P p) const {
+        return tie(x, y) < tie(p.x, p.y);
+    }
+    bool operator==(P p) const {
+        return tie(x, y) == tie(p.x, p.y);
+    }
+};
+using Pl = P<ll>;          // exact: signs, hulls, areas
+using Pd = P<ld>;          // metric: distances, intersections
+
+template<class T> int sgn(T v) { return (v > 0) - (v < 0); }
+template<class T> int ccw(P<T> a, P<T> b, P<T> c) {
+    return sgn(a.cross(b, c));
+}
+\end{lstlisting}
+
+\entry{Segments and lines}{exact where it matters}{%
+\code{onSeg} and \code{segInter} are \textbf{exact} on \code{Pl} and handle every
+degenerate case --- collinear overlap, shared endpoints, zero-length segments. That is
+the usual source of wrong answers, so prefer these over an orientation-only
+test.\\[0.3ex]
+\code{lineInter} works on infinite lines and returns \code{false} when they are parallel
+(including identical). \code{segDist} is point-to-\emph{segment}; for
+segment-to-segment take the min of the four endpoint-to-segment distances, or 0 if they
+cross.}
+
+%DEP point
+%LABEL seg
+\begin{lstlisting}
+bool onSeg(Pl p, Pl a, Pl b) {          // p on segment ab
+    return (b - a).cross(p - a) == 0
+        && (a - p).dot(b - p) <= 0;
+}
+bool segInter(Pl a, Pl b, Pl c, Pl d) {
+    int d1 = ccw(c, d, a), d2 = ccw(c, d, b);
+    int d3 = ccw(a, b, c), d4 = ccw(a, b, d);
+    if (d1 * d2 < 0 && d3 * d4 < 0) return true;
+    return onSeg(a, c, d) || onSeg(b, c, d)
+        || onSeg(c, a, b) || onSeg(d, a, b);
+}
+// lines ab and cd; false if parallel
+bool lineInter(Pd a, Pd b, Pd c, Pd d, Pd& out) {
+    ld den = (b - a).cross(d - c);
+    if (fabsl(den) < 1e-12) return false;
+    out = a + (b - a) * ((c - a).cross(d - c) / den);
+    return true;
+}
+ld segDist(Pd p, Pd a, Pd b) {          // point to segment
+    if (a == b) return (p - a).dist();
+    ld t = (p - a).dot(b - a) / (ld)(b - a).dist2();
+    t = max((ld)0, min((ld)1, t));
+    return (p - (a + (b - a) * t)).dist();
+}
+\end{lstlisting}
+
+\entry{Polygons}{$O(n)$, \code{inConvex} $O(\log n)$}{%
+\code{area2} is \emph{twice} the signed area (shoelace), exact: positive means the
+vertices are counter-clockwise. The real area is \code{abs(area2)/2.0} --- keep the
+doubled integer as long as you can.\\[0.3ex]
+\code{inPoly} works for any simple polygon, convex or not, and returns \code{2} on the
+boundary so you can decide what counts. \code{inConvex} is the $O(\log n)$ version and
+needs a strictly convex counter-clockwise polygon, i.e. exactly what \code{hull}
+returns.\\[0.3ex]
+\textbf{Pick's theorem} (lattice polygon): $A = I + B/2 - 1$, so with \code{area2} and
+the boundary count $B = \sum \gcd(|dx|, |dy|)$ over the edges, the interior count is
+$I = (\texttt{area2} - B + 2)/2$.}
+
+%DEP point seg
+%LABEL poly
+\begin{lstlisting}
+ll area2(const vector<Pl>& p) {        // signed, 2x area
+    ll a = 0; int n = (int)p.size();
+    rep(i, 0, n) a += p[i].cross(p[(i+1) % n]);
+    return a;
+}
+// 0 = outside, 1 = inside, 2 = on the boundary
+int inPoly(const vector<Pl>& p, Pl q) {
+    int n = (int)p.size(), c = 0;
+    rep(i, 0, n) {
+        Pl a = p[i], b = p[(i+1) % n];
+        if (onSeg(q, a, b)) return 2;
+        if (a.y > b.y) swap(a, b);
+        if (a.y <= q.y && q.y < b.y
+            && (b - a).cross(q - a) > 0) c ^= 1;
+    }
+    return c;
+}
+// p = strictly convex, ccw (what hull() gives)
+int inConvex(const vector<Pl>& p, Pl q) {
+    int n = (int)p.size();
+    if (n == 1) return p[0] == q ? 2 : 0;
+    if (n == 2) return onSeg(q, p[0], p[1]) ? 2 : 0;
+    if (ccw(p[0], p[1], q) < 0) return 0;
+    if (ccw(p[0], p[n-1], q) > 0) return 0;
+    int lo = 1, hi = n - 1;
+    while (hi - lo > 1) {
+        int m = (lo + hi) / 2;
+        if (ccw(p[0], p[m], q) >= 0) lo = m; else hi = m;
+    }
+    int c = ccw(p[lo], p[lo+1], q);
+    if (c < 0) return 0;
+    if (c == 0) return 2;
+    if (onSeg(q, p[0], p[1]) || onSeg(q, p[0], p[n-1]))
+        return 2;
+    return 1;
+}
+\end{lstlisting}
+
+\entry{Convex hull}{$O(n \log n)$ \quad mem $n$}{%
+Andrew's monotone chain. Counter-clockwise, \textbf{no collinear points}, first vertex
+not repeated at the end. Duplicates in the input are removed. Fewer than 3 distinct
+points come back as-is.\\[0.3ex]
+To \emph{keep} collinear boundary points change \code{<= 0} to \code{< 0} --- but then
+the ``is every input point on the hull'' test becomes
+\code{hull(p).size() == p.size()}, which is what Ruiming's original was checking.\\[0.3ex]
+Diameter of a point set = farthest pair on the hull: rotating calipers, or just
+$O(h^2)$ over hull vertices when $h$ is small. Minimum-width / minimum-area enclosing
+rectangle also come from calipers on the hull.}
+
+%DEP point
+%LABEL hull
+\begin{lstlisting}
+vector<Pl> hull(vector<Pl> p) {
+    sort(all(p)); p.erase(unique(all(p)), p.end());
+    int n = (int)p.size();
+    if (n < 3) return p;
+    vector<Pl> h;
+    rep(phase, 0, 2) {              // lower, then upper
+        size_t start = h.size();
+        for (Pl q : p) {
+            while (h.size() >= start + 2
+                   && ccw(h[h.size()-2], h.back(), q) <= 0)
+                h.pop_back();
+            h.push_back(q);
+        }
+        h.pop_back();
+        reverse(all(p));
+    }
+    return h;
+}
+\end{lstlisting}
+
+\entry{Closest pair}{$O(n \log n)$ \quad mem $n$}{%
+Returns the smallest \textbf{squared} distance and the two points. Exact on \code{Pl};
+the only floating point is a deliberately generous \code{sqrtl} bound on the sweep
+window, so rounding cannot lose the answer. Needs $n \ge 2$; duplicate points give 0,
+which is the correct answer.\\[0.3ex]
+Sweep in \code{x}, keep a \code{set} ordered by \code{y} holding everything within the
+current best distance, and only compare against the \code{y}-band. Coordinates up to
+$10^9$ keep \code{dist2} inside \code{ll}.}
+
+%DEP point
+%LABEL closest
+\begin{lstlisting}
+pair<ll, pair<Pl,Pl>> closest(vector<Pl> p) {
+    sort(all(p));                        // by x, then y
+    ll best = LLONG_MAX;
+    pair<Pl,Pl> bp{p[0], p[1]};
+    set<pii> s;                          // (y, x)
+    int j = 0;
+    rep(i, 0, (ll)p.size()) {
+        while (j < i) {
+            ll dx = p[i].x - p[j].x;
+            if (dx * dx <= best) break;
+            s.erase({p[j].y, p[j].x}); j++;
+        }
+        ll d = (ll)sqrtl((ld)best) + 1;
+        auto lo = s.lower_bound({p[i].y - d, LLONG_MIN});
+        auto hi = s.upper_bound({p[i].y + d, LLONG_MAX});
+        for (auto it = lo; it != hi; ++it) {
+            Pl q(it->second, it->first);
+            ll dd = (p[i] - q).dist2();
+            if (dd < best) { best = dd; bp = {q, p[i]}; }
+        }
+        s.insert({p[i].y, p[i].x});
+    }
+    return {best, bp};
+}
+\end{lstlisting}
+
+\entry{Circles}{}{%
+\code{circleLine} intersects a circle with the \emph{infinite} line through \code{a,b};
+\code{circleCircle} with another circle. Both return 0, 1 (tangent) or 2 points. For a
+\emph{segment} instead, intersect with the line and then test each result with
+\code{segDist} or a parameter check.\\[0.3ex]
+Two identical circles return \code{\{\}} --- infinitely many points is not something the
+caller can use, so check that case yourself.\\[0.3ex]
+Tangent length from an outside point \code{p} to circle \code{(c,r)} is
+$\sqrt{|pc|^2 - r^2}$. Circle through three points: the circumcentre is the intersection
+of two perpendicular bisectors, i.e. \code{lineInter} of
+\code{(m1, m1+(b-a).perp())} and \code{(m2, m2+(c-a).perp())} with \code{m} the
+midpoints.}
+
+%DEP point
+%LABEL circle
+\begin{lstlisting}
+vector<Pd> circleLine(Pd c, ld r, Pd a, Pd b) {
+    Pd ab = b - a;
+    Pd m = a + ab * ((c - a).dot(ab) / ab.dist2());
+    ld h2 = r * r - (m - c).dist2();
+    if (h2 < -1e-12) return {};
+    if (h2 <= 1e-12) return {m};
+    Pd h = ab.unit() * sqrtl(h2);
+    return {m - h, m + h};
+}
+vector<Pd> circleCircle(Pd c1, ld r1, Pd c2, ld r2) {
+    Pd d = c2 - c1;
+    ld dd = d.dist2(), dist = sqrtl(dd);
+    if (dist < 1e-12) return {};          // concentric
+    if (dist > r1 + r2 + 1e-12) return {};
+    if (dist < fabsl(r1 - r2) - 1e-12) return {};
+    ld a = (dd + r1 * r1 - r2 * r2) / (2 * dist);
+    ld h2 = r1 * r1 - a * a;
+    Pd m = c1 + d.unit() * a;
+    if (h2 <= 1e-12) return {m};
+    Pd per = d.unit().perp() * sqrtl(h2);
+    return {m - per, m + per};
+}
+\end{lstlisting}

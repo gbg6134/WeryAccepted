@@ -1,0 +1,265 @@
+\section{Trees}
+
+\entry{Euler tour}{$O(n)$ \quad mem $n$}{%
+The subtree of \code{u} is the range \code{[tin[u], tout[u])} in any array indexed by
+\code{tin}, and \code{u} is an ancestor of \code{v} iff
+\code{tin[u] <= tin[v] < tout[u]}. Turns ``update / query a whole subtree'' into a
+range operation, so pair it with \code{BIT} / \code{Seg} / \code{LazySeg}. Edge values
+go on the \emph{lower} endpoint of the edge.\\[0.3ex]
+Iterative, so depth never matters.}
+
+\begin{lstlisting}
+void euler(const vector<vector<int>>& g, int root,
+           vector<int>& tin, vector<int>& tout) {
+    int n = (int)g.size(), t = 0;
+    tin.assign(n, 0); tout.assign(n, 0);
+    vector<int> par(n, -1), it(n, 0), st{root};
+    tin[root] = t++;
+    while (!st.empty()) {
+        int u = st.back();
+        if (it[u] < (int)g[u].size()) {
+            int v = g[u][it[u]++];
+            if (v == par[u]) continue;
+            par[v] = u; tin[v] = t++; st.push_back(v);
+        } else { tout[u] = t; st.pop_back(); }
+    }
+}
+\end{lstlisting}
+
+\entry{LCA (binary lifting)}{build $O(n \log n)$, query $O(\log n)$ \quad mem $n \log n$}{%
+\code{up[k][v]} is the $2^k$-th ancestor of \code{v}; the root is its own ancestor so
+jumps past it clamp there. Lift the deeper vertex to the other's depth, then jump both
+up together while the ancestors differ. Built by BFS, so no recursion depth
+trouble.\\[0.3ex]
+Max / min / sum edge on a path: add a second table \code{mx} with \code{mx[0][v]} =
+weight of the edge to the parent, \code{mx[0][root] = ID},
+\code{mx[k][v] = op(mx[k-1][v], mx[k-1][up[k-1][v]])}, and merge \code{mx[i][v]} into
+the answer at every jump taken in \code{kth} and \code{lca}.}
+
+\begin{lstlisting}
+struct LCA {
+    int LG; vector<vector<int>> up; vector<int> dep;
+    LCA(const vector<vector<int>>& g, int root = 0) {
+        int n = g.size(); LG = 1 + __lg(max(n, 2));
+        up.assign(LG, vector<int>(n, root)); dep.assign(n, 0);
+        vector<int> order{root};
+        vector<bool> seen(n); seen[root] = true;
+        for (int i = 0; i < (int)order.size(); i++) {
+            int u = order[i];
+            for (int v : g[u]) if (!seen[v]) {
+                seen[v] = true; up[0][v] = u;
+                dep[v] = dep[u] + 1; order.push_back(v);
+            }
+        }
+        for (int k = 1; k < LG; k++)
+            for (int v = 0; v < n; v++)
+                up[k][v] = up[k-1][up[k-1][v]];
+    }
+    int kth(int v, int k) {        // root if k is too big
+        k = min(k, dep[v]);
+        for (int i = 0; k; k >>= 1, i++)
+            if (k & 1) v = up[i][v];
+        return v;
+    }
+    int lca(int a, int b) {
+        if (dep[a] < dep[b]) swap(a, b);
+        a = kth(a, dep[a] - dep[b]);
+        if (a == b) return a;
+        down(k, LG, 0) if (up[k][a] != up[k][b])
+            a = up[k][a], b = up[k][b];
+        return up[0][a];
+    }
+    int dist(int a, int b) {
+        return dep[a] + dep[b] - 2 * dep[lca(a, b)];
+    }
+};
+\end{lstlisting}
+
+\entry{Heavy-light decomposition}{build $O(n)$, path / subtree $O(\log^2 n)$ \quad mem $n$}{%
+Every vertex points at its heaviest child, so a root-to-leaf walk changes chain at most
+$\log n$ times. Positions are handed out so that each chain and each subtree is a
+contiguous range; feed those to \code{Seg} / \code{LazySeg} / \code{BIT}, which is the
+second log. \code{lca} comes for free, no extra table.\\[0.3ex]
+\code{path} calls \code{f} on $O(\log n)$ ranges in \emph{arbitrary} order, so
+\code{op} must commute. For a non-commutative op keep two trees, one on \code{pos} and
+one on reversed \code{pos}, and collect the two sides of the LCA separately.
+\code{edges = true} stores each edge at its lower endpoint and skips the LCA itself;
+then \code{sub} should start at \code{pos[u] + 1} too. Recursion depth is $O(n)$ ---
+on a path of $2\cdot10^5$ vertices raise the stack or rewrite the two \code{dfs}
+calls iteratively.\\[0.3ex]
+\code{HLD h(g); Seg s(n); s.set(h.pos[u], val[u]);}\\
+\code{h.path(a, b, [\&](int l, int r)\{ ... s.query(l, r) ... \});}}
+
+\begin{lstlisting}
+struct HLD {
+    int n, t = 0;
+    vector<vector<int>> g;      // heavy child kept first
+    vector<int> par, dep, sz, head, pos;
+
+    HLD(vector<vector<int>> adj, int root = 0)
+        : n(adj.size()), g(move(adj)), par(n, -1), dep(n),
+          sz(n), head(n, root), pos(n) {
+        dfs(root); build(root, root);
+    }
+    void dfs(int u) {
+        if (par[u] != -1) g[u].erase(find(all(g[u]), par[u]));
+        sz[u] = 1;
+        for (int& v : g[u]) {
+            par[v] = u; dep[v] = dep[u] + 1;
+            dfs(v); sz[u] += sz[v];
+            if (sz[v] > sz[g[u][0]]) swap(v, g[u][0]);
+        }
+    }
+    void build(int u, int h) {      // heavy child keeps head
+        head[u] = h; pos[u] = t++;
+        for (int i = 0; i < (int)g[u].size(); i++)
+            build(g[u][i], i ? g[u][i] : h);
+    }
+    int lca(int a, int b) {
+        for (; head[a] != head[b]; b = par[head[b]])
+            if (dep[head[a]] > dep[head[b]]) swap(a, b);
+        return dep[a] < dep[b] ? a : b;
+    }
+    pair<int,int> sub(int u) {              // subtree range
+        return {pos[u], pos[u] + sz[u]};
+    }
+    template<class F>
+    void path(int a, int b, F f, bool edges = false) {
+        for (; head[a] != head[b]; b = par[head[b]]) {
+            if (dep[head[a]] > dep[head[b]]) swap(a, b);
+            f(pos[head[b]], pos[b] + 1);
+        }
+        if (dep[a] > dep[b]) swap(a, b);
+        f(pos[a] + edges, pos[b] + 1);
+    }
+};
+\end{lstlisting}
+
+\entry{Tree diameter}{$O(n)$ \quad mem $n$}{%
+Two BFS runs: the farthest vertex from anywhere is an endpoint of some diameter, and
+the farthest vertex from \emph{that} is the other endpoint. Unweighted only --- with
+weights use the same shape with Dijkstra, or a single DFS keeping the two deepest
+children per vertex. Iterative.}
+
+\begin{lstlisting}
+// returns {length in edges, endpoint a, endpoint b}
+array<int,3> diameter(const vector<vector<int>>& g) {
+    int n = (int)g.size();
+    auto bfs = [&](int s) {
+        vector<int> d(n, -1); d[s] = 0;
+        vector<int> q{s};
+        for (int i = 0; i < (int)q.size(); i++)
+            for (int v : g[q[i]]) if (d[v] < 0) {
+                d[v] = d[q[i]] + 1; q.push_back(v);
+            }
+        int b = s;
+        for (int i = 0; i < n; i++)
+            if (d[i] > d[b]) b = i;
+        return pair<int,int>{b, d[b]};
+    };
+    int a = bfs(0).first;
+    auto [b, len] = bfs(a);
+    return {len, a, b};
+}
+\end{lstlisting}
+
+\entry{Centroid}{$O(n)$ \quad mem $n$}{%
+The centroid minimises the largest component left after deleting it; that component is
+always $\le n/2$. Every tree has one or two, and two only when they are
+adjacent.\\[0.3ex]
+Recurse on the pieces (removing the centroid each time) and you get centroid
+decomposition: $O(\log n)$ levels, every path in the tree passes through the centroid
+of exactly one level, which is how ``count paths with property X'' problems are
+solved in $O(n \log n)$.}
+
+\begin{lstlisting}
+vector<int> centroids(const vector<vector<int>>& g) {
+    int n = (int)g.size();
+    vector<int> sub(n, 1), par(n, -1), it(n, 0), st{0}, ord;
+    while (!st.empty()) {              // iterative dfs order
+        int u = st.back();
+        if (it[u] < (int)g[u].size()) {
+            int v = g[u][it[u]++];
+            if (v == par[u]) continue;
+            par[v] = u; st.push_back(v);
+        } else { ord.push_back(u); st.pop_back(); }
+    }
+    for (int u : ord)                        // children first
+        if (par[u] >= 0) sub[par[u]] += sub[u];
+    vector<int> res;
+    for (int u = 0; u < n; u++) {
+        int mx = n - sub[u];
+        for (int v : g[u]) if (v != par[u])
+            mx = max(mx, sub[v]);
+        if (mx <= n / 2) res.push_back(u);
+    }
+    return res;
+}
+\end{lstlisting}
+
+\entry{Rerooting DP}{$O(n)$ \quad mem $n$}{%
+Answers a subtree DP for \emph{every} root at once, in two passes: up to collect each
+subtree, then down to hand each child what the rest of the tree contributes. Shown for
+$\mathrm{ans}[u] = \sum_v \mathrm{dist}(u,v)$.\\[0.3ex]
+The pattern generalises: whatever \code{dp} accumulates from children, in the second
+pass give child \code{v} the value ``everything except \code{v}'s subtree'', which for
+a sum is \code{dp[u] - contribution(v)} and for a max needs the top two children.}
+
+\begin{lstlisting}
+// ans[u] = sum over v of dist(u, v)
+vi sumOfDists(const vector<vector<int>>& g) {
+    int n = (int)g.size();
+    vi sub(n, 1), dp(n, 0), ans(n, 0);
+    vector<int> par(n, -1), it(n, 0), st{0}, ord;
+    while (!st.empty()) {
+        int u = st.back();
+        if (it[u] < (int)g[u].size()) {
+            int v = g[u][it[u]++];
+            if (v == par[u]) continue;
+            par[v] = u; st.push_back(v);
+        } else { ord.push_back(u); st.pop_back(); }
+    }
+    for (int u : ord) if (par[u] >= 0) {     // up: children
+        sub[par[u]] += sub[u];
+        dp[par[u]]  += dp[u] + sub[u];
+    }
+    ans[ord.back()] = dp[ord.back()];        // root
+    down(i, (ll)ord.size(), 0) {             // down: parents
+        int u = ord[i];
+        if (par[u] >= 0)
+            ans[u] = ans[par[u]] + n - 2 * sub[u];
+    }
+    return ans;
+}
+\end{lstlisting}
+
+\entry{Offline DFS + rollback}{$O((n + q) \cdot \mathrm{apply})$ \quad mem $n + q$}{%
+Not a structure, a shape. Bucket every query at the vertex it belongs to, then run
+\emph{one} DFS from the root holding a global structure that always describes the
+current root-to-\code{u} path. Apply \code{u}'s updates on entry, answer \code{u}'s
+queries, recurse, and on exit undo exactly what was applied --- so the structure is
+correct at every vertex without ever being rebuilt. Needs invertible updates and
+offline queries.\\[0.3ex]
+\begin{ctab}{0.33}{0.62}
+array / counter & subtract what you added\\
+diff array by depth & \code{d[dep] += x}, \code{d[dep+len+1] -= x}, prefix-summed
+along the path\\
+\code{BIT} & \code{add(i, x)} then \code{add(i, -x)}\\
+\code{RDSU} & \code{snap()} then \code{undo(t)}\\
+\end{ctab}\\[0.3ex]
+Replace the recursion over the tree with a recursion over a segment tree of
+\emph{time} and the same shape becomes offline dynamic connectivity: put each edge on
+the $O(\log q)$ nodes covering the interval it is alive, DFS that tree, \code{join} on
+entry, \code{undo} on exit. That is the only place \code{RDSU} is really needed ---
+with an array or a BIT the undo is just the negated update.}
+
+%NOCOMPILE
+\begin{lstlisting}
+void dfs(int u, int par) {
+    int t = snapshot();                // e.g. rdsu.snap()
+    for (auto& upd : at[u]) apply(upd);          // enter
+    for (auto& q : qs[u]) ans[q.id] = get(q);
+    for (int v : g[u]) if (v != par) dfs(v, u);
+    undo(t);                     // exit: exact inverse
+}
+\end{lstlisting}

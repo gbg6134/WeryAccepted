@@ -1,0 +1,125 @@
+\section{Reference}
+
+\entry{What fits in the time limit}{$\sim10^8$ simple ops/s at \code{-O2}}{%
+{\ttfamily\footnotesize
+\begin{ctab}{0.20}{0.75}
+n <= 10 & O(n!) \hfill brute force permutations\\
+n <= 20 & O(2\^{}n n) \hfill bitmask DP, PathDP\\
+n <= 40 & O(2\^{}(n/2)) \hfill meet in the middle\\
+n <= 100 & O(n\^{}4) \hfill 4 nested loops, Hungarian\\
+n <= 500 & O(n\^{}3) \hfill Floyd, matrix, interval DP\\
+n <= 5000 & O(n\^{}2) \hfill pairwise DP\\
+n <= 1e5 & O(n log\^{}2 n) \hfill HLD + Seg\\
+n <= 1e6 & O(n log n) \hfill sort, Seg, Dijkstra\\
+n <= 1e7 & O(n) \hfill sieve, two pointers\\
+n <= 1e18 & O(log n) \hfill binary search, matrix power\\
+\end{ctab}}\\[0.3ex]
+A \code{map} / \code{set} operation costs $\sim$10x a \code{vector} one; sorting
+$10^6$ \code{ll} is $\sim$0.1 s; $10^8$ additions is $\sim$0.1 s but $10^8$ random
+memory accesses is $\sim$1 s. If $n \le 18$ and nothing else fits, it is a bitmask.}
+
+\entry{Overflow and precision}{read this when a big test fails}{%
+\code{ll} holds $9.2\cdot10^{18}$, \code{int} only $2.1\cdot10^9$ --- and
+\code{n*(n-1)/2} already overflows \code{int} at \code{n = 1e5}.\\[0.3ex]
+Use \code{INF = 1e18}, never \code{LLONG\_MAX}: \code{INF + INF} still fits, so a
+forgotten guard gives a wrong answer instead of undefined behaviour. Guard anyway.\\[0.3ex]
+\code{a * b \% m} overflows once $m > 3\cdot10^9$ --- cast to \code{i128}.
+\code{cross} on coordinates up to $10^9$ reaches $2\cdot10^{18}$: fine, barely.\\[0.3ex]
+\code{-7 \% 3 == -1} in C++. Normalise with \code{((x \% m) + m) \% m}.\\[0.3ex]
+\code{pow(10, 2)} can return \code{99.999...}; never use \code{pow} for integers.
+\code{sqrt(x)} likewise --- take \code{(ll)sqrtl(x)} then fix up by $\pm1$ in a loop.\\[0.3ex]
+Compare squared distances, never \code{sqrt}ed ones. \code{double} has 15--16 significant
+digits, \code{long double} 18--19 on x86.}
+
+\entry{Pitfalls}{the usual wrong answers}{%
+\textbf{Multiple test cases:} clear every global, resize every vector, reset
+\code{cnt}/\code{timer}. The most common repeat-offender bug there is.\\[0.3ex]
+\textbf{Recursion depth:} a DFS on a path of $2\cdot10^5$ vertices can blow the stack.
+The iterative \code{euler}, \code{SCC}, \code{Bridges}, \code{centroids} and
+\code{eulerPath} here are safe; \code{HLD}, \code{Dinic::dfs} and \code{Matching} are
+not.\\[0.3ex]
+\textbf{Output:} \code{'\textbackslash n'} not \code{endl} (\code{endl} flushes).
+Keep \code{sync\_with\_stdio(false)}, and then never mix \code{printf} with
+\code{cout}.\\[0.3ex]
+\textbf{\code{unordered\_map}} is $O(n)$ per operation against a crafted test; use
+\code{map}, or add a random offset to every key.\\[0.3ex]
+\textbf{Comparators} must be a strict weak ordering --- \code{<=} in a \code{sort}
+comparator is a crash, not a wrong answer.\\[0.3ex]
+\textbf{\code{vector<bool>}} is a proxy type; \code{auto\& x = v[i]} does not do what you
+expect. \textbf{Iterators} invalidate on \code{push\_back}.\\[0.3ex]
+\textbf{Reading:} after \code{cin >> n}, a following \code{getline} reads the rest of that
+line. Interactive problems need an explicit flush.\\[0.3ex]
+\textbf{Edge cases:} $n = 1$, $n = 0$, an empty string, all elements equal, a
+disconnected graph, self-loops, multi-edges, duplicate points, collinear points.}
+
+\entry{Combinatorics}{}{%
+$\binom{n}{k} = \binom{n-1}{k-1} + \binom{n-1}{k}$; hockey stick
+$\sum_{i=r}^{n}\binom{i}{r} = \binom{n+1}{r+1}$; Vandermonde
+$\sum_k \binom{m}{k}\binom{n}{p-k} = \binom{m+n}{p}$.\\[0.3ex]
+\textbf{Stars and bars.} $n$ identical items into $k$ ordered boxes:
+$\binom{n+k-1}{k-1}$, and $\binom{n-1}{k-1}$ if every box must be non-empty.\\[0.3ex]
+\textbf{Catalan} $C_n = \frac{1}{n+1}\binom{2n}{n}$: balanced bracket strings,
+binary trees on $n$ nodes, triangulations of an $(n{+}2)$-gon, paths under the
+diagonal. $1, 1, 2, 5, 14, 42, 132, 429$.\\[0.3ex]
+\textbf{Derangements} $D_n = (n-1)(D_{n-1} + D_{n-2})$, $D_0 = 1$, $D_1 = 0$.\\[0.3ex]
+\textbf{Inclusion-exclusion}
+$|\bigcup A_i| = \sum|A_i| - \sum|A_i \cap A_j| + \dots$ --- over $\le 20$ sets this is
+a mask loop with $(-1)^{\mathrm{popcount}}$.\\[0.3ex]
+\textbf{Burnside.} Orbits = average number of fixed points over the group. Necklaces of
+$n$ beads in $k$ colours under rotation: $\frac{1}{n}\sum_{i=0}^{n-1} k^{\gcd(i,n)}$.\\[0.3ex]
+\textbf{Lucas.} $\binom{n}{k} \bmod p$ for prime $p$ = product of
+$\binom{n_i}{k_i}$ over the base-$p$ digits (0 if any $k_i > n_i$).\\[0.3ex]
+$\sum_{i\le n} i = \frac{n(n+1)}{2}$, $\sum i^2 = \frac{n(n+1)(2n+1)}{6}$,
+$\sum i^3 = \left(\frac{n(n+1)}{2}\right)^2$.}
+
+\entry{Number theory}{}{%
+$\gcd(a,b)\cdot\mathrm{lcm}(a,b) = ab$ --- compute \code{a / gcd * b} to avoid
+overflow.\\[0.3ex]
+$\varphi(n) = n\prod_{p\mid n}(1-\frac1p)$; $\sum_{d\mid n}\varphi(d) = n$.
+Fermat: $a^{p-1} \equiv 1$ for prime $p \nmid a$. Euler:
+$a^{\varphi(m)} \equiv 1$ when $\gcd(a,m)=1$.\\[0.3ex]
+$d(n) = \prod(e_i+1)$ divisors, $\sigma(n) = \prod\frac{p_i^{e_i+1}-1}{p_i-1}$.
+The number of divisors stays small: at most 240 below $10^9$, 1344 below
+$10^{18}$.\\[0.3ex]
+\textbf{Legendre.} The exponent of $p$ in $n!$ is
+$\sum_{i\ge1}\lfloor n/p^i \rfloor$ --- that is how you count trailing zeros of a
+factorial.\\[0.3ex]
+\textbf{M\"obius} $\mu(n)$ is $0$ with a squared factor, else $(-1)^{\#\text{primes}}$;
+$\sum_{d\mid n}\mu(d) = [n=1]$, which turns ``count coprime pairs'' into a divisor
+sum.\\[0.3ex]
+Primes below $10^k$: $4$, $25$, $168$, $1229$, $9592$, $78498$, $664579$, $5761455$.
+The gap between consecutive primes near $10^{18}$ stays under 1500.}
+
+\entry{Graph facts}{}{%
+\textbf{Max flow = min cut.} \textbf{K\"onig} (bipartite): max matching = min vertex
+cover, and max independent set $= n - $ max matching. \textbf{Hall:} a perfect matching
+on the left exists iff every subset $S$ of the left has
+$|N(S)| \ge |S|$.\\[0.3ex]
+\textbf{Dilworth:} the minimum number of chains covering a poset equals the largest
+antichain --- in practice a bipartite matching or an LIS.\\[0.3ex]
+Bipartite iff no odd cycle. A tree has $n-1$ edges and a unique path between any two
+vertices. A connected graph has an Euler circuit iff every degree is even (directed: in
+= out everywhere).\\[0.3ex]
+\textbf{Planar:} $V - E + F = 2$, so $E \le 3V - 6$ and some vertex has degree
+$\le 5$. Four colours always suffice, five are easy to find.\\[0.3ex]
+\textbf{Spanning trees:} Cayley gives $n^{n-2}$ labelled trees on $n$ vertices; for a
+general graph it is any cofactor of the Laplacian (Matrix-Tree), i.e. one
+\code{gauss} determinant.\\[0.3ex]
+\textbf{Pick:} a lattice polygon has $A = I + B/2 - 1$, with
+$B = \sum \gcd(|dx|,|dy|)$ over the edges.}
+
+\entry{When stuck}{}{%
+Re-read the statement and the constraints. The bound on $n$ usually names the intended
+complexity outright --- check the table above before designing anything.\\[0.3ex]
+Write the brute force first, then stress test against it. A wrong answer on $n=3$ is
+worth more than an hour of staring.\\[0.3ex]
+Reframe: is it a graph? a flow? a matching? Can you binary-search the answer? Sort the
+input? Process queries offline, sorted? Think backwards from the end? Count the
+complement? Fix one variable and see what is left?\\[0.3ex]
+Check the samples \emph{by hand}. If the sample passes but the judge does not, the bug is
+almost always an edge case from the Pitfalls list --- most often multiple test cases, or
+an overflow.\\[0.3ex]
+\footnotesize
+\emph{Sources: templates by Ruben, Ruiming and Martin, consolidated;
+\code{LineContainer} is adapted from KACTL (KTH, CC0). Provenance and the per-entry diff
+against the original files are in \code{notebook/README.md}.}}

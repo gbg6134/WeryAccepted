@@ -1,0 +1,123 @@
+\section{Union-find and MST}
+
+\entry{DSU}{$O(\alpha(n))$ amortised \quad mem $n$}{%
+\code{p[a] < 0} marks a root and then \code{-p[a]} is its component size, otherwise
+\code{p[a]} is the parent. Union by size plus path compression.}
+
+%LABEL DSU
+\begin{lstlisting}
+struct DSU {
+    vector<int> p;
+    DSU(int n = 0) : p(n, -1) {}
+    int find(int a) { return p[a]<0 ? a : p[a]=find(p[a]); }
+    int size(int a) { return -p[find(a)]; }
+    bool same(int a, int b) { return find(a) == find(b); }
+    bool join(int a, int b) {   // false if already joined
+        a = find(a); b = find(b);
+        if (a == b) return false;
+        if (p[a] > p[b]) swap(a, b);         // a = bigger
+        p[a] += p[b]; p[b] = a;
+        return true;
+    }
+};
+\end{lstlisting}
+
+\entry{DSU with rollback}{join / find $O(\log n)$, undo $O(1)$ \quad mem $n+q$}{%
+Union-find where every join can be taken back. Path compression is dropped because it
+cannot be undone, so \code{find} costs a log. \code{snap()} records the current state,
+\code{undo(t)} restores it exactly.\\[0.3ex]
+Use it when merges happen on the way \emph{down} a recursion and must be un-merged on
+the way back up: offline dynamic connectivity (segment tree over time, see
+\code{Trees}), or a batch of MST/connectivity queries that each add a different set of
+edges on top of a common prefix.}
+
+\begin{lstlisting}
+struct RDSU {
+    vector<int> p;
+    vector<pair<int,int>> hist;  // (joined root, its old p)
+    RDSU(int n = 0) : p(n, -1) {}
+    int find(int a) { while (p[a] >= 0) a = p[a]; return a; }
+    int size(int a) { return -p[find(a)]; }
+    bool same(int a, int b) { return find(a) == find(b); }
+    bool join(int a, int b) {
+        a = find(a); b = find(b);
+        if (a == b) return false;
+        if (p[a] > p[b]) swap(a, b);
+        hist.push_back({b, p[b]});
+        p[a] += p[b]; p[b] = a;
+        return true;
+    }
+    int snap() { return (int)hist.size(); }
+    void undo(int t) {
+        while ((int)hist.size() > t) {
+            auto [b, old] = hist.back(); hist.pop_back();
+            p[p[b]] -= old; p[b] = old;
+        }
+    }
+};
+\end{lstlisting}
+
+\entry{Weighted DSU (potentials)}{$O(\log n)$ \quad mem $n$}{%
+Union-find that also remembers \emph{differences}. \code{join(a, b, w)} asserts
+$w(a) - w(b) = w$ and returns \code{false} if that contradicts what is already known
+--- so a run of \code{join} calls decides whether a system of
+``$x_i - x_j = c$'' equations is consistent. \code{diff(a, b)} gives
+$w(a) - w(b)$, meaningful only when \code{same(a, b)}.\\[0.3ex]
+For $\bmod\ k$ versions (``these two are on opposite sides'') use $k = 2$ and keep
+every weight in $\{0,1\}$: that is bipartiteness under edge insertions.}
+
+%LABEL WDSU
+\begin{lstlisting}
+struct WDSU {
+    vector<int> p, sz; vector<ll> d;  // d[x]=w(x)-w(root)
+    WDSU(int n = 0) : p(n), sz(n, 1), d(n, 0) {
+        iota(all(p), 0);
+    }
+    int find(int a) {
+        if (p[a] == a) return a;
+        int r = find(p[a]);
+        d[a] += d[p[a]]; p[a] = r;     // parent first!
+        return r;
+    }
+    ll pot(int a) { find(a); return d[a]; }
+    ll diff(int a, int b) { return pot(a) - pot(b); }
+    bool same(int a, int b) { return find(a) == find(b); }
+    bool join(int a, int b, ll w) {    // w(a) - w(b) == w
+        ll da = pot(a), db = pot(b);
+        int ra = find(a), rb = find(b);
+        if (ra == rb) return da - db == w;
+        if (sz[ra] < sz[rb]) {
+            swap(ra, rb); swap(da, db); w = -w;
+        }
+        p[rb] = ra; sz[ra] += sz[rb];
+        d[rb] = da - db - w;
+        return true;
+    }
+};
+\end{lstlisting}
+
+\entry{Kruskal}{$O(m \log m)$ \quad mem $n + m$}{%
+Needs \code{DSU}. Sort by weight, keep an edge iff it joins two components.
+\code{mst.size() < n-1} means the graph was disconnected.\\[0.3ex]
+What you usually want is not the tree but the \emph{join order}: after processing all
+edges of weight $\le w$ the components are exactly the connected components at that
+threshold.\\[0.3ex]
+The max edge on the MST path between $a$ and $b$ equals the minimum, over all
+$a$--$b$ paths, of the max edge on it (minimax path) --- answer those with \code{LCA}
+carrying a max table, not with a new search. For ``is this edge in some MST'' and for
+the second-best MST, process all edges of equal weight as one block.}
+
+%DEP DSU
+\begin{lstlisting}
+// e = {w, a, b}. returns {total cost, chosen edges}
+pair<ll, vector<array<ll,3>>>
+kruskal(int n, vector<array<ll,3>> e) {
+    sort(all(e));
+    DSU d(n); ll cost = 0; vector<array<ll,3>> mst;
+    for (auto [w, a, b] : e)
+        if (d.join(a, b)) {
+            cost += w; mst.push_back({w, a, b});
+        }
+    return {cost, mst};
+}
+\end{lstlisting}

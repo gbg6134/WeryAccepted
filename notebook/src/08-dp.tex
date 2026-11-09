@@ -1,0 +1,221 @@
+\section{Bitmask and DP}
+
+\entry{PathDP (bitmask)}{$O(2^n n^2)$ \quad mem $2^n n$}{%
+Folds every simple path covering \emph{exactly} a mask into one value, $n \le 20$.
+Directed --- fill both directions for undirected. Pick a row of the table, edit the 5
+config lines, done. The constructor does all the work; every call below is a
+lookup.\\[0.3ex]
+{\ttfamily\scriptsize
+\begingroup\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{@{}llllll@{}}
+want & T & UNIT & NONE & ext(x,wt) & merge(a,b)\\
+shortest path & ll & 0 & INF & x + wt & min(a, b)\\
+longest path & ll & 0 & -INF & x + wt & max(a, b)\\
+count paths & ll & 1 & 0 & x & a + b\\
+count mod p & ll & 1 & 0 & x & (a + b) \% p\\
+min bottleneck & ll & 0 & INF & max(x, wt) & min(a, b)\\
+max probability & double & 1 & 0 & x * wt & max(a, b)\\
+reachable lengths & bitset & 1<<0 & 0 & x << wt & a | b\\
+\end{tabular}\endgroup}\\[0.3ex]
+\begin{ctab}{0.25}{0.70}
+\code{PathDP p(w,st,cn)} & \code{w[u][v]} = weight, \code{INF} = no edge.\\
+\code{val(m,v)} & paths covering exactly \code{m}, ending at \code{v}.\\
+\code{hamPath()} & over \code{v} of \code{val(full, v)}.\\
+\code{hamPathTo(v)} & \code{val(full, v)}.\\
+\code{hamCycle(s)} & closes \code{w[v][s]}; build with \code{st = 1LL<<s}.\\
+\code{endingAt(v)} & over every mask, ending at \code{v}.\\
+\code{bySize(k)} & over the masks of exactly \code{k} vertices.\\
+\code{anyPath()} & over every mask and every \code{v}.\\
+\code{cycles()} & over every simple cycle; build with \code{cn = true}.\\
+\code{path(m,v)} & vertex order; \code{MIN} / \code{MAX} only.\\
+\code{induced(g,vs)} & \code{w} for the vertices \code{vs}, weights all 1, local
+\code{i} is \code{vs[i]}; translate back with \code{vs[x]}.\\
+\end{ctab}\\[0.3ex]
+\code{st} is a \textbf{mask}, not a vertex: \code{-1} = any start, \code{1LL<<s} pins
+it. \code{cn} makes every path begin at the lowest vertex of its mask, for
+\code{cycles()} only.\\[0.3ex]
+\code{val(m,v)} is exactly \code{m}, not a subset, and \code{v} must be inside
+\code{m}. Undirected counts come out $2\times$. \code{ext} must distribute over
+\code{merge}, and \code{merge} must commute. Struct or bitset \code{T}:
+\code{inline static const}, not \code{constexpr}. Unmodded counts overflow \code{ll} by
+dense $n = 18$. At \code{-O2}, 30\% density: $n{=}16$ 0.01 s 13 MB, $n{=}18$ 0.05 s
+44 MB, $n{=}20$ 0.22 s 184 MB.}
+
+\begin{lstlisting}
+struct PathDP {
+    using T = ll;
+    static T ext(T x, ll wt) { return x + wt; }
+    static T merge(T a, T b) { return min(a, b); }
+    static constexpr T UNIT = 0;
+    static constexpr T NONE = 1e18;
+    static constexpr ll INF = 1e18;      // missing edge in w
+
+    int n; ll starts, full;
+    matrix w; vector<T> dp; vector<char> par;
+
+    PathDP(const matrix& wt, ll ss = -1, bool canon = false)
+            : n(wt.size()), starts(ss), full((1LL << n) - 1),
+              w(wt) {
+        dp.assign((full + 1) * n, NONE);
+        par.assign((full + 1) * n, -1);
+        rep(v, 0, n) if (starts >> v & 1)
+            dp[(1LL << v) * n + v] = UNIT;
+        vector<ll> nb(n, 0);        // out-edges of u as bits
+        rep(u, 0, n) rep(v, 0, n)
+            if (w[u][v] < INF) nb[u] |= 1LL << v;
+        rep(m, 1, full + 1) {
+            ll base = m * n;
+            for (ll b = m; b; b &= b - 1) {   // set bits of m
+                int u = __builtin_ffsll(b) - 1;
+                T cur = dp[base + u];
+                if (cur == NONE) continue;
+                for (ll c = nb[u] & ~m; c; c &= c - 1) {
+                    int v = __builtin_ffsll(c) - 1;
+                    if (canon && (1LL << v) < (m & -m))
+                        continue;
+                    ll t = (m | 1LL << v) * n + v;
+                    T nv = merge(dp[t], ext(cur, w[u][v]));
+                    if (nv != dp[t]) {
+                        dp[t] = nv; par[t] = (char)u;
+                    }
+                }
+            }
+        }
+    }
+    T val(ll m, int v) { return dp[m * n + v]; }
+    T hamPathTo(int v) { return val(full, v); }
+    T hamPath() {
+        T r = NONE;
+        rep(v, 0, n) r = merge(r, val(full, v));
+        return r;
+    }
+    T hamCycle(int s) {          // build with 1LL << s
+        T r = NONE;
+        rep(v, 0, n) {
+            T d = val(full, v);
+            if (d != NONE && w[v][s] < INF)
+                r = merge(r, ext(d, w[v][s]));
+        }
+        return r;
+    }
+    T endingAt(int v) {
+        T r = NONE;
+        rep(m, 1, full + 1) r = merge(r, val(m, v));
+        return r;
+    }
+    T bySize(int k) {            // exactly k vertices
+        T r = NONE;
+        rep(m, 1, full + 1) if (__builtin_popcountll(m) == k)
+            rep(v, 0, n) r = merge(r, val(m, v));
+        return r;
+    }
+    T anyPath() {
+        T r = NONE;
+        rep(m, 1, full + 1) rep(v, 0, n)
+            r = merge(r, val(m, v));
+        return r;
+    }
+    T cycles() {                 // build with canon
+        T r = NONE;
+        rep(m, 1, full + 1) {
+            if (__builtin_popcountll(m) < 3) continue;
+            int s = 0;
+            while (!(m >> s & 1)) s++;   // lowest of m
+            rep(v, 0, n) {
+                T d = val(m, v);
+                if (v != s && d != NONE && w[v][s] < INF)
+                    r = merge(r, ext(d, w[v][s]));
+            }
+        }
+        return r;
+    }
+    vi path(ll m, int v) {               // MIN / MAX only
+        vi p;
+        while (v >= 0) {
+            p.push_back(v);
+            int u = par[m * n + v]; m ^= 1LL << v; v = u;
+        }
+        reverse(p.begin(), p.end());
+        return p;
+    }
+    template<class G, class V>    // g, vs: any integer type
+    static matrix induced(const G& g, const V& vs) {
+        static vi idx;        // reused, all -1 on entry
+        if (idx.size() < g.size()) idx.assign(g.size(), -1);
+        int k = (int)vs.size();
+        rep(i, 0, k) idx[vs[i]] = i;
+        matrix w(k, vi(k, INF));
+        rep(i, 0, k) for (ll u : g[vs[i]])
+            if (idx[u] >= 0) w[i][idx[u]] = 1;
+        rep(i, 0, k) idx[vs[i]] = -1;   // wipe what we set
+        return w;
+    }
+};
+\end{lstlisting}
+
+\entry{Subset sums (SOS / zeta)}{$O(2^n n)$ \quad mem $2^n$}{%
+\code{sos(n, a)[m]} is the sum of \code{a[s]} over \emph{all} submasks \code{s} of
+\code{m}. Replace \code{+=} with \code{|=} / \code{max} for ``or over submasks'' /
+``best submask''. Supersets instead: flip the condition to
+\code{if (!(m >> b \& 1)) f[m] += f[m | 1LL<<b]}.\\[0.3ex]
+Inverse (M\"obius, recovers \code{a} from \code{f}): same loops with \code{-=}.
+Subset convolution and ``count pairs with \code{a \& b == 0}'' both reduce to
+this.\\[0.3ex]
+To walk the submasks of one mask only: \code{for (ll s = m; s; s = (s-1) \& m)}, which
+visits every nonempty submask once --- $O(3^n)$ over all masks.}
+
+\begin{lstlisting}
+// f has size 1<<n and holds a on entry
+vi sos(int n, vi f) {
+    rep(b, 0, n) rep(m, 0, 1LL << n)
+        if (m >> b & 1) f[m] += f[m ^ (1LL << b)];
+    return f;
+}
+\end{lstlisting}
+
+\entry{LIS}{$O(n \log n)$ \quad mem $n$}{%
+\code{c[k]} ends up as the smallest possible tail of an increasing subsequence of
+length \code{k+1}, so \code{c.size()} is the answer. \code{c} itself is \emph{not} a
+valid subsequence.\\[0.3ex]
+\code{lower\_bound} gives \textbf{strictly} increasing; \code{upper\_bound} gives
+non-decreasing. Longest decreasing: reverse the input, or negate it. Minimum number of
+non-increasing chains covering the sequence = length of the LIS (Dilworth).\\[0.3ex]
+To reconstruct, store for each element the index it was placed at plus the predecessor
+\code{c}-index, then walk back from the last placement.}
+
+\begin{lstlisting}
+ll lis(const vi& a) {
+    vi c;
+    for (ll e : a) {
+        auto it = lower_bound(all(c), e);
+        if (it == c.end()) c.push_back(e);
+        else *it = e;
+    }
+    return (ll)c.size();
+}
+\end{lstlisting}
+
+\entry{Interval DP}{$O(n^3)$, optimised $O(n^2)$ \quad mem $n^2$}{%
+Shortest interval first, so both halves are ready when you need them. Circular
+versions: double the array to length $2n$ and take the best window of length
+$n$.\\[0.3ex]
+\textbf{Knuth} cuts it to $O(n^2)$ when \code{opt[i][j-1] <= opt[i][j] <= opt[i+1][j]}
+--- restrict \code{k} to that window and keep an \code{opt} table. It holds when the
+cost satisfies the quadrangle inequality, which is true for the classic ``merge
+adjacent piles, cost = sum of the pile'' problem. \textbf{Divide and conquer
+optimisation} is the same idea one layer at a time, for
+\code{dp[i][j] = min over k of dp[i-1][k] + C(k,j)} with monotone \code{opt}:
+recurse on \code{(jlo,jhi,klo,khi)}, evaluate the midpoint, split. Both are worth it
+only when $n^3$ is too slow --- check the bound first.}
+
+%NOCOMPILE
+\begin{lstlisting}
+rep(len, 2, n + 1)
+  rep(i, 0, n - len + 1) {
+    ll j = i + len - 1;                  // inclusive
+    dp[i][j] = INF;
+    rep(k, i, j)                         // split point
+      dp[i][j] = min(dp[i][j],
+                     dp[i][k] + dp[k+1][j] + cost(i, j));
+  }
+\end{lstlisting}

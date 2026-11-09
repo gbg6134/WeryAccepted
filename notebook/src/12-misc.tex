@@ -1,0 +1,82 @@
+\section{Searching}
+
+\entry{Binary search on a predicate}{$O(\log)$}{%
+\code{pred} must be monotone false$\dots$false true$\dots$true. Returns the first
+\code{x} in \code{[lo, hi]} with \code{pred(x)}, or \code{hi+1} if none --- so test the
+return value before using it.\\[0.3ex]
+``Largest \code{x} that still works'' is the same call on the negated predicate minus
+one, or just search for the first failing \code{x} and subtract 1. Almost every
+``minimise the maximum'' / ``can we do it within $k$'' problem is this function plus a
+greedy check.\\[0.3ex]
+Reals: fix the iteration count (100 halvings covers any range to $10^{-30}$) rather than
+looping on a tolerance, which can spin forever.}
+
+\begin{lstlisting}
+template<class F>
+ll bsearch(ll lo, ll hi, F pred) {   // first true in [lo,hi]
+    hi++;                            // hi = "none found"
+    while (lo < hi) {
+        ll m = lo + (hi - lo) / 2;   // no overflow
+        if (pred(m)) hi = m; else lo = m + 1;
+    }
+    return lo;
+}
+template<class F>
+ld bsearchReal(ld lo, ld hi, F pred) {
+    rep(it, 0, 100) {
+        ld m = (lo + hi) / 2;
+        if (pred(m)) hi = m; else lo = m;
+    }
+    return lo;
+}
+\end{lstlisting}
+
+\entry{Ternary search}{$O(\log)$}{%
+For a \textbf{strictly unimodal} function --- one valley, no flat stretches. A flat
+region breaks it silently, so if ties are possible make the comparison
+\code{<=} vs \code{<} deliberately, or binary-search on
+\code{f(m+1) - f(m)} instead, which is the more robust trick.\\[0.3ex]
+The integer version finishes by scanning the last three candidates, which is where
+off-by-ones normally live. For a maximum, negate \code{f}.}
+
+\begin{lstlisting}
+template<class F>              // argmin of a unimodal f
+ll tsearch(ll lo, ll hi, F f) {
+    while (hi - lo > 2) {
+        ll m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
+        if (f(m1) < f(m2)) hi = m2; else lo = m1;
+    }
+    ll best = lo;
+    for (ll x = lo + 1; x <= hi; x++)
+        if (f(x) < f(best)) best = x;
+    return best;
+}
+template<class F>
+ld tsearchReal(ld lo, ld hi, F f) {
+    rep(it, 0, 200) {
+        ld m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
+        if (f(m1) < f(m2)) hi = m2; else lo = m1;
+    }
+    return (lo + hi) / 2;
+}
+\end{lstlisting}
+
+\entry{Coordinate compression}{$O(n \log n)$}{%
+Maps arbitrary values onto \code{0 .. k-1} keeping order, so a \code{BIT} or \code{Seg}
+can index them. This is what lets you avoid \code{SparseSeg} whenever the whole input is
+readable up front --- which is almost always.\\[0.3ex]
+Remember to compress \emph{every} value you will ever look up, queries included, not
+just the ones in the array. For half-open interval problems add both \code{l} and
+\code{r} (and sometimes \code{r+1}).}
+
+\begin{lstlisting}
+// returns the sorted distinct values; id(v) is v's index
+vi compress(vi vals) {
+    sort(all(vals));
+    vals.erase(unique(all(vals)), vals.end());
+    return vals;
+}
+int id(const vi& c, ll v) {
+    return (int)(lower_bound(all(c), v) - c.begin());
+}
+\end{lstlisting}
