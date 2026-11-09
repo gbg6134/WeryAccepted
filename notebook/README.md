@@ -90,9 +90,12 @@ drive the extraction. `%NOCOMPILE` is Ruben's existing convention for fragments.
 What the smoke tests check:
 
 - **hungarian** — 400 rectangular cost matrices with negative costs, vs brute-force
-  permutations
-- **dinic** — 400 graphs: Dinic flow == MCMF flow == capacity of the cut `cut()` reports
-- **matching** — Kuhn == unit-capacity Dinic, `matchL`/`matchR` consistent
+  permutations *and* vs `MCMF` on the same assignment (exercises its SPFA pass)
+- **dinic** — 400 graphs: Dinic flow == MCMF flow == capacity across `inS` == sum over
+  the ids `cut()` returns; per-edge `flow(id)` within capacity and conserved; `reset()`
+  then `maxflow` gives the same answer
+- **matching** — Hopcroft-Karp == unit-capacity Dinic, `ml`/`mr` consistent, `cover()`
+  has size `k` and touches every edge (König)
 - **euler** — 3000 multigraphs: existence matches a degree+connectivity oracle, and
   every returned path uses each edge exactly once
 - **lazyseg** / **lazyseg_ap** — range add + range sum vs a naive array, *and* an
@@ -170,7 +173,9 @@ Two more were found *by the tooling* while building this, worth knowing:
 
 ## What changed vs. your own files
 
-Ruben's entries are verbatim. For the others, the shared prelude that used to sit at
+Ruben's entries are verbatim (`Dinic`, `MCMF`, `Matching` only had a few lines
+re-wrapped — comment moved or a statement split — to fit the 62-character column).
+For the others, the shared prelude that used to sit at
 the top of every one of Ruiming's files (`#include`, typedefs, `MAXN=206`, `eps`) now
 appears **once**, in *Contest setup*, and loose `main()` bodies became callable
 functions. Names are kept wherever there was a real interface.
@@ -192,9 +197,9 @@ functions. Names are kept wherever there was a real interface.
 | `dijkstra`, `bellman` | Ruiming + martin | **was** `Link`/`Edge`/`insert` linked-list adjacency, 1-indexed globals. Now `vector<vector<pii>>`, 0-indexed; `dijkstra` can fill a parent array |
 | `kShortest` | `Ruiming/graph/kth_longest_path.cpp` | **was** a per-node `priority_queue` array. Now one function returning the k lengths |
 | `eulerPath` | Ruiming's two `Eulertour` files | **was** recursive, adjacency-matrix or `multiset`, 1-indexed, with the degree checks inline in `main`. Now one iterative function for both directions, returning `{}` when no path exists |
-| `Matching` | `martin/claude/.../bipartite_matching.cpp` | renamed from `BipartiteMatching`; same members |
-| `Dinic` | `martin/claude/.../max_flow_dinic.cpp` | `addEdge` now returns an edge id; added `cut()` and `flowOn(id)` |
-| `MCMF` | `martin/claude/.../mcmf.cpp` | added the `maxf` cap argument |
+| `Matching` | `Ruben/Matching.cpp` | **replaced** martin's Kuhn with Hopcroft-Karp. `add(l, r)` / `run()` / `ml` / `mr` instead of `addEdge` / `maxMatching()` / `matchL` / `matchR`; added `cover()` |
+| `Dinic` | `Ruben/Dinic.cpp` | **replaced** martin's recursive one with an iterative one. `add` instead of `addEdge`, `flow(id)` instead of `flowOn(id)`, `inS(v)` instead of `cut()[v]`; `cut()` now returns edge ids; added `reset()`, incremental `maxflow` |
+| `MCMF` | `Ruben/MCMF.cpp` | **replaced** martin's SPFA one with Dijkstra + potentials. `add` instead of `addEdge` (now returns an id), `run(s, t, k, neg)` |
 | `Hash` | `Ruiming/String/Hash.cpp` | **was** `Bhash(s)` + `get_hash(v, a, b)`, 1-indexed inclusive, single overflow hash. Now `Hash h(s); h.get(l, r)`, 0-indexed half-open, two moduli |
 | `Manacher` | Ruiming + martin | **was** inline in `main` over a `#`-padded buffer. Now a struct with `d1`, `d2` and `isPal(l, r)` |
 | `SuffixArray` | `martin/claude/.../suffix_array.cpp` | O(n log n) instead of O(n log²n); one struct holding `sa`, `rnk`, `lcp` |

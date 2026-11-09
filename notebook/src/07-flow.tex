@@ -1,171 +1,284 @@
 \section{Flow and matching}
 
-\entry{Dinic (max flow)}{$O(n^2 m)$, unit caps $O(m\sqrt m)$ \quad mem $n + m$}{%
-\code{addEdge} returns the edge id, and after \code{maxflow} the flow actually pushed
-along it is \code{flowOn(id)} (only meaningful when it was added with \code{rcap = 0}).
-For an undirected edge pass \code{rcap = cap}.\\[0.3ex]
+\entry{Dinic (max flow, iterative)}{$O(n^2 m)$, unit caps $O(m\sqrt n)$ \quad mem $n + m$}{%
+Directed, 0-indexed. No recursion, so path length never matters; multi-edges,
+self-loops and 0-capacity edges are fine. \code{add(u, v, c)} returns an \textbf{even}
+edge id, \code{id \^{} 1} is its reverse; an \textbf{undirected} edge is
+\code{add(u, v, c, c)}.\\[0.3ex]
 \begin{ctab}{0.22}{0.73}
-\code{cut()} & after \code{maxflow}: \code{c[v]} true iff \code{v} is on the
-\code{s} side of a minimum cut. The cut edges are those with \code{c[u] \&\& !c[v]}.\\
+\code{flow(id)} & flow on edge \code{id}; negative = it runs \code{v -> u}.\\
+\code{inS(v)} & after \code{maxflow}: \code{v} on the \code{s} side of the min cut
+closest to \code{s}.\\
+\code{cut()} & edge ids crossing $S \to T$, all saturated; their \code{c} sums to the
+flow. An odd id = undirected edge crossing reversed, \code{id \& \~{}1} is what
+\code{add} returned.\\
+\code{reset()} & all flow back to 0, edges kept.\\
 \end{ctab}\\[0.3ex]
-\textbf{Recipes.} Bipartite matching: source$\to$left cap 1, left$\to$right cap 1,
-right$\to$sink cap 1; with unit caps this runs in $O(m\sqrt n)$, i.e. the same bound as
-Hopcroft-Karp, so there is no separate template here.
-Min vertex cover in a bipartite graph = max matching (K\"onig), and max independent set
-= $n$ minus that.
+\textbf{Config.} \code{F} = capacity type (\code{int} saves memory, \code{double} works
+with \code{EPS = 1e-9}). \code{INF} is max/4, so up to 3 can add up; a result
+\code{>= INF} means no finite cut.\\[0.3ex]
+\code{maxflow} is \textbf{incremental}: add edges or raise \code{d.e[id].c}, call it
+again, and it returns only the \emph{extra} flow. A different \code{(s, t)} also
+continues from the old flow --- \code{reset()} first.\\[0.3ex]
+\textbf{Recipes.} Bipartite matching: use \code{Matching} below, about 5x faster than
+the same graph here. Min vertex cover in a bipartite graph = max matching (K\"onig), and
+max independent set = $n$ minus that.
 Vertex capacities: split \code{v} into \code{v\_in -> v\_out} with that capacity.
 Minimum path cover of a DAG = $n$ minus max matching on the split graph.
 Project selection / max closure: source$\to$profit nodes, cost nodes$\to$sink,
 prerequisites as \code{INF} edges, answer = total profit $-$ max flow.\\[0.3ex]
-\code{dfs} recurses to depth $O(n)$; fine at contest sizes, but it is the thing to
-rewrite if $n$ is huge.}
+Measured at -O2: random $10^5$ vertices $10^6$ edges 0.4\,s; unit-cap bipartite
+$2\cdot10^5$ / $1.2\cdot10^6$ 0.8\,s; a $300\times300$ grid with random two-way caps
+4.5\,s --- a bad case for every Dinic.}
 
 %LABEL Dinic
 \begin{lstlisting}
 struct Dinic {
-    struct E { int to; ll cap; };
+    using F = ll;
+    static constexpr F EPS = 0;            // double: 1e-9
+    static constexpr F INF = numeric_limits<F>::max() / 4;
+    struct E { int to; F c, f; };          // cap, flow
     int n; vector<E> e; vector<vector<int>> g;
-    vector<int> lvl, it;
-    Dinic(int n = 0) : n(n), g(n) {}
+    vector<int> lv, it;                    // level, edge ptr
 
-    int addEdge(int u, int v, ll cap, ll rcap = 0) {
-        g[u].push_back((int)e.size()); e.push_back({v, cap});
-        g[v].push_back((int)e.size()); e.push_back({u, rcap});
-        return (int)e.size() - 2;               // edge id
+    Dinic(int n = 0) : n(n), g(n), lv(n), it(n) {}
+    int add(int u, int v, F c, F rc = 0) {     // id of u->v
+        g[u].push_back(e.size()); e.push_back({v, c, 0});
+        g[v].push_back(e.size()); e.push_back({u, rc, 0});
+        return (int)e.size() - 2;
     }
-    ll dfs(int u, int t, ll f) {
-        if (u == t || !f) return f;
-        for (int& i = it[u]; i < (int)g[u].size(); i++) {
-            int id = g[u][i];
-            if (lvl[e[id].to] != lvl[u] + 1 || !e[id].cap)
-                continue;
-            if (ll d = dfs(e[id].to, t, min(f, e[id].cap))) {
-                e[id].cap -= d; e[id ^ 1].cap += d;
-                return d;
+    F res(int id) { return e[id].c - e[id].f; }
+    F flow(int id) { return e[id].f; }
+    bool inS(int v) { return lv[v] >= 0; }
+    void reset() { for (auto& x : e) x.f = 0; }
+
+    bool bfs(int s, int t) {
+        fill(lv.begin(), lv.end(), -1); lv[s] = 0;
+        vector<int> q{s};
+        for (int i = 0; i < (int)q.size() && lv[t] < 0; i++)
+            for (int id : g[q[i]]) {
+                int v = e[id].to;
+                if (lv[v] < 0 && res(id) > EPS)
+                    lv[v] = lv[q[i]] + 1, q.push_back(v);
+            }
+        return lv[t] >= 0;
+    }
+    F maxflow(int s, int t) {
+        F tot = 0; vector<int> st;         // path, edge ids
+        while (bfs(s, t)) {
+            fill(it.begin(), it.end(), 0);
+            int u = s;
+            while (true) {
+                if (u == t) {                  // augment
+                    F b = INF; int k = 0;  // k = 1st sat.
+                    for (int id : st) b = min(b, res(id));
+                    for (int i = st.size(); i--;) {
+                        e[st[i]].f += b; e[st[i] ^ 1].f -= b;
+                        if (res(st[i]) <= EPS) k = i;
+                    }
+                    tot += b; st.resize(k);
+                    u = k ? e[st.back()].to : s;
+                } else if (it[u] < (int)g[u].size()) {
+                    int id = g[u][it[u]], v = e[id].to;
+                    if (lv[v] == lv[u] + 1 && res(id) > EPS)
+                        st.push_back(id), u = v;
+                    else it[u]++;
+                } else {                       // dead end
+                    if (u == s) break;
+                    lv[u] = -1;
+                    u = e[st.back() ^ 1].to;
+                    st.pop_back(); it[u]++;
+                }
             }
         }
-        return 0;
+        return tot;
     }
-    ll maxflow(int s, int t) {
-        ll fl = 0;
-        while (true) {
-            lvl.assign(n, -1); lvl[s] = 0;
-            vector<int> q{s};
-            for (int i = 0; i < (int)q.size(); i++)
-                for (int id : g[q[i]])
-                    if (e[id].cap && lvl[e[id].to] < 0) {
-                        lvl[e[id].to] = lvl[q[i]] + 1;
-                        q.push_back(e[id].to);
-                    }
-            if (lvl[t] < 0) return fl;
-            it.assign(n, 0);
-            while (ll d = dfs(s, t, INF)) fl += d;
+    vector<int> cut() {                    // after maxflow
+        vector<int> r;
+        for (int id = 0; id < (int)e.size(); id++) {
+            int u = e[id ^ 1].to, v = e[id].to;
+            if (e[id].c > 0 && inS(u) && !inS(v))
+                r.push_back(id);
         }
+        return r;
     }
-    vector<char> cut() {          // true = s side of min cut
-        vector<char> c(n);
-        for (int i = 0; i < n; i++) c[i] = lvl[i] >= 0;
-        return c;
-    }
-    ll flowOn(int id) { return e[id ^ 1].cap; }
 };
 \end{lstlisting}
 
-\entry{Min cost max flow}{$O(\mathrm{flow} \cdot nm)$ \quad mem $n + m$}{%
-SPFA-based, so \textbf{negative edge costs are fine} (negative \emph{cycles} are not).
-Returns \code{\{flow, cost\}}. Pass \code{maxf} to cap the flow, which is how you ask
-for ``cheapest way to ship exactly $k$ units''.\\[0.3ex]
-For \emph{min cost flow of any size} rather than min cost \emph{max} flow, stop as soon
-as \code{d[t] >= 0}: further augmentation only adds cost.\\[0.3ex]
-Assignment problems fit here (left$\to$right with cost, unit caps) but
-\code{hungarian} is $O(n^3)$ and much faster for a dense square matrix.}
+\entry{Min cost max flow}{$O(\mathrm{aug} \cdot m \log n)$ \quad mem $n + m$}{%
+Dijkstra with potentials. \textbf{Negative costs are fine} (one SPFA pass first);
+negative \emph{cycles} are not. No recursion. \code{add(u, v, cap, cost)} returns the
+edge id, cost is per unit; \code{flow(id)} reads it back.\\[0.3ex]
+\begin{ctab}{0.36}{0.59}
+\code{run(s, t)} & \code{\{flow, cost\}}: max flow, min cost among those.\\
+\code{run(s, t, k)} & at most \code{k} units, min cost.\\
+\code{run(s, t, m.INFF, 1)} & \emph{any} amount, min cost: stops once one more unit
+costs \code{>= 0}.\\
+\end{ctab}\\[0.3ex]
+\textbf{Config.} \code{F} flow type, \code{C} cost type (\code{double} works --- compare
+with a tolerance). \code{INFF} / \code{INFC} are max/4.\\[0.3ex]
+\textbf{Max} profit: add every edge with \code{-cost}, negate the answer. Undirected edge
+with cost: two separate \code{add} calls. Paths go cheapest first, so after $k$ units
+the cost is the minimum for exactly $k$. \code{run} is incremental like \code{Dinic}.\\[0.3ex]
+One Dijkstra per augmenting path ($\le$ total flow), fine up to $\sim10^4$--$10^5$ of
+them. Measured: $10^4$ vertices $10^5$ edges 0.4\,s; a $300\times300$ assignment
+0.42\,s, while \code{hungarian} does $1000\times1000$ in 0.08\,s --- use that for a
+dense square cost matrix.}
 
 %LABEL MCMF
 \begin{lstlisting}
 struct MCMF {
-    struct E { int to; ll cap, cost; };
+    using F = ll; using C = ll;
+    static constexpr F INFF = numeric_limits<F>::max() / 4;
+    static constexpr C INFC = numeric_limits<C>::max() / 4;
+    struct E { int to; F c, f; C w; };     // cap, flow, cost
     int n; vector<E> e; vector<vector<int>> g;
-    MCMF(int n = 0) : n(n), g(n) {}
+    vector<C> pi, dist; vector<int> pe;    // pe = parent edge
 
-    void addEdge(int u, int v, ll cap, ll cost) {
-        g[u].push_back((int)e.size());
-        e.push_back({v, cap, cost});
-        g[v].push_back((int)e.size());
-        e.push_back({u, 0, -cost});
+    MCMF(int n = 0) : n(n), g(n), pi(n, 0), dist(n), pe(n) {}
+    int add(int u, int v, F c, C w) {
+        g[u].push_back(e.size()); e.push_back({v, c, 0, w});
+        g[v].push_back(e.size()); e.push_back({u, 0, 0, -w});
+        return (int)e.size() - 2;
     }
-    pair<ll,ll> run(int s, int t, ll maxf = INF) {
-        ll fl = 0, cost = 0;
-        while (fl < maxf) {
-            vi d(n, INF); vector<int> pe(n, -1);
-            vector<char> inq(n, 0);
-            deque<int> q{s}; d[s] = 0; inq[s] = 1;
-            while (!q.empty()) {              // SPFA
-                int u = q.front(); q.pop_front(); inq[u] = 0;
-                for (int id : g[u]) {
-                    if (!e[id].cap) continue;
-                    int v = e[id].to;
-                    if (d[u] + e[id].cost < d[v]) {
-                        d[v] = d[u] + e[id].cost; pe[v] = id;
-                        if (!inq[v]) {
-                            inq[v] = 1; q.push_back(v);
-                        }
-                    }
+    F flow(int id) { return e[id].f; }
+
+    void spfa(int s) {                     // exact potentials
+        fill(pi.begin(), pi.end(), INFC); pi[s] = 0;
+        vector<char> inq(n, 0); deque<int> q{s};
+        while (!q.empty()) {
+            int u = q.front(); q.pop_front(); inq[u] = 0;
+            for (int id : g[u]) {
+                auto& x = e[id];
+                if (x.c - x.f > 0 && pi[u] + x.w < pi[x.to]) {
+                    pi[x.to] = pi[u] + x.w;
+                    if (!inq[x.to])
+                        inq[x.to] = 1, q.push_back(x.to);
                 }
             }
-            if (d[t] >= INF) break;
-            ll push = maxf - fl;
-            for (int v = t; v != s; v = e[pe[v] ^ 1].to)
-                push = min(push, e[pe[v]].cap);
-            for (int v = t; v != s; v = e[pe[v] ^ 1].to) {
-                e[pe[v]].cap -= push;
-                e[pe[v] ^ 1].cap += push;
+        }
+        for (auto& p : pi) if (p == INFC) p = 0;  // unreached
+    }
+    bool dijkstra(int s, int t) {
+        fill(dist.begin(), dist.end(), INFC); dist[s] = 0;
+        priority_queue<pair<C,int>, vector<pair<C,int>>,
+                       greater<pair<C,int>>> pq;
+        pq.push({0, s});
+        while (!pq.empty()) {
+            auto [d, u] = pq.top(); pq.pop();
+            if (d > dist[u]) continue;
+            for (int id : g[u]) {
+                auto& x = e[id];
+                C nd = d + x.w + pi[u] - pi[x.to];   // >= 0
+                if (x.c - x.f > 0 && nd < dist[x.to]) {
+                    dist[x.to] = nd; pe[x.to] = id;
+                    pq.push({nd, x.to});
+                }
             }
-            fl += push; cost += push * d[t];
+        }
+        for (int v = 0; v < n; v++)
+            if (dist[v] < INFC) pi[v] += dist[v];
+        return dist[t] < INFC;
+    }
+    pair<F,C> run(int s, int t, F lim = INFF, bool neg = 0) {
+        F fl = 0; C cost = 0;
+        for (auto& x : e)
+            if (x.c - x.f > 0 && x.w < 0) { spfa(s); break; }
+        while (fl < lim && dijkstra(s, t)) {
+            C pc = pi[t] - pi[s];          // cost of one unit
+            if (neg && pc >= 0) break;
+            F b = lim - fl;
+            for (int v = t; v != s; v = e[pe[v] ^ 1].to)
+                b = min(b, e[pe[v]].c - e[pe[v]].f);
+            for (int v = t; v != s; v = e[pe[v] ^ 1].to)
+                e[pe[v]].f += b, e[pe[v] ^ 1].f -= b;
+            fl += b; cost += b * pc;
         }
         return {fl, cost};
     }
 };
 \end{lstlisting}
 
-\entry{Bipartite matching (Kuhn)}{$O(nm)$ \quad mem $n + m$}{%
-Left side \code{[0, n1)}, right side \code{[0, n2)}, \code{addEdge(u, v)} with
-\code{u} left and \code{v} right. After \code{maxMatching()}, \code{matchL[u]} /
-\code{matchR[v]} give the partner or \code{-1}.\\[0.3ex]
-Short and fast enough for a few thousand vertices. Above that build a unit-capacity
-\code{Dinic} instead --- same graph, $O(m\sqrt n)$.\\[0.3ex]
-\textbf{K\"onig, minimum vertex cover.} Let $Z$ be everything reachable by alternating
-paths from the \emph{unmatched} left vertices. Then a minimum vertex cover is
-$(L \setminus Z) \cup (R \cap Z)$ and a maximum independent set is its complement; both
-have the expected sizes.}
+\entry{Bipartite matching (Hopcroft-Karp)}{$O(m\sqrt n)$ \quad mem $n + m$}{%
+Unweighted maximum matching, iterative, multi-edges fine. Left \code{[0, nl)} and right
+\code{[0, nr)} are numbered \textbf{independently}; \code{add(l, r)}, then
+\code{run()} returns the size $k$. \code{ml[l]} / \code{mr[r]} give the partner or
+\code{-1}.\\[0.3ex]
+\textbf{K\"onig.} After \code{run}, \code{auto [L, R] = m.cover()} is a minimum vertex
+cover, \code{|L| + |R| == k}. Its complement --- left \emph{not} in \code{L} plus right
+\emph{not} in \code{R} --- is a maximum independent set, size \code{nl + nr - k}.\\[0.3ex]
+\code{run} is incremental: add edges and call it again, old pairs are kept. You may also
+pre-fill \code{ml}/\code{mr} with a valid greedy matching.\\[0.3ex]
+Weighted: \code{hungarian} or \code{MCMF}. General (non-bipartite) graphs need blossom,
+not this. Measured: $10^5 + 10^5$ vertices, $10^6$ edges 0.15\,s, 15\,MB.}
 
 %LABEL Matching
 \begin{lstlisting}
 struct Matching {
-    int n1, n2;
-    vector<vector<int>> g;
-    vector<int> matchL, matchR;
-    vector<char> vis;
-    Matching(int n1 = 0, int n2 = 0) : n1(n1), n2(n2), g(n1),
-        matchL(n1, -1), matchR(n2, -1) {}
-    void addEdge(int u, int v) { g[u].push_back(v); }
+    int nl, nr; vector<vector<int>> g;
+    vector<int> ml, mr, d, it;             // d = bfs layer
 
-    bool tryKuhn(int u) {
-        for (int v : g[u]) if (!vis[v]) {
-            vis[v] = 1;
-            if (matchR[v] == -1 || tryKuhn(matchR[v])) {
-                matchL[u] = v; matchR[v] = u;
+    Matching(int nl, int nr)
+        : nl(nl), nr(nr), g(nl), ml(nl, -1), mr(nr, -1) {}
+    void add(int l, int r) { g[l].push_back(r); }
+
+    bool bfs() {                           // layers
+        d.assign(nl, -1); vector<int> q; bool found = false;
+        for (int l = 0; l < nl; l++)
+            if (ml[l] < 0) d[l] = 0, q.push_back(l);
+        for (int i = 0; i < (int)q.size(); i++)
+            for (int r : g[q[i]]) {
+                int w = mr[r];
+                if (w < 0) found = true;
+                else if (d[w] < 0)
+                    d[w] = d[q[i]] + 1, q.push_back(w);
+            }
+        return found;
+    }
+    bool aug(int s) {                      // s = free left
+        vector<int> st{s};
+        while (!st.empty()) {
+            int u = st.back();
+            if (it[u] == (int)g[u].size()) {
+                d[u] = -1; st.pop_back(); continue;
+            }
+            int r = g[u][it[u]], w = mr[r];
+            if (w < 0) {                   // free: flip path
+                for (int x : st)
+                    ml[x] = g[x][it[x]], mr[ml[x]] = x;
                 return true;
             }
+            if (d[w] == d[u] + 1) st.push_back(w);
+            else it[u]++;
         }
         return false;
     }
-    int maxMatching() {
-        int r = 0;
-        for (int u = 0; u < n1; u++) {
-            vis.assign(n2, 0);
-            if (tryKuhn(u)) r++;
+    int run() {
+        while (bfs()) {
+            it.assign(nl, 0);
+            for (int l = 0; l < nl; l++)
+                if (ml[l] < 0) aug(l);
         }
-        return r;
+        int k = 0;
+        for (int l = 0; l < nl; l++) k += ml[l] >= 0;
+        return k;
+    }
+    pair<vector<int>, vector<int>> cover() { // after run
+        vector<char> vl(nl, 0), vr(nr, 0);
+        vector<int> q, L, R;
+        for (int l = 0; l < nl; l++)
+            if (ml[l] < 0) vl[l] = 1, q.push_back(l);
+        for (int i = 0; i < (int)q.size(); i++)
+            for (int r : g[q[i]]) if (!vr[r]) {
+                vr[r] = 1; int w = mr[r];
+                if (w >= 0 && !vl[w])
+                    vl[w] = 1, q.push_back(w);
+            }
+        for (int l = 0; l < nl; l++)
+            if (!vl[l]) L.push_back(l);
+        for (int r = 0; r < nr; r++)
+            if (vr[r]) R.push_back(r);
+        return {L, R};
     }
 };
 \end{lstlisting}

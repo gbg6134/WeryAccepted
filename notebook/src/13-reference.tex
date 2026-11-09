@@ -35,9 +35,9 @@ digits, \code{long double} 18--19 on x86.}
 \textbf{Multiple test cases:} clear every global, resize every vector, reset
 \code{cnt}/\code{timer}. The most common repeat-offender bug there is.\\[0.3ex]
 \textbf{Recursion depth:} a DFS on a path of $2\cdot10^5$ vertices can blow the stack.
-The iterative \code{euler}, \code{SCC}, \code{Bridges}, \code{centroids} and
-\code{eulerPath} here are safe; \code{HLD}, \code{Dinic::dfs} and \code{Matching} are
-not.\\[0.3ex]
+The iterative \code{euler}, \code{SCC}, \code{Bridges}, \code{centroids},
+\code{eulerPath}, \code{Dinic}, \code{MCMF} and \code{Matching} here are safe;
+\code{HLD} is not.\\[0.3ex]
 \textbf{Output:} \code{'\textbackslash n'} not \code{endl} (\code{endl} flushes).
 Keep \code{sync\_with\_stdio(false)}, and then never mix \code{printf} with
 \code{cout}.\\[0.3ex]
@@ -120,6 +120,7 @@ Check the samples \emph{by hand}. If the sample passes but the judge does not, t
 almost always an edge case from the Pitfalls list --- most often multiple test cases, or
 an overflow.\\[0.3ex]
 \footnotesize
-\emph{Sources: templates by Ruben, Ruiming and Martin, consolidated;
+\emph{Team Wery Accepted: Ruben, Ruiming, Teo. Sources: templates by Ruben, Ruiming
+and Martin (earlier teammate), consolidated;
 \code{LineContainer} is adapted from KACTL (KTH, CC0). Provenance and the per-entry diff
 against the original files are in \code{notebook/README.md}.}}
