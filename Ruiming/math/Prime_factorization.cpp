@@ -4,6 +4,8 @@ using namespace std;
  
 typedef long long ll;
 typedef long double ld;
+typedef __int128 i128;
+ld eps = 1e-9;
 
 vector<ll> factor(ll n) {
 	vector<ll> ret;

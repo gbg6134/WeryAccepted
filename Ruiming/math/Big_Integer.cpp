@@ -3,6 +3,8 @@ using namespace std;
  
 typedef long long ll;
 typedef long double ld;
+typedef __int128 i128;
+ld eps = 1e-9;
 typedef vector<ll> vi;
 typedef vector<vi> matrix;
 #define rep(i, a, b) for(int i = a; i < b; i++)

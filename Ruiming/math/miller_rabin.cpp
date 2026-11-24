@@ -23,14 +23,19 @@ template<typename T> inline void print(T x, char ed = '\n') {
 
 ll t, n;
 
-ll qpow(ll a, ll b, ll mod) {
-    ll ret = 1;
-    while(b) {
-        if(b & 1) ret = (ret * a) % mod;
-        a = (a * a) % mod;
-        b >>= 1;
+ll mul(ll a, ll b, ll m) { return (__int128)a * b % m; }
+
+ll fast(ll x,ll p,ll m){
+    x=(x%m+m)%m;
+    ll ans=1%m;
+    while(p>0){
+        if(p&1){
+            ans=mul(ans,x,m);
+        }
+        x=mul(x,x,m);
+        p>>=1;
     }
-    return ret % mod;
+    return ans;
 }
 
 vector<ll> p = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37};
@@ -42,7 +47,7 @@ bool miller_rabin(ll n) {
     for(auto a : p) {
         if(n == a) return 1;
         if(n % a == 0) return 0;
-        ll v = qpow(a, u, n);
+        ll v = fast(a, u, n);
         if(v == 1) continue;
         ll s = 1;
         for(; s <= t; ++ s) {

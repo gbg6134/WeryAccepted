@@ -6,17 +6,19 @@ mt19937_64 rd(time(0));
 
 LL n;
 
-i128 ksm(i128 x, i128 y, LL mod)
-{
-    i128 res = 1;
-    x %= mod;
-    while(y)
-    {
-        if(y & 1) res = res * x % mod;
-        y >>= 1;
-        x = x * x % mod;
+LL mul(LL a, LL b, LL m) { return (__int128)a * b % m; }
+
+LL fast(LL x,LL p,LL m){
+    x=(x%m+m)%m;
+    LL ans=1%m;
+    while(p>0){
+        if(p&1){
+            ans=mul(ans,x,m);
+        }
+        x=mul(x,x,m);
+        p>>=1;
     }
-    return res;
+    return ans;
 }
 
 bool miller_rabin(LL n)
@@ -28,7 +30,7 @@ bool miller_rabin(LL n)
     for(int a : s)
     {
         if(a >= n) break;
-        i128 x = ksm(a, m, n), y;
+        i128 x = fast(a, m, n), y;
         for(int i = 1; i <= k; i++, x = y)
         {
             y = x * x % n;

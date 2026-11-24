@@ -1,0 +1,1604 @@
+===== Print/aNewCodeforces.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n,a[MAXN],ans;
+
+void init(){
+    for(int i=0;i<=n;i++){
+        a[i]=0;
+    }
+}
+
+void solve(){
+    cin>>n;
+    init();
+    for(int i=1;i<=n;i++) cin>>a[i];
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>t;
+    while(t--){
+        solve();
+    }
+}
+
+===== Print/Built_In_Treap.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+#include <ext/rope>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,lst[MAXN],ans;
+
+// /https://www.geeksforgeeks.org/cpp/stl-ropes-in-c/
+
+/*
+push_back(): This function is used to input a character at the end of the rope. Time Complexity: O(log N).
+pop_back(): Introduced from C++11(for strings), this function is used to delete the last character from the rope. Time Complexity: O(log N).
+insert(int x, crope r1): Inserts the contents of r1 before the xth element. Time Complexity: For Best Case: O(log N) and For Worst Case: O(N).
+erase(int x, int l): Erases l elements, starting with the xth element. Time Complexity: O(log N).
+substr(int x, int l): Returns a new rope whose elements are the l characters starting at the position x. Time Complexity: O(log N).
+replace(int x, int l, crope r1): Replaces the l elements beginning with the xth element with the elements in r1. Time Complexity: O(log N).
+concatenate(+): concatenate two ropes using the '+' symbol. Time Complexity: O(1).
+*/
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    __gnu_cxx::rope<int> r;
+    r.push_back(0);
+    r.push_back(5);
+
+    r.insert(1,2);
+    r.insert(3,3);
+    r.insert(2,6);
+
+    for(int i:r){
+        cout<<i<<' ';
+    }
+    cout<<'\n';
+}
+
+===== Print/CRT.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=16;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,lst[MAXN],a[MAXN],m[MAXN],ans[MAXN],k,temp;
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+
+
+    for(int i=1;i<=n;i++){
+        cin>>m[i]>>a[i];
+    }
+
+    ans[1]=a[1];
+    for(int i=2;i<=n;i++){
+        for(ll j=0;j<=m[i]-1;j++){
+            if(((j*m[i-1]+ans[i-1])%m[i])==a[i]){
+                ans[i]=j*m[i-1]+ans[i-1];
+                break;
+            }            
+        }
+        m[i]*=m[i-1];
+    }
+    cout<<ans[n]<<'\n';
+}
+
+===== Print/Combinumber_inv.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MOD=1e9+7;
+const ll MAXN=26;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n,fac[MAXN],inv[MAXN],ans,k;
+
+ll fast(ll x,ll p,ll m){
+    x%=m;
+    ll ans=1;
+    while(p>0){
+        if(p&1){
+            ans*=x;
+            ans%=m;
+        }
+        x*=x;
+        x%=m;
+        p>>=1;
+    }
+    return ans;
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n>>k;
+    ll temp=1;
+    for(int i=1;i<=n;i++){
+        temp*=i;
+        temp%=MOD;
+        inv[i]=fast(temp,MOD-2,MOD);
+        fac[i]=temp;
+    }
+
+    fac[0]=1;
+    inv[0]=1;
+
+    for(int i=0;i<=n;i++){
+        ll comb=((fac[n]*inv[i])%MOD*inv[n-i])%MOD;
+    }
+}
+
+===== Print/Convex_Hull.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=200006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n;
+ld ans;
+
+const ld pi=acos(-1.0);
+ld eps=1e-6;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+ll ldcmp(ld x,ld y){
+    if(fabs(x-y)<eps) return 0;
+    else return x<y?-1:1;
+    //is x<y return -1, x>y return 1;
+}
+
+struct Point{
+    ld x,y;
+    Point(): x(0),y(0){}
+    Point(ld x,ld y): x(x),y(y) {}
+
+    Point operator + (Point B){return Point(x+B.x,y+B.y);}
+    Point operator - (Point B){return Point(x-B.x,y-B.y);}
+    Point operator * (ld k){return Point(x*k,y*k);}
+    Point operator / (ld k){return Point(x/k,y/k);}
+    bool operator == (Point B){return ((ldcmp(x-B.x,0)==0)&&(ldcmp(y-B.y,0)==0));}
+    bool operator < (Point B){
+        if (x != B.x) return x < B.x;
+        return y < B.y;
+    }
+};
+
+ld Dist(Point A,Point B){
+    return sqrt((A.x-B.x)*(A.x-B.x)+(A.y-B.y)*(A.y-B.y));
+}
+
+typedef Point Vector;
+
+ld Dot(Vector A,Vector B){return A.x*B.x+A.y*B.y;}
+ld Len(Vector A){return sqrt(Dot(A,A));}
+ld Cross(Vector A,Vector B){return A.x*B.y-A.y*B.x;}
+bool Parallel(Vector A,Vector B){return ldcmp(Cross(A,B),0)==0;}
+ld Angle(Vector A,Vector B){
+    if(Parallel(A,B)) return 0;
+    return acos(Dot(A,B)/Len(A)/Len(B));
+}
+ld DirectedAngle(Vector A, Vector B) {
+    return atan2l(Cross(A,B), Dot(A,B));
+}
+ld Area(Point A,Point B,Point C){return Cross(B-A,C-A)/2;}
+Vector Rotate(Vector A,ld rad){
+    return Vector(A.x*cos(rad)-A.y*sin(rad),A.x*sin(rad)+A.y*cos(rad));
+}
+
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=1006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n,a[MAXN],ans;
+
+const ld pi=acos(-1.0);
+ld eps=1e-6;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+ll ldcmp(ld x,ld y){
+    if(fabs(x-y)<eps) return 0;
+    else return x<y?-1:1;
+    //is x<y return -1, x>y return 1;
+}
+
+struct Point{
+    ld x,y;
+    Point(): x(0),y(0){}
+    Point(ld x,ld y): x(x),y(y) {}
+
+    Point operator + (Point B){return Point(x+B.x,y+B.y);}
+    Point operator - (Point B){return Point(x-B.x,y-B.y);}
+    Point operator * (ld k){return Point(x*k,y*k);}
+    Point operator / (ld k){return Point(x/k,y/k);}
+    bool operator == (Point B){return ((ldcmp(x-B.x,0)==0)&&(ldcmp(y-B.y,0)==0));}
+    bool operator < (Point B){
+        if (x != B.x) return x < B.x;
+        return y < B.y;
+    }
+};
+
+ld Dist(Point A,Point B){
+    return sqrt((A.x-B.x)*(A.x-B.x)+(A.y-B.y)*(A.y-B.y));
+}
+
+typedef Point Vector;
+
+ld Dot(Vector A,Vector B){return A.x*B.x+A.y*B.y;}
+ld Len(Vector A){return sqrt(Dot(A,A));}
+ld Angle(Vector A,Vector B){return acos(Dot(A,B)/Len(A)/Len(B));}
+ld Cross(Vector A,Vector B){return A.x*B.y-A.y*B.x;}
+ld Area(Point A,Point B,Point C){return Cross(B-A,C-A)/2;}
+Vector Rotate(Vector A,ld rad){
+    return Vector(A.x*cos(rad)-A.y*sin(rad),A.x*sin(rad)+A.y*cos(rad));
+}
+bool Parallel(Vector A,Vector B){return ldcmp(Cross(A,B),0)==0;}
+
+struct Line{
+    Point p1,p2;
+    Line(){}
+    Line(Point p1,Point p2): p1(p1),p2(p2){}
+    Line(Point P,ld angle){
+        p1=P;
+        if(ldcmp(angle-pi/2,0)==0){
+            p2=p1+Point(0,1);
+        }else{
+            p2=p1+Point(1,tan(angle));
+        }
+    }
+
+    Line(ld a,ld b,ld c){
+        if(ldcmp(a,0)==0){
+            p1=Point(0,-c/b);
+            p2=Point(1,-c/b);
+        }else if(ldcmp(b,0)==0){
+            p1=Point(-c/a,0);
+            p2=Point(-c/a,1);
+        }else{
+            p1=Point(0,-c/b);
+            p2=Point(1,(-c-a)/b);
+        }
+    }
+};
+
+//for directed lines from p1 to p2
+ll Point_line_relation(Point P, Line v){
+    ll c=ldcmp(Cross(P-v.p1,v.p2-v.p1),0);
+    if(c<0) return 1;//P on the leftside of v
+    if(c>0) return 2;//P on the rightside of v
+    return 0; //P on v
+}
+
+bool Point_on_seg(Point P, Line v){
+    return ldcmp(Cross(P-v.p1,v.p2-v.p1),0)==0&&ldcmp(Dot(P-v.p1,P-v.p2),0)<=0;
+}
+
+ld Dis_point_line(Point P, Line v){
+    return fabs(Cross(P-v.p1,v.p2-v.p1)/Dist(v.p1,v.p2));
+}
+
+Point Point_line_proj(Point P, Line v){
+    ld k=Dot(v.p2-v.p1,P-v.p1)/Dot(v.p2-v.p1,v.p2-v.p1);
+    return v.p1+(v.p2-v.p1)*k;
+}
+
+Point Point_line_symmetry(Point P, Line v){
+    Point q=Point_line_proj(P,v);
+    return Point(2*q.x-P.x,2*q.y-P.y);
+}
+
+ld Dis_point_seg(Point P, Line v){
+    if(ldcmp(Dot(P-v.p1,v.p2-v.p1),0)<0||ldcmp(Dot(P-v.p2,v.p1-v.p2),0)<0){
+        return min(Dist(P,v.p1),Dist(P,v.p2));
+    }
+    return Dis_point_line(P,v);
+}
+
+//Directed lines
+ll Line_relation(Line v1, Line v2){
+    if(ldcmp(Cross(v1.p2-v1.p1,v2.p2-v2.p1),0)==0){
+        //overlapp
+        if(Point_line_relation(v1.p1,v2)==0) return 1;
+
+        //parallell
+        else return 0;
+    }
+    //intersect
+    return 2;
+}
+
+//Must have ab,cd not the same
+Point Cross_point(Point a,Point b,Point c,Point d){
+    ld s1=Cross(b-a,c-a);
+    ld s2=Cross(b-a,d-a);
+    return Point(c.x*s2-d.x*s1,c.y*s2-d.y*s1)/(s2-s1);
+}
+
+ll Point_in_polygon(Point pt, Point *p,ll n){//list of points p representing polygon
+    for(int i=1;i<=n;i++){
+        //Point on vetices
+        if(ldcmp(Dist(p[i],pt),0)==0) return 3;
+    }
+    for(int i=1;i<=n;i++){
+        Line v=Line(p[i],p[i%n+1]);
+        
+        //Point on Edge
+        if(Point_on_seg(pt,v)) return 2;
+    }
+    ll num=0;
+    for(int i=1;i<=n;i++){
+        ll j=i%n+1;
+        ll c=ldcmp(Cross(pt-p[j],p[i]-p[j]),0);
+        ll u=ldcmp(p[i].y-pt.y,0);
+        ll v=ldcmp(p[j].y-pt.y,0);
+        if(c>0&&u<0&&v>=0) num++;
+        if(c<0&&u>=0&&v<0) num--;
+    }
+    //return 1 is inside, 0 is outside
+    return num!=0;
+}
+
+ld Polygon_area(Point *p,ll n){
+    ld area=0;
+    for(int i=1;i<=n;i++){
+        area+=Cross(p[i],p[i%n+1]);
+    }
+    return abs(area/2.0);
+}
+
+ll Convex_Hull(Point *p, ll n,Point *ch){
+    sort(p+1,p+n+1);
+    n=unique(p+1,p+n+1)-(p+1);
+    if (n == 1) { ch[1] = p[1]; return 1; }
+    if (n == 2) { ch[1] = p[1]; ch[2] = p[2]; return 2; }
+
+    ll v=0;
+    
+    for(int i=1;i<=n;i++){
+        while(v>1&&ldcmp(Cross(ch[v]-ch[v-1],p[i]-ch[v]),0)<0){
+            v--;
+        }
+        ch[++v]=p[i];
+    }
+
+    ll j=v;
+    for(int i=n-1;i>=1;i--){
+        //<=0 do not count points on the side of convex hull
+        while(v>j&&ldcmp(Cross(ch[v]-ch[v-1],p[i]-ch[v]),0)<0){
+            v--;
+        }
+        ch[++v]=p[i];
+    }
+    
+    sort(ch+1,ch+v+1);
+    v=unique(ch+1,ch+v+1)-(ch+1);
+    //might include double points on the line case
+    return v;
+}
+
+Point poly[MAXN],ch[MAXN];
+
+void solve(){
+    cin>>n;
+    cout<<fixed<<setprecision(1);
+    for(int i=1;i<=n;i++) cin>>poly[i].x>>poly[i].y;
+
+    if(Convex_Hull(poly,n,ch)!=n) cout<<0<<'\n';
+    else cout<<1<<'\n';
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    solve();
+}
+
+===== Print/Dijkstra.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,lst[MAXN],ans,m,dist[MAXN];
+bool already[MAXN];
+
+int Link[MAXN],cnt;
+
+struct node{
+    int end,next,w;
+}Edge[2*MAXN];
+
+void insert(int x,int y,int z){
+    int temp=Link[x];
+    cnt++;
+    Link[x]=cnt;
+    Edge[cnt].next=temp;
+    Edge[cnt].end=y;
+    Edge[cnt].w=z;
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n>>m;
+
+    for(int i=1;i<=m;i++){
+        ll a,b,c;
+        cin>>a>>b>>c;
+        insert(a,b,c);
+    }
+
+    for(int i=1;i<=n;i++) dist[i]=INF;
+
+    priority_queue<pair<ll,ll>> Q;
+    Q.push({0,1});
+    dist[1]=0;
+
+    while(!Q.empty()){
+        ll a=Q.top().second;
+        Q.pop();
+
+        if(already[a]) continue;
+        already[a]=1;
+        for(int i=Link[a];i;i=Edge[i].next){
+            if(dist[Edge[i].end]>dist[a]+Edge[i].w){
+                dist[Edge[i].end]=dist[a]+Edge[i].w;
+                Q.push({-dist[Edge[i].end],Edge[i].end});
+            }
+        }
+    }
+
+    for(int i=1;i<=n;i++) cout<<dist[i]<<' ';
+    cout<<'\n';
+}
+
+===== Print/Edges_Link.cpp =====
+#include <bits/stdc++.h>
+
+using namespace std;
+
+const int MAXN=106;
+
+int Link[MAXN],cnt;
+
+struct node{
+    int end,next;
+}Edge[2*MAXN];
+
+void insert(int x,int y){
+    int temp=Link[x];
+    cnt++;
+    Link[x]=cnt;
+    Edge[cnt].next=temp;
+    Edge[cnt].end=y;
+}
+===== Print/Euler_sieve.cpp =====
+#include <bits/stdc++.h>
+
+using namespace std;
+
+typedef long long ll;
+typedef long double ld;
+
+const int MAXN=106;
+
+vector<ll> primes;
+bool p[MAXN];
+ll n,q;
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    cin>>n>>q;
+
+    for(ll i=2;i<=n;i++){
+        if(!p[i]){
+            primes.push_back(i);
+        }
+
+        for(ll j=0;j<primes.size();j++){
+            if(primes[j]*i>n) break;
+            p[primes[j]*i]=1;
+            if(i%primes[j]==0) break;
+        }
+    }
+
+    for(int i=1;i<=q;i++){
+        ll a;
+        cin>>a;
+        cout<<primes[a-1]<<'\n';
+    }
+}
+
+===== Print/Fast_gcd.cpp =====
+#include <bits/stdc++.h>
+
+using namespace std;
+
+typedef long long ll;
+typedef long double ld;
+
+ll gcd(ll a,ll b)
+{
+	ll az=__builtin_ctz(a),bz=__builtin_ctz(b);
+	ll z=min(az,bz);
+	ll dif;
+	b>>=bz;
+	while(a)
+	{
+		a>>=az;
+		dif=b-a;
+		az=__builtin_ctz(dif);
+		if(a<b) b=a;
+		if(dif<0) a=-dif;
+		else a=dif;
+	}
+	return b<<z;
+}
+
+===== Print/Half_Plane_Intersect.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include<bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n,ans;
+
+const ld pi=acos(-1.0);
+ld eps=1e-6;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+ll ldcmp(ld x,ld y){
+    if(fabs(x-y)<eps) return 0;
+    else return x<y?-1:1;
+    //is x<y return -1, x>y return 1;
+}
+
+struct Point{
+    ld x,y;
+    Point(): x(0),y(0){}
+    Point(ld x,ld y): x(x),y(y) {}
+
+    Point operator + (Point B){return Point(x+B.x,y+B.y);}
+    Point operator - (Point B){return Point(x-B.x,y-B.y);}
+    Point operator * (ld k){return Point(x*k,y*k);}
+    Point operator / (ld k){return Point(x/k,y/k);}
+    bool operator == (Point B){return ((ldcmp(x-B.x,0)==0)&&(ldcmp(y-B.y,0)==0));}
+    bool operator<(Point B) {
+        if (ldcmp(x, B.x) != 0) return x < B.x;
+        return y < B.y;
+    }
+};
+
+Point POF=Point(INF,INF);
+
+ld Dist(Point A,Point B){
+    return sqrt((A.x-B.x)*(A.x-B.x)+(A.y-B.y)*(A.y-B.y));
+}
+
+typedef Point Vector;
+
+ld Dot(Vector A,Vector B){return A.x*B.x+A.y*B.y;}
+ld Len(Vector A){return sqrt(Dot(A,A));}
+ld Cross(Vector A,Vector B){return A.x*B.y-A.y*B.x;}
+bool Parallel(Vector A,Vector B){return ldcmp(Cross(A,B),0)==0;}
+ld Angle(Vector A,Vector B){
+    if(Parallel(A,B)) return 0;
+    return acos(Dot(A,B)/Len(A)/Len(B));
+}
+ld DirectedAngle(Vector A, Vector B) {
+    return atan2l(Cross(A,B), Dot(A,B));
+}
+ld Area(Point A,Point B,Point C){return Cross(B-A,C-A)/2;}
+Vector Rotate(Vector A,ld rad){
+    return Vector(A.x*cos(rad)-A.y*sin(rad),A.x*sin(rad)+A.y*cos(rad));
+}
+
+struct Line {
+    Point p1, p2;
+    Vector v;
+    ld ang;
+
+    Line() : p1(0,0), p2(0,0), v(0,0), ang(0) {}
+
+    Line(Point p1, Point p2) : p1(p1), p2(p2) {
+        v = p2 - p1;
+        ang = atan2l(v.y, v.x);
+    }
+
+    Line(Point P, ld angle) : p1(P) {
+        p2 = p1 + Point(cosl(angle), sinl(angle));
+        v = p2 - p1;
+        ang = atan2l(v.y, v.x);
+    }
+
+    Line(ld a, ld b, ld c) {
+        if (ldcmp(a, 0) == 0) {
+            p1 = Point(0, -c/b);
+            p2 = Point(1, -c/b);
+        } else if (ldcmp(b, 0) == 0) {
+            p1 = Point(-c/a, 0);
+            p2 = Point(-c/a, 1);
+        } else {
+            p1 = Point(0, -c/b);
+            p2 = Point(1, (-c-a)/b);
+        }
+        v = p2 - p1;
+        ang = atan2l(v.y, v.x);
+    }
+
+    bool operator<(Line L) {
+        if (ldcmp(ang, L.ang) != 0) return ang < L.ang;
+        return ldcmp(Cross(L.p1 - p1, L.p2 - p1), 0) > 0;
+    }
+};
+
+//for directed lines from p1 to p2
+ll Point_line_relation(Point P, Line v){
+    ll c=ldcmp(Cross(P-v.p1,v.p2-v.p1),0);
+    if(c<0) return 1;//P on the leftside of v
+    if(c>0) return 2;//P on the rightside of v
+    return 0; //P on v
+}
+
+bool Point_on_seg(Point P, Line v){
+    return ldcmp(Cross(P-v.p1,v.p2-v.p1),0)==0&&ldcmp(Dot(P-v.p1,P-v.p2),0)<=0;
+}
+
+ld Dis_point_line(Point P, Line v){
+    return fabs(Cross(P-v.p1,v.p2-v.p1)/Dist(v.p1,v.p2));
+}
+
+Point Point_line_proj(Point P, Line v){
+    ld k=Dot(v.p2-v.p1,P-v.p1)/Dot(v.p2-v.p1,v.p2-v.p1);
+    return v.p1+(v.p2-v.p1)*k;
+}
+
+Point Point_line_symmetry(Point P, Line v){
+    Point q=Point_line_proj(P,v);
+    return Point(2*q.x-P.x,2*q.y-P.y);
+}
+
+ld Dis_point_seg(Point P, Line v){
+    if(ldcmp(Dot(P-v.p1,v.p2-v.p1),0)<0||ldcmp(Dot(P-v.p2,v.p1-v.p2),0)<0){
+        return min(Dist(P,v.p1),Dist(P,v.p2));
+    }
+    return Dis_point_line(P,v);
+}
+
+//Directed lines
+ll Line_relation(Line v1, Line v2){
+    if(ldcmp(Cross(v1.p2-v1.p1,v2.p2-v2.p1),0)==0){
+        //overlapp
+        if(Point_line_relation(v1.p1,v2)==0) return 1;
+
+        //parallell
+        else return 0;
+    }
+    //intersect
+    return 2;
+}
+
+bool OnLeft(Line L, Point p) {
+    return ldcmp(Cross(L.v, p - L.p1), 0) >= 0;
+}
+
+Point Cross_point(Line a, Line b) {
+    Vector u = a.p1 - b.p1;
+    ld t = Cross(b.v, u) / Cross(a.v, b.v);
+    return a.p1 + a.v * t;
+}
+
+vector<Point> HPI(vector<Line> L) {
+    int n = L.size();
+    if (n == 0) return {};
+
+    sort(L.begin(), L.end());
+
+    // 极角去重，只保留最靠左的一条
+    vector<Line> lines;
+    for (int i = 0; i < n; i++) {
+        if (i > 0 && ldcmp(L[i].ang, L[i-1].ang) == 0) continue;
+        lines.push_back(L[i]);
+    }
+    n = lines.size();
+    if (n <= 2) return {};
+
+    vector<Line> q(n);
+    vector<Point> p(n);
+    int first = 0, last = 0;
+    q[0] = lines[0];
+
+    for (int i = 1; i < n; i++) {
+        while (first < last && !OnLeft(lines[i], p[last-1])) last--;
+        while (first < last && !OnLeft(lines[i], p[first])) first++;
+
+        q[++last] = lines[i];
+
+        if (ldcmp(Cross(q[last].v, q[last-1].v), 0) == 0) {
+            last--;
+            if (OnLeft(q[last], lines[i].p1)) q[last] = lines[i];
+        }
+
+        if (first < last) {
+            p[last-1] = Cross_point(q[last-1], q[last]);
+        }
+    }
+
+    while (first < last && !OnLeft(q[first], p[last-1])) last--;
+    if (last - first <= 1) return {};
+
+    p[last] = Cross_point(q[last], q[first]);
+
+    vector<Point> ans;
+    for (int i = first; i <= last; i++) ans.push_back(p[i]);
+    return ans;
+}
+
+void solve() {
+    int numPoly;
+    cin >> numPoly;          // 多边形数量
+    vector<Line> L;
+    for (int i = 0; i < numPoly; i++) {
+        int m;
+        cin >> m;            // 当前多边形的点数
+        vector<Point> poly(m);
+        for (int j = 0; j < m; j++) {
+            cin >> poly[j].x >> poly[j].y;
+        }
+        // 将多边形的每条边转换为有向直线（逆时针，左侧为内部）
+        for (int j = 0; j < m; j++) {
+            L.push_back(Line(poly[j], poly[(j+1)%m]));
+        }
+    }
+    vector<Point> poly = HPI(L);
+    if (poly.empty()) {
+        cout << "0.000\n";
+        return;
+    }
+    ld area = 0;
+    int m = poly.size();
+    for (int i = 0; i < m; i++) {
+        area += Cross(poly[i], poly[(i+1)%m]);
+    }
+    area = fabs(area) / 2.0;
+    cout << fixed << setprecision(3) << area << '\n';
+}
+
+int main(){
+    solve();
+}
+
+===== Print/Linearinverse.cpp =====
+#include <bits/stdc++.h>
+
+using namespace std;
+
+typedef long long ll;
+typedef long double ld;
+
+const int MAXN=206;
+ll n,p,ans[MAXN],corr[MAXN],now,fac[MAXN],inv[MAXN];
+
+ll fastMod(ll a,ll n,ll mod){
+    ll ans=1;
+    a%=mod;
+    while(n){
+        if(n&1){
+            ans=(ans*a)%mod;
+        }
+        a=(a*a)%mod;
+        n>>=1;
+    }
+    return ans;
+}
+
+int main(){
+    cin>>n>>p;
+
+    fac[0]=1;
+    for(int i=1;i<=n;i++){
+        fac[i]=(fac[i-1]*i)%p;
+    }
+
+    inv[n]=fastMod(fac[n],p-2,p);//inv fac[i]
+    for(int i=n-1;i>=1;i--){
+        inv[i]=((i+1)*inv[i+1])%p;
+    }
+
+    for(int i=1;i<=n;i++){
+        cout<<(fac[i-1]*inv[i])%p<<'\n';
+    }
+}
+
+===== Print/Linearphi.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=406;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,phi[MAXN],ans=1;
+bool p[MAXN];
+vector<ll> primes;
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+
+    if(n==1) cout<<0<<'\n';
+    else{
+        phi[1]=1;
+        for(int i=2;i<=n;i++){//modiying euler sieve
+            if(!p[i]){
+                primes.push_back(i);
+                phi[i]=i-1;
+            }
+
+            for(int j=0;j<primes.size();j++){
+                if(primes[j]*i>n) break;
+                p[primes[j]*i]=1;
+                if(i%primes[j]==0){
+                    phi[i*primes[j]]=primes[j]*phi[i];
+                    break;
+                }else{
+                    phi[i*primes[j]]=(primes[j]-1)*phi[i];
+                }
+            }
+        }
+    }
+}
+
+===== Print/OrderStatisticTree.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+#include <ext/pb_ds/assoc_container.hpp>
+
+using namespace __gnu_pbds;
+using namespace std;
+ 
+
+template <class T>
+using Tree =
+    tree<T, null_type, less<T>, rb_tree_tag, tree_order_statistics_node_update>;
+
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,a[MAXN],ans;
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+
+    Tree<ll> X;//can modify to eg pair<ll,ll> as well
+
+    for(int i=1;i<=n;i++){
+        cin>>a[i];
+        X.insert(i);
+    }
+
+    for(int i=1;i<=n;i++){
+        ll x;
+        cin>>x;
+        x--;
+        cout<<a[*X.find_by_order(x)]<<' ';
+        X.erase(*X.find_by_order(x));
+    }
+
+    //X.order_of_key(0) first one
+    cout<<'\n';
+}
+
+===== Print/Polygon.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=1006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n,a[MAXN],ans;
+
+const ld pi=acos(-1.0);
+ld eps=1e-6;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+ll ldcmp(ld x,ld y){
+    if(fabs(x-y)<eps) return 0;
+    else return x<y?-1:1;
+    //is x<y return -1, x>y return 1;
+}
+
+struct Point{
+    ld x,y;
+    Point(): x(0),y(0){}
+    Point(ld x,ld y): x(x),y(y) {}
+
+    Point operator + (Point B){return Point(x+B.x,y+B.y);}
+    Point operator - (Point B){return Point(x-B.x,y-B.y);}
+    Point operator * (ld k){return Point(x*k,y*k);}
+    Point operator / (ld k){return Point(x/k,y/k);}
+    bool operator == (Point B){return ((ldcmp(x-B.x,0)==0)&&(ldcmp(y-B.y,0)==0));}
+    bool operator < (Point B){
+        if (x != B.x) return x < B.x;
+        return y < B.y;
+    }
+};
+
+ld Dist(Point A,Point B){
+    return sqrt((A.x-B.x)*(A.x-B.x)+(A.y-B.y)*(A.y-B.y));
+}
+
+typedef Point Vector;
+
+ld Dot(Vector A,Vector B){return A.x*B.x+A.y*B.y;}
+ld Len(Vector A){return sqrt(Dot(A,A));}
+ld Angle(Vector A,Vector B){return acos(Dot(A,B)/Len(A)/Len(B));}
+ld Cross(Vector A,Vector B){return A.x*B.y-A.y*B.x;}
+ld Area(Point A,Point B,Point C){return Cross(B-A,C-A)/2;}
+Vector Rotate(Vector A,ld rad){
+    return Vector(A.x*cos(rad)-A.y*sin(rad),A.x*sin(rad)+A.y*cos(rad));
+}
+bool Parallel(Vector A,Vector B){return ldcmp(Cross(A,B),0)==0;}
+
+struct Line{
+    Point p1,p2;
+    Line(){}
+    Line(Point p1,Point p2): p1(p1),p2(p2){}
+    Line(Point P,ld angle){
+        p1=P;
+        if(ldcmp(angle-pi/2,0)==0){
+            p2=p1+Point(0,1);
+        }else{
+            p2=p1+Point(1,tan(angle));
+        }
+    }
+
+    Line(ld a,ld b,ld c){
+        if(ldcmp(a,0)==0){
+            p1=Point(0,-c/b);
+            p2=Point(1,-c/b);
+        }else if(ldcmp(b,0)==0){
+            p1=Point(-c/a,0);
+            p2=Point(-c/a,1);
+        }else{
+            p1=Point(0,-c/b);
+            p2=Point(1,(-c-a)/b);
+        }
+    }
+};
+
+//for directed lines from p1 to p2
+ll Point_line_relation(Point P, Line v){
+    ll c=ldcmp(Cross(P-v.p1,v.p2-v.p1),0);
+    if(c<0) return 1;//P on the leftside of v
+    if(c>0) return 2;//P on the rightside of v
+    return 0; //P on v
+}
+
+bool Point_on_seg(Point P, Line v){
+    return ldcmp(Cross(P-v.p1,v.p2-v.p1),0)==0&&ldcmp(Dot(P-v.p1,P-v.p2),0)<=0;
+}
+
+ld Dis_point_line(Point P, Line v){
+    return fabs(Cross(P-v.p1,v.p2-v.p1)/Dist(v.p1,v.p2));
+}
+
+Point Point_line_proj(Point P, Line v){
+    ld k=Dot(v.p2-v.p1,P-v.p1)/Dot(v.p2-v.p1,v.p2-v.p1);
+    return v.p1+(v.p2-v.p1)*k;
+}
+
+Point Point_line_symmetry(Point P, Line v){
+    Point q=Point_line_proj(P,v);
+    return Point(2*q.x-P.x,2*q.y-P.y);
+}
+
+ld Dis_point_seg(Point P, Line v){
+    if(ldcmp(Dot(P-v.p1,v.p2-v.p1),0)<0||ldcmp(Dot(P-v.p2,v.p1-v.p2),0)<0){
+        return min(Dist(P,v.p1),Dist(P,v.p2));
+    }
+    return Dis_point_line(P,v);
+}
+
+//Directed lines
+ll Line_relation(Line v1, Line v2){
+    if(ldcmp(Cross(v1.p2-v1.p1,v2.p2-v2.p1),0)==0){
+        //overlapp
+        if(Point_line_relation(v1.p1,v2)==0) return 1;
+
+        //parallell
+        else return 0;
+    }
+    //intersect
+    return 2;
+}
+
+//Must have ab,cd not the same
+Point Cross_point(Point a,Point b,Point c,Point d){
+    ld s1=Cross(b-a,c-a);
+    ld s2=Cross(b-a,d-a);
+    return Point(c.x*s2-d.x*s1,c.y*s2-d.y*s1)/(s2-s1);
+}
+
+ll Point_in_polygon(Point pt, Point *p,ll n){//list of points p representing polygon
+    for(int i=1;i<=n;i++){
+        //Point on vetices
+        if(ldcmp(Dist(p[i],pt),0)==0) return 3;
+    }
+    for(int i=1;i<=n;i++){
+        Line v=Line(p[i],p[i%n+1]);
+        
+        //Point on Edge
+        if(Point_on_seg(pt,v)) return 2;
+    }
+    ll num=0;
+    for(int i=1;i<=n;i++){
+        ll j=i%n+1;
+        ll c=ldcmp(Cross(pt-p[j],p[i]-p[j]),0);
+        ll u=ldcmp(p[i].y-pt.y,0);
+        ll v=ldcmp(p[j].y-pt.y,0);
+        if(c>0&&u<0&&v>=0) num++;
+        if(c<0&&u>=0&&v<0) num--;
+    }
+    //return 1 is inside, 0 is outside
+    return num!=0;
+}
+
+ld Polygon_area(Point *p,ll n){
+    ld area=0;
+    for(int i=1;i<=n;i++){
+        area+=Cross(p[i],p[i%n+1]);
+    }
+    return abs(area/2.0);
+}
+
+void init(){
+    for(int i=0;i<=n;i++){
+        a[i]=0;
+    }
+}
+
+Point poly[MAXN];
+
+void solve(){
+    cin>>n;
+    eps=1e-6;
+    for(int i=1;i<=n;i++){
+        cin>>poly[i].x>>poly[i].y;
+        //eps = max(eps,1e-6* (ld)max(abs(poly[i].x),abs(poly[i].y)));
+    }
+
+    cout<<abs(Polygon_area(poly,n))<<'\n';
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    solve();
+}
+
+===== Print/Range_query_max_segtree.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll MOD=998244353;
+const ll INF=1e15;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,a[MAXN],ans,n,q;
+
+// ===== TO TURN THIS INTO RANGE ADD, RANGE MIN =====
+// Only 4 edits, everything else (apply_add, push_down, update) stays identical:
+//   1. static constexpr ll NEG = LLONG_MIN / 4;   ->   LLONG_MAX / 4   (identity for min is +big)
+//   2. push_up:  tree[p] = max(tree[lc(p)], tree[rc(p)]);   ->   min(...)
+//   3. query:    res = max(res, query(... lc ...));         ->   min(...)
+//   4. query:    res = max(res, query(... rc ...));         ->   min(...)
+// NEG is used everywhere as the "empty" value (init, query start, empty range),
+// so changing its value in step 1 fixes all of those spots automatically.
+// (Optionally rename NEG to ID for readability.)
+
+// Range add, range max. No modulo: values are exact (max is not modular-friendly).
+struct SegTree {
+    int n; // number of elements (0-indexed)
+    vector<ll> tree, tag;
+    static constexpr ll NEG = LLONG_MIN / 4; // identity for max
+ 
+    SegTree() {}
+    SegTree(const vector<ll>& arr) { init(arr); }
+ 
+    void init(const vector<ll>& arr) {
+        n = (int)arr.size();
+        tree.assign(4 * n + 5, NEG);
+        tag.assign(4 * n + 5, 0);
+        build(1, 0, n - 1, arr);
+    }
+ 
+    inline int lc(int p) { return p << 1; }
+    inline int rc(int p) { return p << 1 | 1; }
+ 
+    void push_up(int p) {
+        tree[p] = max(tree[lc(p)], tree[rc(p)]);
+    }
+ 
+    void build(int p, int l, int r, const vector<ll>& arr) {
+        tag[p] = 0;
+        if (l == r) {
+            tree[p] = arr[l];
+            return;
+        }
+        int mid = (l + r) >> 1;
+        build(lc(p), l, mid, arr);
+        build(rc(p), mid + 1, r, arr);
+        push_up(p);
+    }
+ 
+    // adding k to every element of a node shifts its max by exactly k
+    void apply_add(int p, ll k) {
+        tag[p] += k;
+        tree[p] += k;
+    }
+ 
+    void push_down(int p) {
+        if (tag[p] == 0) return;
+        apply_add(lc(p), tag[p]);
+        apply_add(rc(p), tag[p]);
+        tag[p] = 0;
+    }
+ 
+    void update(int ql, int qr, ll k, int p, int l, int r) {
+        if (ql <= l && r <= qr) {
+            apply_add(p, k);
+            return;
+        }
+        push_down(p);
+        int mid = (l + r) >> 1;
+        if (ql <= mid) update(ql, qr, k, lc(p), l, mid);
+        if (qr > mid)  update(ql, qr, k, rc(p), mid + 1, r);
+        push_up(p);
+    }
+ 
+    // public update: add k to range [l, r] (0-indexed, inclusive)
+    void update(int l, int r, ll k) {
+        if (l > r) return;
+        update(l, r, k, 1, 0, n - 1);
+    }
+ 
+    ll query(int ql, int qr, int p, int l, int r) {
+        if (ql <= l && r <= qr) return tree[p];
+        push_down(p);
+        int mid = (l + r) >> 1;
+        ll res = NEG;
+        if (ql <= mid) res = max(res, query(ql, qr, lc(p), l, mid));
+        if (qr > mid)  res = max(res, query(ql, qr, rc(p), mid + 1, r));
+        return res;
+    }
+ 
+    // public query: max over [l, r] (0-indexed, inclusive)
+    ll query(int l, int r) {
+        if (l > r) return NEG;
+        return query(l, r, 1, 0, n - 1);
+    }
+};
+
+// ===== Usage =====
+// vector<ll> arr = {1,2,3,4,5};
+// SegTree seg(arr);            // builds the tree (0-indexed)
+// seg.update(1, 3, 2);         // arr[1..3] += 2
+// ll m = seg.query(0, 4);      // max over [0, 4]
+/*
+
+int main(){
+    // n elements, 0-indexed
+    vector<ll> arr(n, 0);
+    SegTree T(arr);              // or T.init(arr) if default-constructed
+
+    // add 1 to all of [0, n-1]
+    T.update(0, n-1, 1);
+
+    // max over [0, n-1]
+    T.query(0, n-1);
+}
+*/
+
+===== Print/Segmenttree_class.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll MOD=998244353;
+const ll INF=1e15;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,a[MAXN],ans,n,q;
+
+struct SegTree {
+    int n; // number of elements (0-indexed)
+    vector<ll> tree, tag;
+ 
+    SegTree() {}
+    SegTree(const vector<ll>& arr) { init(arr); }
+ 
+    // Helper: ensure value is in [0, MOD-1]
+    static ll norm(ll x) {
+        x %= MOD;
+        if (x < 0) x += MOD;
+        return x;
+    }
+ 
+    void init(const vector<ll>& arr) {
+        n = (int)arr.size();
+        tree.assign(4 * n + 5, 0);
+        tag.assign(4 * n + 5, 0);
+        build(1, 0, n - 1, arr);
+    }
+ 
+    inline int lc(int p) { return p << 1; }
+    inline int rc(int p) { return p << 1 | 1; }
+ 
+    void push_up(int p) {
+        tree[p] = (tree[lc(p)] + tree[rc(p)]) % MOD;
+    }
+ 
+    void build(int p, int l, int r, const vector<ll>& arr) {
+        tag[p] = 0;
+        if (l == r) {
+            tree[p] = norm(arr[l]); // store positive modulo
+            return;
+        }
+        int mid = (l + r) >> 1;
+        build(lc(p), l, mid, arr);
+        build(rc(p), mid + 1, r, arr);
+        push_up(p);
+    }
+ 
+    void apply_add(int p, int l, int r, ll k) {
+        k = norm(k); // normalize k to positive
+        tag[p] = (tag[p] + k) % MOD;
+        tree[p] = (tree[p] + k * ((r - l + 1) % MOD)) % MOD;
+    }
+ 
+    void push_down(int p, int l, int r) {
+        if (tag[p] == 0) return;
+        int mid = (l + r) >> 1;
+        apply_add(lc(p), l, mid, tag[p]);
+        apply_add(rc(p), mid + 1, r, tag[p]);
+        tag[p] = 0;
+    }
+ 
+    void update(int ql, int qr, ll k, int p, int l, int r) {
+        if (ql <= l && r <= qr) {
+            apply_add(p, l, r, k);
+            return;
+        }
+        push_down(p, l, r);
+        int mid = (l + r) >> 1;
+        if (ql <= mid) update(ql, qr, k, lc(p), l, mid);
+        if (qr > mid)  update(ql, qr, k, rc(p), mid + 1, r);
+        push_up(p);
+    }
+ 
+    // public update: add k to range [l, r] (0-indexed, inclusive)
+    void update(int l, int r, ll k) {
+        if (l > r) return;
+        k = norm(k); // ensure k is positive modulo
+        update(l, r, k, 1, 0, n - 1);
+    }
+ 
+    ll query(int ql, int qr, int p, int l, int r) {
+        if (ql <= l && r <= qr) return tree[p];
+        push_down(p, l, r);
+        int mid = (l + r) >> 1;
+        ll res = 0;
+        if (ql <= mid) res = (res + query(ql, qr, lc(p), l, mid)) % MOD;
+        if (qr > mid)  res = (res + query(ql, qr, rc(p), mid + 1, r)) % MOD;
+        return res;
+    }
+ 
+    // public query: sum over [l, r] (0-indexed, inclusive)
+    ll query(int l, int r) {
+        if (l > r) return 0;
+        return query(l, r, 1, 0, n - 1);
+    }
+};
+
+// ===== 线段树模板使用说明 =====
+// 1. 初始化：传入一个 vector<ll> arr（下标 0 开始）
+//    vector<ll> arr = {1,2,3,4,5};
+//    SegTree seg(arr);                     // 自动建树，内部使用正数
+
+// 2. 区间加：将 [l, r]（闭区间，0 基）每个元素加上 k
+//    seg.update(l, r, k);
+//    例： seg.update(1, 3, 2);             // arr[1..3] 都加 2
+
+// 3. 区间求和：查询 [l, r]（闭区间，0 基）的和
+//    ll sum = seg.query(l, r);
+//    例： ll s = seg.query(0, 4);          // 求整个数组的和
+
+// ===== 完整示例 =====
+/*
+
+int main(){
+    SegTree T;
+
+    //1 to n all add 1
+    T.update(1,n,1);
+
+    //querying sum from 1 to n
+    T.query(1,n);
+}
+
+===== Print/Stresstest.sh =====
+python3 generator.py>testcase.txt
+./mine<testcase.txt>my_output.txt
+./ans<testcase.txt>answer.txt
+diff my_output.txt answer.txt
+
+===== Print/Union_find.cpp =====
+#include <bits/stdc++.h>
+
+using namespace std;
+
+typedef long long ll;
+typedef long double ld;
+
+const int MAXN=106;
+ll s[MAXN],n,sz[MAXN];
+
+ll find_set(ll x){
+    if(x!=s[x]){
+        s[x]=find_set(s[x]);
+    }
+    return s[x];
+}
+
+void merge_set(ll x,ll y){
+    ll a=find_set(x);
+    ll b=find_set(y);
+
+    if(a==b) return;
+    
+    sz[a]+=sz[b];
+    s[b]=a;
+}
+
+int main(){
+    cin>>n;
+    for(int i=1;i<=n;i++){
+        s[i]=i;
+        sz[i]=1;
+    }
+
+    for(int i=1;i<=n-1;i++){
+        merge_set(i,i+1);
+    }
+}
+
+===== Print/gaussjordanelimination.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll MOD=1e9+7;
+const ll INF=1e18;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,ans,k;
+
+ld eps=1e-7;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+ll ldcmp(ld x,ld y){
+    if(fabs(x-y)<eps) return 0;
+    else return x<y?-1:1;
+    //is x<y return -1, x>y return 1;
+}
+
+struct matrix{
+    ld row,col;
+    ld m[MAXN][MAXN];
+};
+
+ld res[MAXN];
+
+//A merged matrix
+void gauss_elimination(matrix& A,ld *res){
+    memset(res,0,sizeof(res));
+
+    ll n=A.row;
+    if(A.col!=n+1){
+        for(int i=1;i<=n;i++){
+            res[i]=INF;
+        }
+        return;
+    }
+
+    for(int i=1;i<=n;i++){
+        ll maxi=i;
+
+        //find pivot row
+        for(int j=1;j<=n;j++){
+            if(j<i&&ldcmp(A.m[j][j],0)>0){
+                continue;
+            }
+            if(ldcmp(abs(A.m[j][i]),abs(A.m[maxi][i]))==1){
+                maxi=j;
+            }
+        }
+        swap(A.m[maxi],A.m[i]);
+
+        if(ldcmp(A.m[i][i],0)!=0){
+            ld tmp=A.m[i][i];
+            for(int j=i;j<=n+1;j++){
+                A.m[i][j]/=tmp;
+            }
+
+            for(int j=1;j<=n;j++){
+                if(i!=j){
+                    ld rate=A.m[j][i]/A.m[i][i];
+
+                    for(int k=i;k<=n+1;k++){
+                        A.m[j][k]-=A.m[i][k]*rate;
+                    }
+                }
+            }
+        }
+    }
+
+    return;
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+
+    matrix A;
+    A.row=n;
+    A.col=n+1;
+
+    for(int i=1;i<=n;i++){
+        for(int j=1;j<=n+1;j++){
+            cin>>A.m[i][j];
+        }
+    }
+
+    gauss_elimination(A,res);
+    
+    ll sign=1;
+    for(int i=1;i<=n;i++){
+        if(ldcmp(abs(A.m[i][i]),0)==0&&ldcmp(abs(A.m[i][n+1]),0)!=0){
+            sign=-1;
+            break;
+        }
+
+        if(ldcmp(abs(A.m[i][i]),0)==0){
+            sign=0;
+        }
+    }
+
+    if(sign==1){
+        cout<<fixed<<setprecision(2);
+        for(int i=1;i<=n;i++){
+            cout<<"x"<<i<<"="<<A.m[i][n+1]<<'\n';
+        }
+    }else cout<<sign<<'\n';
+}
+
+===== Print/zero_one_partition.cpp =====
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+ 
+typedef long long ll;
+typedef long double ld;
+ 
+const ll INF=1e18;
+const ll MAXN=100006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,a[MAXN],b[MAXN],ans,k;
+ld eps=1e-6;
+
+bool check(ld x){
+    vector<ld> all;
+    ld res=0;
+
+    for(int i=1;i<=n;i++){
+        all.push_back(a[i]-x*b[i]);
+    }
+    sort(all.begin(),all.end(),greater<ld>());
+
+    for(int i=0;i<n-k;i++){
+        res+=all[i];
+    }
+
+    return res>=-eps;
+}
+
+ll zero_one_partition(){
+    ld start=0,end=n;
+    while(end-start>eps){
+        ld x=start+(end-start)/2;
+
+        //if f(x)>0
+        if(check(x)){
+            start=x+eps;
+        }else end=x-eps;
+    }
+
+    ll res = floor(100 * start + 0.5);
+    return res;
+}
+
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    while(true){
+        cin>>n>>k;
+        if(n==0&&k==0) break;
+
+        for(int i=1;i<=n;i++) cin>>a[i];
+        for(int i=1;i<=n;i++) cin>>b[i];
+
+        cout<<zero_one_partition()<<'\n';
+    }
+}
+
+

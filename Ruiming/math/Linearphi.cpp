@@ -4,6 +4,8 @@ using namespace std;
  
 typedef long long ll;
 typedef long double ld;
+typedef __int128 i128;
+ld eps = 1e-9;
  
 const ll INF=1e18;
 const ll MAXN=406;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
