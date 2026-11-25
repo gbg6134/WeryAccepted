@@ -162,6 +162,10 @@ ld Polygon_area(Point *p,ll n){
     return abs(area/2.0);
 }
 
+bool cmp(Point x,Point y){//sort in anti clockwise
+    return atan2l(x.y,x.x)<atan2l(y.y,y.x);
+}
+
 void init(){
     for(int i=0;i<=n;i++){
         a[i]=0;
