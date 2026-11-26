@@ -174,24 +174,31 @@ vi sos(int n, vi f) {
 \end{lstlisting}
 
 \entry{LIS}{$O(n \log n)$ \quad mem $n$}{%
-\code{c[k]} ends up as the smallest possible tail of an increasing subsequence of
-length \code{k+1}, so \code{c.size()} is the answer. \code{c} itself is \emph{not} a
-valid subsequence.\\[0.3ex]
-\code{lower\_bound} gives \textbf{strictly} increasing; \code{upper\_bound} gives
-non-decreasing. Longest decreasing: reverse the input, or negate it. Minimum number of
-non-increasing chains covering the sequence = length of the LIS (Dilworth).\\[0.3ex]
-To reconstruct, store for each element the index it was placed at plus the predecessor
-\code{c}-index, then walk back from the last placement.}
+From KACTL. \code{lis(S)} returns the \textbf{indices} of one longest
+\textbf{strictly} increasing subsequence, so \code{lis(S).size()} is its length.
+Non-decreasing: change the \code{0} in the \code{lower\_bound} to \code{i}. Longest
+decreasing: negate the input. Minimum number of non-increasing chains covering the
+sequence = length of the LIS (Dilworth).}
 
+%LABEL lis
 \begin{lstlisting}
-ll lis(const vi& a) {
-    vi c;
-    for (ll e : a) {
-        auto it = lower_bound(all(c), e);
-        if (it == c.end()) c.push_back(e);
-        else *it = e;
+template<class I> vi lis(const vector<I>& S) {
+    if (S.empty()) return {};
+    vi prev(S.size());
+    typedef pair<I, int> p;
+    vector<p> res;
+    rep(i,0,(ll)S.size()) {
+        // change 0 -> i for longest non-decreasing
+        auto it = lower_bound(all(res), p{S[i], 0});
+        if (it == res.end())
+            res.emplace_back(), it = res.end()-1;
+        *it = {S[i], i};
+        prev[i] = it == res.begin() ? 0 : (it-1)->second;
     }
-    return (ll)c.size();
+    int L = (int)res.size(), cur = res.back().second;
+    vi ans(L);
+    while (L--) ans[L] = cur, cur = prev[cur];
+    return ans;
 }
 \end{lstlisting}
 

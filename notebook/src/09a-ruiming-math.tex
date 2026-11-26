@@ -28,8 +28,9 @@ void exgcd(ll a,ll b){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp
 typedef __int128 i128;
+ld eps = 1e-9;
 const ll MAXN=16;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll n,lst[MAXN],a[MAXN],m[MAXN],ans[MAXN],k,temp;
 int main(){
@@ -56,7 +57,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 ll gcd(ll a,ll b)
 {
 	ll az=__builtin_ctz(a),bz=__builtin_ctz(b);
@@ -81,7 +82,7 @@ ll gcd(ll a,ll b)
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp, math/exgcd.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, math/exgcd.cpp
 ll mul(ll a, ll b, ll m) { return (__int128)a * b % m; }
 ll fast(ll x,ll p,ll m){
     x=(x%m+m)%m;
@@ -100,7 +101,7 @@ ll fast(ll x,ll p,ll m){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 ll mul(ll a, ll b, ll m) { /* see math/Fastmod.cpp */ }
 ll fast(ll x,ll p,ll m){ /* see math/Fastmod.cpp */ }
 bool flag;
@@ -157,7 +158,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp, math/exgcd.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, math/exgcd.cpp
 ll phi(ll n) {//求欧拉函数
     ll ans = 1;
     for(ll i = 2; i * i <= n; ++ i) {
@@ -181,7 +182,7 @@ ll phi(ll n) {//求欧拉函数
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 const ll MAXN=406;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll n,phi[MAXN],ans=1;
 bool p[MAXN];
@@ -216,7 +217,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp, math/Linearphi.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, math/Linearphi.cpp
 const int MAXN=106;
 ll n,q;
 int main(){
@@ -244,7 +245,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp, math/exgcd.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, math/exgcd.cpp
 const ll MAXN=36;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 map<ll,ll> fac[MAXN];
 int main(){
@@ -270,7 +271,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 vector<ll> factor(ll n) {
 	vector<ll> ret;
 	for (ll i = 2; i * i <= n; i++) {
@@ -409,7 +410,7 @@ void pollard_rho(LL n)
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 typedef vector<ll> vi;
 typedef vector<vi> matrix;
 #define rep(i, a, b) for(int i = a; i < b; i++)
@@ -435,7 +436,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 const ll MOD=1e9+7;
 const ll MAXN=26;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll t,n,fac[MAXN],inv[MAXN],ans,k;
@@ -463,7 +464,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 const int MAXN=206;
 ll n,p,ans[MAXN],corr[MAXN],now,fac[MAXN],inv[MAXN];
 ll mul(ll a, ll b, ll m) { /* see math/Fastmod.cpp */ }
@@ -526,7 +527,7 @@ matrix pow_matrix(matrix a,ll n){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp, math/Combinumber_inv.cpp, math/Matrix.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, math/Combinumber_inv.cpp, math/Matrix.cpp
 ld eps=1e-7;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct matrix{
@@ -570,9 +571,7 @@ int main(){
     matrix A;
     A.row=n;
     A.col=n+1;
-    for(int i=1;i<=n;i++){
-        for(int j=1;j<=n+1;j++) cin>>A.m[i][j];
-    }
+    for(int i=1;i<=n;i++) for(int j=1;j<=n+1;j++) cin>>A.m[i][j];
     gauss_elimination(A,res);
     ll sign=1;
     for(int i=1;i<=n;i++){
@@ -688,9 +687,7 @@ void xor_gauss(matrix& A){
             }
         }
         if(A.m[i][i]==1){
-            for(int j=1;j<=m;j++){
-                if(i!=j&&A.m[j][i]==1) A.m[j]^=A.m[i];
-            }
+            for(int j=1;j<=m;j++) if(i!=j&&A.m[j][i]==1) A.m[j]^=A.m[i];
         }else{
             k=m+1;
             return;

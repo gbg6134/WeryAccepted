@@ -160,3 +160,118 @@ vi bitConv(vi a, vi b, int mode) {     // same size, 2^k
     return a;
 }
 \end{lstlisting}
+
+\entry{Discrete log (baby-step giant-step)}{$O(\sqrt m)$}{%
+Smallest $x > 0$ with $a^x \equiv b \pmod m$, or \code{-1}. Works even when
+$\gcd(a, m) \ne 1$. Check $x = 0$ (i.e. $b = 1$) yourself if it is allowed.
+\code{modLog(a, 1, m)} is the \emph{order} of $a$: the length of the cycle of powers.\\[0.3ex]
+Idea: write $x = n i - j$ with $n \approx \sqrt m$. Store $b a^j$ for all small $j$ in a
+hash map (baby steps), then try $a^{n i}$ for $i = 1, 2, \dots$ (giant steps) until one
+is in the map. $m$ up to $\sim 3\cdot10^9$ (products must fit in \code{ll}; above that
+use \code{i128}). From KACTL.}
+
+%LABEL modLog
+\begin{lstlisting}
+ll modLog(ll a, ll b, ll m) {
+    a %= m; b %= m;
+    ll n = (ll)sqrtl(m) + 1, e = 1, f = 1, j = 1;
+    unordered_map<ll, ll> A;
+    while (j <= n && (e = f = e * a % m) != b)
+        A[e * b % m] = j++;
+    if (e == b) return j;
+    if (__gcd(m, e) == __gcd(m, b))
+        rep(i, 2, n + 2) if (A.count(e = e * f % m))
+            return n * i - A[e];
+    return -1;
+}
+\end{lstlisting}
+
+\entry{Modular square root (Tonelli-Shanks)}{$O(\log^2 p)$}{%
+Needs \code{power}. For a \textbf{prime} $p$, finds $x$ with $x^2 \equiv a \pmod p$; the
+other root is $p - x$. A root exists iff $a \equiv 0$ or
+\code{power(a, (p-1)/2, p) == 1} (Euler's criterion) --- test that first, the code
+asserts it. Used for solving $x^2 + bx + c \equiv 0$ (complete the square) and in some
+NTT tricks. From KACTL.}
+
+%DEP modbasics
+%LABEL modSqrt
+\begin{lstlisting}
+ll modSqrt(ll a, ll p) {
+    a %= p; if (a < 0) a += p;
+    if (a == 0) return 0;
+    assert(power(a, (p - 1) / 2, p) == 1);   // no root
+    if (p % 4 == 3) return power(a, (p + 1) / 4, p);
+    ll s = p - 1, n = 2;
+    int r = 0, m;
+    while (s % 2 == 0) ++r, s /= 2;
+    while (power(n, (p - 1) / 2, p) != p - 1) ++n;
+    ll x = power(a, (s + 1) / 2, p);
+    ll b = power(a, s, p), g = power(n, s, p);
+    for (;; r = m) {
+        ll t = b;
+        for (m = 0; m < r && t != 1; ++m) t = t * t % p;
+        if (m == 0) return x;
+        ll gs = power(g, 1LL << (r - m - 1), p);
+        g = gs * gs % p;
+        x = x * gs % p;
+        b = b * g % p;
+    }
+}
+\end{lstlisting}
+
+\entry{Berlekamp-Massey + linear recurrence}{$O(n^2)$, then $O(n^2 \log k)$}{%
+Needs \code{power}. \textbf{The ``guess the formula'' tool.} If the answer for $n$
+follows \emph{some} linear recurrence $a_i = c_1 a_{i-1} + \dots + c_d a_{i-d}$ (mod a
+prime) --- which is true for every ``count paths / tilings / strings with a fixed
+small automaton'' problem and anything a matrix power could solve --- then:\\[0.3ex]
+1. Brute force the first $2d + 10$ terms (more is safer), mod the prime.\\
+2. \code{tr = berlekampMassey(terms, md)} returns $c_1, \dots, c_d$.\\
+3. \code{linearRec(terms, tr, k, md)} gives term $k$ (0-indexed), $k$ up to $10^{18}$.\\[0.3ex]
+Much faster and simpler than building the matrix by hand: you never have to find the
+recurrence yourself. If \code{tr} comes out as long as half your input, you did not
+give enough terms or there is no linear recurrence. Example:
+\code{berlekampMassey(\{0,1,1,3,5,11\}, md)} is \code{\{1, 2\}}. From KACTL.}
+
+%DEP modbasics
+%LABEL bm
+\begin{lstlisting}
+vi berlekampMassey(vi s, ll md) {
+    int n = (int)s.size(), L = 0, m = 0;
+    vi C(n), B(n), T;
+    C[0] = B[0] = 1;
+    ll b = 1;
+    rep(i, 0, n) { ++m;
+        ll d = s[i] % md;
+        rep(j, 1, L + 1) d = (d + C[j] * s[i - j]) % md;
+        if (!d) continue;
+        T = C; ll coef = d * power(b, md - 2, md) % md;
+        rep(j, m, n) C[j] = (C[j] - coef * B[j - m]) % md;
+        if (2 * L > i) continue;
+        L = i + 1 - L; B = T; b = d; m = 0;
+    }
+    C.resize(L + 1); C.erase(C.begin());
+    for (ll& x : C) x = (md - x) % md;
+    return C;
+}
+ll linearRec(vi S, vi tr, ll k, ll md) {   // S[k]
+    int n = (int)tr.size();
+    auto combine = [&](vi a, vi b) {
+        vi res(n * 2 + 1);
+        rep(i, 0, n + 1) rep(j, 0, n + 1)
+            res[i + j] = (res[i + j] + a[i] * b[j]) % md;
+        for (int i = 2 * n; i > n; --i) rep(j, 0, n)
+            res[i-1-j] = (res[i-1-j] + res[i] * tr[j]) % md;
+        res.resize(n + 1);
+        return res;
+    };
+    vi pol(n + 1), e(pol);
+    pol[0] = e[1] = 1;
+    for (++k; k; k /= 2) {
+        if (k % 2) pol = combine(pol, e);
+        e = combine(e, e);
+    }
+    ll res = 0;
+    rep(i, 0, n) res = (res + pol[i + 1] * S[i]) % md;
+    return res;
+}
+\end{lstlisting}

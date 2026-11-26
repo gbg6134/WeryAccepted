@@ -1,63 +1,36 @@
 \section{Searching}
 
-\entry{Binary search on a predicate}{$O(\log)$}{%
-\code{pred} must be monotone false$\dots$false true$\dots$true. Returns the first
-\code{x} in \code{[lo, hi]} with \code{pred(x)}, or \code{hi+1} if none --- so test the
-return value before using it.\\[0.3ex]
-``Largest \code{x} that still works'' is the same call on the negated predicate minus
-one, or just search for the first failing \code{x} and subtract 1. Almost every
-``minimise the maximum'' / ``can we do it within $k$'' problem is this function plus a
-greedy check.\\[0.3ex]
-Reals: fix the iteration count (100 halvings covers any range to $10^{-30}$) rather than
-looping on a tolerance, which can spin forever.}
+\entry{Binary search on the answer}{$O(\log)$}{%
+No template needed. The predicate must be monotone false$\dots$false
+true$\dots$true; keep the invariant \code{pred(lo)} false, \code{pred(hi)} true and
+loop \code{while (hi - lo > 1)} with \code{m = lo + (hi-lo)/2}; the answer is
+\code{hi}. On a sorted array use \code{lower\_bound}/\code{upper\_bound}, or
+\code{partition\_point(all(v), pred)}.\\[0.3ex]
+Almost every ``minimise the maximum'' / ``can we do it within $k$'' problem is this
+plus a greedy check. Reals: fix the iteration count (100 halvings) instead of looping
+on a tolerance, which can spin forever.}
 
+\entry{Ternary search}{$O(\log(b-a))$}{%
+From KACTL. \code{ternSearch(a, b, f)}: the smallest \code{i} in \code{[a, b]} that
+\textbf{maximises} \code{f(i)}, assuming $f(a) < \dots < f(i) \ge \dots \ge f(b)$. To
+\textbf{minimise}, change the \code{<} at (A) and at (B) to \code{>}. To allow flat
+stretches on the other side, make (A) \code{<=} and reverse the loop at
+(B).\\[0.3ex]
+Usage: \code{int ind = ternSearch(0, n-1, [\&](int i)\{ return a[i]; \});}. Reals:
+the classic thirds loop, 200 iterations, on \code{ld}.}
+
+%LABEL ternSearch
 \begin{lstlisting}
 template<class F>
-ll bsearch(ll lo, ll hi, F pred) {   // first true in [lo,hi]
-    hi++;                            // hi = "none found"
-    while (lo < hi) {
-        ll m = lo + (hi - lo) / 2;   // no overflow
-        if (pred(m)) hi = m; else lo = m + 1;
+int ternSearch(int a, int b, F f) {
+    assert(a <= b);
+    while (b - a >= 5) {
+        int mid = (a + b) / 2;
+        if (f(mid) < f(mid+1)) a = mid; // (A)
+        else b = mid+1;
     }
-    return lo;
-}
-template<class F>
-ld bsearchReal(ld lo, ld hi, F pred) {
-    rep(it, 0, 100) {
-        ld m = (lo + hi) / 2;
-        if (pred(m)) hi = m; else lo = m;
-    }
-    return lo;
-}
-\end{lstlisting}
-
-\entry{Ternary search}{$O(\log)$}{%
-For a \textbf{strictly unimodal} function --- one valley, no flat stretches. A flat
-region breaks it silently, so if ties are possible make the comparison
-\code{<=} vs \code{<} deliberately, or binary-search on
-\code{f(m+1) - f(m)} instead, which is the more robust trick.\\[0.3ex]
-The integer version finishes by scanning the last three candidates, which is where
-off-by-ones normally live. For a maximum, negate \code{f}.}
-
-\begin{lstlisting}
-template<class F>              // argmin of a unimodal f
-ll tsearch(ll lo, ll hi, F f) {
-    while (hi - lo > 2) {
-        ll m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
-        if (f(m1) < f(m2)) hi = m2; else lo = m1;
-    }
-    ll best = lo;
-    for (ll x = lo + 1; x <= hi; x++)
-        if (f(x) < f(best)) best = x;
-    return best;
-}
-template<class F>
-ld tsearchReal(ld lo, ld hi, F f) {
-    rep(it, 0, 200) {
-        ld m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
-        if (f(m1) < f(m2)) hi = m2; else lo = m1;
-    }
-    return (lo + hi) / 2;
+    rep(i,a+1,b+1) if (f(a) < f(i)) a = i; // (B)
+    return a;
 }
 \end{lstlisting}
 
@@ -78,5 +51,35 @@ vi compress(vi vals) {
 }
 int id(const vi& c, ll v) {
     return (int)(lower_bound(all(c), v) - c.begin());
+}
+\end{lstlisting}
+
+\entry{Interval cover}{$O(n \log n)$}{%
+Fewest intervals from \code{I} that together cover the target \code{G}; returns their
+indices, or empty if impossible. Intervals are \textbf{half-open} \code{[a, b)}; for
+closed ones on integers use \code{[a, b+1)}. Greedy: from the current point, among the
+intervals starting at or before it, take the one that reaches furthest. Same idea for
+``fewest jumps'' and ``fewest refuelling stops'' problems. From KACTL.}
+
+%LABEL cover
+\begin{lstlisting}
+template<class T>
+vector<int> cover(pair<T,T> G, vector<pair<T,T>> I) {
+    vector<int> S(I.size()), R;
+    iota(all(S), 0);
+    sort(all(S), [&](int a, int b) { return I[a] < I[b]; });
+    T cur = G.first;
+    int at = 0;
+    while (cur < G.second) {
+        pair<T, int> mx = make_pair(cur, -1);
+        while (at < (int)I.size() && I[S[at]].first <= cur) {
+            mx = max(mx, make_pair(I[S[at]].second, S[at]));
+            at++;
+        }
+        if (mx.second == -1) return {};
+        cur = mx.first;
+        R.push_back(mx.second);
+    }
+    return R;
 }
 \end{lstlisting}

@@ -42,7 +42,7 @@ awk -v out="$OUT" '
 grep -v -e 'int main' -e 'sync_with_stdio' -e 'cin.tie' "$OUT/header.cpp" \
   | sed '/^}$/d' > "$OUT/prelude.cpp"
 
-fail=0; pass=0; failed=""
+# build every translation unit first, then compile them all in parallel
 while IFS=$'\t' read -r s deps; do
   [ -n "$s" ] || continue
   for std in gnu++17 gnu++20; do
@@ -53,15 +53,20 @@ while IFS=$'\t' read -r s deps; do
       else echo "WARN: $(basename "$s") wants missing dep '$d'"; fi
     done
     cat "$s" >> "$tu"; echo 'int main(){}' >> "$tu"
-    if err=$(g++ -std=$std -fsyntax-only "$tu" 2>&1); then
-      pass=$((pass+1))
-    else
-      fail=$((fail+1)); failed="$failed $(basename "$s")[$std]"
-      echo "=== FAIL [$std] $(basename "$s") ==="
-      echo "$err" | grep -E 'error' | head -6
-    fi
   done
 done < "$OUT/manifest.txt"
+JOBS=$(nproc 2>/dev/null || echo 4)
+ls "$OUT"/tu_*.cpp | xargs -P "$JOBS" -I{} sh -c \
+  'std=$(echo "{}" | sed -E "s/.*_(gnu\+\+[0-9]+)\.cpp$/\1/");
+   g++ -std=$std -fsyntax-only "{}" > "{}.err" 2>&1 && rm -f "{}.err"'
+fail=0; pass=0; failed=""
+for tu in "$OUT"/tu_*.cpp; do
+  if [ -f "$tu.err" ]; then
+    fail=$((fail+1)); failed="$failed $(basename "$tu" .cpp)"
+    echo "=== FAIL $(basename "$tu") ==="
+    grep -E 'error' "$tu.err" | head -6
+  else pass=$((pass+1)); fi
+done
 echo "-----------------------------------------"
 echo "syntax check: $pass ok, $fail failed (gnu++17 + gnu++20)"
 [ -n "$failed" ] && echo "failed:$failed"

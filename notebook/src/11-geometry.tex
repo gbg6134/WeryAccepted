@@ -143,18 +143,8 @@ ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Angle(Vector A,Vector B){return acos(Dot(A,B)/Len(A)/Len(B));}
 ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
 bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
 ll Point_in_polygon(Point pt, Point *p,ll n){//list of points p representing polygon
     for(int i=1;i<=n;i++){
         //Point on vetices
@@ -199,16 +189,8 @@ ll t,n;
 ld ans;
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
-ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
 //UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #include <bits/stdc++.h>
 using namespace std;
@@ -221,26 +203,8 @@ const ld pi=acos(-1.0);
 ld eps=1e-6;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
-ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Polygon.cpp */ }
 ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Point_in_polygon(Point pt, Point *p,ll n){ /* see geomtery/Polygon.cpp */ }
-ld Polygon_area(Point *p,ll n){ /* see geomtery/Polygon.cpp */ }
 ll Convex_Hull(Point *p, ll n,Point *ch){
     sort(p+1,p+n+1);
     n=unique(p+1,p+n+1)-(p+1);
@@ -265,187 +229,6 @@ ll Convex_Hull(Point *p, ll n,Point *ch){
 Point poly[MAXN],ch[MAXN];
 \end{lstlisting}
 
-\entry{Lattic\_points.cpp}{Ruiming \quad exact}{Integer coordinates with \code{ll} only: no \code{eps}, no wrong answers. \code{Point\_in\_polygon(pt,p,n)} (1-indexed, 3 vertex / 2 edge / 1 inside / 0 outside) and \code{Polygon\_area2} = \textbf{twice} the signed area. Pick: interior lattice points $I = (A_2 - B + 2)/2$, with $B = \sum \gcd(|dx|,|dy|)$ over the edges. Distances and projections come back as \code{ld} \code{Point}s. Coordinates up to $10^9$ keep the cross products inside \code{ll}.}
-
-%NOCOMPILE
-%VERBATIM
-\begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp
-const ll INF = 1e18;
-const ll MAXN = 1006; // UPDATERA ARRAY STORLEKEN!!!!!!!!!!
-const ld pi = acos(-1.0L);
-ld eps = 1e-9;
-// 浮点比较
-ll ldcmp(ld x, ld y) {
-    if (fabs(x - y) < eps) return 0;
-    return x < y ? -1 : 1;
-}
-// ==================== 整数点 ====================
-struct PointLL {
-    ll x, y;
-    PointLL() : x(0), y(0) {}
-    PointLL(ll x, ll y) : x(x), y(y) {}
-    PointLL operator+(const PointLL& B) const { return PointLL(x + B.x, y + B.y); }
-    PointLL operator-(const PointLL& B) const { return PointLL(x - B.x, y - B.y); }
-    PointLL operator*(ll k) const { return PointLL(x * k, y * k); }
-    PointLL operator/(ll k) const { return PointLL(x / k, y / k); }
-    bool operator==(const PointLL& B) const { return x == B.x && y == B.y; }
-    bool operator!=(const PointLL& B) const { return !(*this == B); }
-};
-Point POF=Point(INF,INF);
-typedef PointLL VectorLL;
-// 点积
-ll Dot(const VectorLL& A, const VectorLL& B) {
-    return A.x * B.x + A.y * B.y;
-}
-// 叉积
-ll Cross(const VectorLL& A, const VectorLL& B) {
-    return A.x * B.y - A.y * B.x;
-}
-// 距离平方
-ll Dist2(const PointLL& A, const PointLL& B) {
-    ll dx = A.x - B.x, dy = A.y - B.y;
-    return dx * dx + dy * dy;
-}
-// 有向面积的两倍
-ll Area2(const PointLL& A, const PointLL& B, const PointLL& C) {
-    return Cross(B - A, C - A);
-}
-// 判断平行
-bool Parallel(const VectorLL& A, const VectorLL& B) {
-    return Cross(A, B) == 0;
-}
-// 直线（整数点）
-struct LineLL {
-    PointLL p1, p2;
-    LineLL() {}
-    LineLL(const PointLL& p1, const PointLL& p2) : p1(p1), p2(p2) {}
-};
-// 点与直线关系：1 左侧，2 右侧，0 在直线上
-ll Point_line_relation(const PointLL& P, const LineLL& v) {
-    ll c = Cross(P - v.p1, v.p2 - v.p1);
-    if (c < 0) return 1;
-    if (c > 0) return 2;
-    return 0;
-}
-// 点是否在线段上
-bool Point_on_seg(const PointLL& P, const LineLL& v) {
-    return Cross(P - v.p1, v.p2 - v.p1) == 0 &&
-           min(v.p1.x, v.p2.x) <= P.x && P.x <= max(v.p1.x, v.p2.x) &&
-           min(v.p1.y, v.p2.y) <= P.y && P.y <= max(v.p1.y, v.p2.y);
-}
-// 两直线关系：0 平行，1 重合，2 相交
-ll Line_relation(const LineLL& v1, const LineLL& v2) {
-    if (Cross(v1.p2 - v1.p1, v2.p2 - v2.p1) == 0) {
-        if (Cross(v1.p1 - v2.p1, v2.p2 - v2.p1) == 0) return 1;
-        return 0;
-    }
-    return 2;
-}
-// 点与多边形关系（整数精确）
-// 返回：3 顶点，2 边，1 内部，0 外部
-ll Point_in_polygon(const PointLL& pt, const PointLL* p, ll n) {
-    for (int i = 1; i <= n; i++) {
-        if (p[i] == pt) return 3;
-    }
-    for (int i = 1; i <= n; i++) {
-        int nxt = (i % n) + 1;
-        LineLL v(p[i], p[nxt]);
-        if (Point_on_seg(pt, v)) return 2;
-    }
-    bool inside = false;
-    for (int i = 1, j = n; i <= n; j = i++) {
-        if ((p[i].y > pt.y) != (p[j].y > pt.y)) {
-            ll dy = p[j].y - p[i].y;
-            ll dx = p[j].x - p[i].x;
-            ll lhs = (pt.x - p[i].x) * dy;
-            ll rhs = (pt.y - p[i].y) * dx;
-            if (dy > 0) {
-                if (lhs < rhs) inside = !inside;
-            } else {
-                if (lhs > rhs) inside = !inside;
-            }
-        }
-    }
-    return inside ? 1 : 0;
-}
-// 多边形面积的两倍（有向），返回 ll
-ll Polygon_area2(const PointLL* p, ll n) {
-    ll area = 0;
-    for (int i = 1; i <= n; i++) {
-        int nxt = (i % n) + 1;
-        area += p[i].x * p[nxt].y - p[i].y * p[nxt].x;
-    }
-    return area;
-}
-bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-// ==================== 浮点点 ====================
-struct Point{
-    ld x,y;
-    Point(): x(0),y(0){}
-    Point(ld x,ld y): x(x),y(y) {}
-    Point operator + (Point B){return Point(x+B.x,y+B.y);}
-    Point operator - (Point B){return Point(x-B.x,y-B.y);}
-    Point operator * (ld k){return Point(x*k,y*k);}
-    Point operator / (ld k){return Point(x/k,y/k);}
-    bool operator == (Point B){return ((ldcmp(x-B.x,0)==0)&&(ldcmp(y-B.y,0)==0));}
-    bool operator < (Point B){
-        if (x != B.x) return x < B.x;
-        return y < B.y;
-    }
-};
-typedef Point Vector;
-// 距离
-ld Dist(const PointLL& A, const PointLL& B) {
-    return sqrt((ld)Dist2(A, B));
-}
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
-// 点到直线距离
-ld Dis_point_line(const PointLL& P, const LineLL& v) {
-    return fabs((ld)Cross(P - v.p1, v.p2 - v.p1)) / Dist(v.p1, v.p2);
-}
-// 点到线段距离
-ld Dis_point_seg(const PointLL& P, const LineLL& v) {
-    if (Dot(P - v.p1, v.p2 - v.p1) < 0 || Dot(P - v.p2, v.p1 - v.p2) < 0) return min(Dist(P, v.p1), Dist(P, v.p2));
-    return Dis_point_line(P, v);
-}
-// 点在直线上的投影（返回浮点点）
-Point Point_line_proj(const PointLL& P, const LineLL& v) {
-    ld k = (ld)Dot(v.p2 - v.p1, P - v.p1) / Dot(v.p2 - v.p1, v.p2 - v.p1);
-    return Point(v.p1.x + (v.p2.x - v.p1.x) * k, v.p1.y + (v.p2.y - v.p1.y) * k);
-}
-// 点关于直线的对称点（返回浮点点）
-Point Point_line_symmetry(const PointLL& P, const LineLL& v) {
-    Point q = Point_line_proj(P, v);
-    return Point(2 * q.x - P.x, 2 * q.y - P.y);
-}
-// 两直线交点（返回浮点点）。要求两直线不平行。
-Point Cross_point(const PointLL& a, const PointLL& b, const PointLL& c, const PointLL& d) {
-    ld s1 = (ld)Cross(b - a, c - a);
-    ld s2 = (ld)Cross(b - a, d - a);
-    ld denom = s2 - s1;
-    return Point(
-        (c.x * s2 - d.x * s1) / denom,
-        (c.y * s2 - d.y * s1) / denom
-    );
-}
-// 向量旋转（返回浮点点）
-Point Rotate(const PointLL& A, ld rad) {
-    ld c = cos(rad), s = sin(rad);
-    return Point(A.x * c - A.y * s, A.x * s + A.y * c);
-}
-// 全局数组和读入示例
-PointLL poly[MAXN];
-ll n,m;
-\end{lstlisting}
-
 \entry{Closest\_pair.cpp}{Ruiming \quad $O(n \log^2 n)$}{Smallest distance between two of the points \code{p[1..n]}. \textbf{Sort first}: \code{sort(p+1, p+n+1, cmpx); closest\_pair(1, n)} returns the distance. Divide and conquer on $x$, then check the strip sorted by $y$.}
 
 %NOCOMPILE
@@ -458,24 +241,6 @@ struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
 Point POF=Point(INF,INF);
 ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
-struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
 bool cmpx(Point A,Point B){
     return ldcmp(A.x-B.x,0)<0||(ldcmp(A.x-B.x,0)==0&&ldcmp(A.y-B.y,0)<0);
 }
@@ -492,9 +257,7 @@ ld closest_pair(ll left,ll right){
     ld cand2=closest_pair(mid+1,right);
     dis=min(cand1,cand2);
     ll k=0;
-    for(int i=left;i<=right;i++){
-        if(fabs(p[mid].x-p[i].x)<=dis) tmp[++k]=p[i];
-    }
+    for(int i=left;i<=right;i++) if(fabs(p[mid].x-p[i].x)<=dis) tmp[++k]=p[i];
     sort(tmp+1,tmp+k+1,cmpy);
     for(int i=1;i<=k;i++){
         for(int j=i+1;j<=k;j++){
@@ -530,16 +293,8 @@ struct Point{
     }
 };
 Point POF=Point(INF,INF);
-ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Line {
     Point p1, p2;
     Vector v;
@@ -573,13 +328,6 @@ struct Line {
         return ldcmp(Cross(L.p1 - p1, L.p2 - p1), 0) > 0;
     }
 };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
 bool OnLeft(Line L, Point p) {
     return ldcmp(Cross(L.v, p - L.p1), 0) >= 0;
 }
@@ -634,24 +382,11 @@ struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
 Point POF=Point(INF,INF);
 ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
 Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Circle{
     Point c;
     ld r;
@@ -716,30 +451,8 @@ struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
 Point POF=Point(INF,INF);
 ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-struct Circle{ /* see geomtery/Circle.cpp */ };
-ll Point_circle_relation(Point P,Circle C){ /* see geomtery/Circle.cpp */ }
-ll Line_Circle_relation(Line v,Circle C){ /* see geomtery/Circle.cpp */ }
 typedef Line Segment;
-ll Seg_circle_relation(Segment v,Circle C){ /* see geomtery/Circle.cpp */ }
-ll Line_Cross_Circle(Line v,Circle C,Point &pa,Point &pb){ /* see geomtery/Circle.cpp */ }
 Point Circumcenter(Point A,Point B,Point C){ /* see geomtery/Circle.cpp */ }
 void min_center_circle(Point *p,ll n,Point &c,ld &r){
     random_shuffle(p+1,p+n+1);

@@ -149,7 +149,7 @@
 % Overleaf too); if it is missing the cover simply has no logo.
 % NWERC rules: EVERY page, the cover included, needs the university upper left
 % and the page number upper right, so the cover keeps the fancy header and is
-% page 1 (the last page then shows 25 = the page count).
+% page 1 (the last page then shows the page count).
 \begin{center}
 \strut\vspace{2.6cm}\\
 \IfFileExists{kth.pdf}{\includegraphics[width=3cm]{kth.pdf}\\[0.4cm]}{}
@@ -387,28 +387,31 @@ struct Seg {
 };
 \end{lstlisting}
 
-\entry{Sparse table}{build $O(n \log n)$, query $O(1)$ \quad mem $n \log n$}{%
-\textbf{Idempotent} \code{op} only --- min, max, gcd, and, or. \code{op(x,x)} must
-be \code{x}, because the two halves of a query overlap. No \code{ID} needed, and
-no updates ever. For sum use \code{BIT}, for updates use \code{Seg}.}
+\entry{Sparse table (RMQ)}{build $O(n \log n)$, query $O(1)$ \quad mem $n \log n$}{%
+From KACTL. \code{RMQ<ll> r(a); r.query(l, r)} = min of \code{a[l..r)}, needs
+\code{l < r}. No updates ever. Max, gcd, and, or work too: replace \textbf{both}
+\code{min}s. The op must be \textbf{idempotent} (\code{op(x,x) = x}), because the two
+halves of a query overlap --- so never sum; for sum use \code{BIT}, for updates
+\code{Seg}.\\[0.3ex]
+The argmin instead of the min: store \code{pii\{a[i], i\}}.}
 
+%LABEL rmq
 \begin{lstlisting}
-struct SpTab {
-    using T = ll;
-    static T op(T a, T b) { return min(a, b); }
-
-    int n; vector<vector<T>> t;
-    SpTab(const vector<T>& a) : n((int)a.size()), t(1, a) {
-        for (int k = 1; (1 << k) <= n; k++) {
-            t.push_back(vector<T>(n - (1 << k) + 1));
-            for (int i = 0; i < (int)t[k].size(); i++)
-                t[k][i] = op(t[k-1][i],
-                             t[k-1][i + (1 << (k-1))]);
+template<class T>
+struct RMQ {
+    vector<vector<T>> jmp;
+    RMQ(const vector<T>& V) : jmp(1, V) {
+        for (int pw = 1, k = 1; pw * 2 <= (int)V.size();
+             pw *= 2, ++k) {
+            jmp.emplace_back((int)V.size() - pw * 2 + 1);
+            rep(j, 0, (int)jmp[k].size())
+                jmp[k][j] = min(jmp[k-1][j], jmp[k-1][j+pw]);
         }
     }
-    T query(int l, int r) {          // a[l..r), needs l < r
-        int k = __lg(r - l);
-        return op(t[k][l], t[k][r - (1 << k)]);
+    T query(int a, int b) {
+        assert(a < b); // or return inf if a == b
+        int dep = 31 - __builtin_clz(b - a);
+        return min(jmp[dep][a], jmp[dep][b - (1 << dep)]);
     }
 };
 \end{lstlisting}
@@ -736,6 +739,84 @@ struct LineContainer : multiset<Line, less<>> {
 };
 \end{lstlisting}
 
+\entry{Mo's algorithm}{$O((n + q)\sqrt n)$ moves}{%
+Offline range queries where no segment tree works, but you \emph{can} cheaply add or
+remove one element at an end of the current range: number of distinct values, most
+frequent value count, number of pairs of equal values in \code{[l, r)}, ...\\[0.3ex]
+You write three functions: \code{add(i, end)} puts \code{a[i]} into the current range,
+\code{del(i, end)} takes it out (\code{end} is 0 for the left end, 1 for the right, in
+case it matters), \code{calc()} gives the answer for the current range. \code{mo}
+sorts the queries so that the two ends move only $O(n\sqrt q)$ steps in total, and
+returns the answers in the original order.\\[0.3ex]
+Queries are \textbf{half-open} \code{[l, r)}. Set \code{blk} $\approx n / \sqrt q$.
+Removal hard but adding easy? sort the same way and, inside each block, restart the
+left end every time (``Mo with rollback''). Tree paths: KACTL's \code{moTree} (not
+here) or flatten with an Euler tour. Shown with ``count distinct''. From KACTL.}
+
+%LABEL mo
+\begin{lstlisting}
+vector<int> a, cnt(1 << 20);   // example: distinct values
+ll distinct = 0;
+void add(int i, int end) { if (cnt[a[i]]++ == 0) distinct++; }
+void del(int i, int end) { if (--cnt[a[i]] == 0) distinct--; }
+ll calc() { return distinct; }
+
+vi mo(const vector<pii>& Q) {           // Q[i] = [l, r)
+    int L = 0, R = 0, blk = 350;          // ~ n / sqrt(q)
+    vector<int> s(Q.size()); vi res(Q.size());
+    iota(all(s), 0);
+    auto K = [&](pii x) {
+        return pii(x.first / blk,
+                   x.second ^ -(x.first / blk & 1));
+    };
+    sort(all(s), [&](int x, int y) {
+        return K(Q[x]) < K(Q[y]); });
+    for (int qi : s) {
+        pii q = Q[qi];
+        while (L > q.first) add(--L, 0);
+        while (R < q.second) add(R++, 1);
+        while (L < q.first) del(L++, 0);
+        while (R > q.second) del(--R, 1);
+        res[qi] = calc();
+    }
+    return res;
+}
+\end{lstlisting}
+
+\entry{Set of disjoint intervals}{$O(\log n)$ amortised}{%
+Keeps a \code{set} of non-overlapping \textbf{half-open} intervals \code{[L, R)}.
+\code{addInterval} merges the new interval with everything it overlaps or touches and
+returns an iterator to the merged piece; \code{removeInterval} cuts a range out,
+splitting an interval in two if needed. Total covered length, ``is \code{x} covered''
+(\code{upper\_bound(\{x, LLONG\_MAX\})} then step back), painting a line, merging
+bookings --- all one line each on top of this. From KACTL.}
+
+%LABEL intervals
+\begin{lstlisting}
+set<pii>::iterator addInterval(set<pii>& is, ll L, ll R) {
+    if (L == R) return is.end();
+    auto it = is.lower_bound({L, R}), before = it;
+    while (it != is.end() && it->first <= R) {
+        R = max(R, it->second);
+        before = it = is.erase(it);
+    }
+    if (it != is.begin() && (--it)->second >= L) {
+        L = min(L, it->first);
+        R = max(R, it->second);
+        is.erase(it);
+    }
+    return is.insert(before, {L, R});
+}
+void removeInterval(set<pii>& is, ll L, ll R) {
+    if (L == R) return;
+    auto it = addInterval(is, L, R);
+    ll r2 = it->second;
+    if (it->first == L) is.erase(it);
+    else const_cast<ll&>(it->second) = L;
+    if (R != r2) is.emplace(R, r2);
+}
+\end{lstlisting}
+
 \section{Union-find and MST}
 
 \entry{DSU}{$O(\alpha(n))$ amortised \quad mem $n$}{%
@@ -866,7 +947,6 @@ kruskal(int n, vector<array<ll,3>> e) {
     return {cost, mst};
 }
 \end{lstlisting}
-
 
 \section{Trees}
 
@@ -1188,6 +1268,39 @@ void dfs(int u, int par) {
 }
 \end{lstlisting}
 
+\entry{Virtual tree (compress tree)}{$O(k \log k)$ per query}{%
+Needs \code{LCA} and \code{euler} (same root). A query names $k$ important vertices of a
+huge tree, and the sum of all $k$ is small. Build a small tree containing just those
+vertices plus the LCAs needed to keep the shape (at most $k-1$ extra), then run the
+normal tree DP on it. Edge lengths are \code{dep[b] - dep[a]} from the \code{LCA} struct
+(or weighted depth).\\[0.3ex]
+Returns pairs \code{(parent index, vertex)}; index 0 is the root and points to itself,
+and parents always come earlier in the list, so a loop from the back is a bottom-up DP.
+Sorting by \code{tin} is the whole trick: neighbours in that order have all the LCAs you
+need. From KACTL.}
+
+%DEP LCA euler
+%LABEL vtree
+\begin{lstlisting}
+vector<pair<int,int>> virtualTree(LCA& L,
+        const vector<int>& tin, vector<int> li) {
+    static vector<int> rev; rev.resize(tin.size());
+    auto cmp = [&](int a, int b) { return tin[a] < tin[b]; };
+    sort(all(li), cmp);
+    int m = (int)li.size() - 1;
+    rep(i, 0, m) li.push_back(L.lca(li[i], li[i+1]));
+    sort(all(li), cmp);
+    li.erase(unique(all(li)), li.end());
+    rep(i, 0, (ll)li.size()) rev[li[i]] = (int)i;
+    vector<pair<int,int>> ret = {{0, li[0]}};
+    rep(i, 0, (ll)li.size() - 1) {
+        int a = li[i], b = li[i+1];
+        ret.push_back({rev[L.lca(a, b)], b});
+    }
+    return ret;
+}
+\end{lstlisting}
+
 \section{Connectivity}
 
 \entry{SCC (Tarjan, iterative)}{$O(n + m)$ \quad mem $n + m$}{%
@@ -1374,31 +1487,87 @@ struct Bridges {
 \end{lstlisting}
 
 \entry{Topological sort (Kahn)}{$O(n + m)$ \quad mem $n$}{%
-Directed. Returns an empty vector iff the graph has a cycle, so it doubles as a cycle
-test. If you already built \code{SCC} you have a topological order for free in
-\code{comp} --- use this only when you do not need the components.\\[0.3ex]
-Pop from the back instead of the front and you get a DFS-flavoured order; use a
-\code{priority\_queue} for the lexicographically smallest one.}
+From KACTL. Directed graph \code{gr[u] = \{v\}}; every edge goes left to right in the
+returned order. \textbf{Cycle test:} if the result has fewer than $n$ vertices there is
+a cycle (vertices on or after a cycle are missing). If you already built \code{SCC}
+you have a topological order for free in \code{comp}.\\[0.3ex]
+Lexicographically smallest order: make \code{q} a min-\code{priority\_queue}. Longest
+path in a DAG / counting paths: DP over this order.}
 
+%LABEL topoSort
 \begin{lstlisting}
-vector<int> topo(const vector<vector<int>>& g) {
-    int n = (int)g.size();
-    vector<int> deg(n, 0), q;
-    for (int u = 0; u < n; u++)
-        for (int v : g[u]) deg[v]++;
-    for (int u = 0; u < n; u++) if (!deg[u]) q.push_back(u);
-    for (int i = 0; i < (int)q.size(); i++)
-        for (int v : g[q[i]])
-            if (--deg[v] == 0) q.push_back(v);
-    return (int)q.size() == n ? q : vector<int>{};
+vi topoSort(const vector<vi>& gr) {
+    vi indeg(gr.size()), q;
+    for (auto& li : gr) for (int x : li) indeg[x]++;
+    rep(i,0,(ll)gr.size()) if (indeg[i] == 0) q.push_back(i);
+    rep(j,0,(ll)q.size()) for (int x : gr[q[j]])
+        if (--indeg[x] == 0) q.push_back(x);
+    return q;
 }
+\end{lstlisting}
+
+\entry{2-SAT}{$O(n + \text{clauses})$ \quad mem same}{%
+Needs \code{SCC}. You have $n$ yes/no choices and rules that each talk about at most
+\textbf{two} choices: ``$a$ or $b$'', ``not both $a$ and $b$'', ``$a$ forces $b$'',
+``$a$ equals $b$''. Find any assignment that obeys every rule, or say none exists.
+Three choices in one rule (``$a$ or $b$ or $c$'') is NP-hard --- not this.\\[0.3ex]
+A literal is \code{x} for ``choice $x$ is true'' and \code{\~{}x} for ``false''.
+\code{solve()} returns \code{false} if impossible, else \code{val[x]} is the answer.\\[0.3ex]
+\begin{ctab}{0.35}{0.60}
+\code{either(a, b)} & $a \lor b$ (at least one)\\
+\code{either(\~{}a, \~{}b)} & not both\\
+\code{implies(a, b)} & if $a$ then $b$\\
+\code{implies} both ways & $a = b$; with \code{\~{}b}: $a \ne b$\\
+\code{setValue(a)} & force $a$ true (\code{\~{}a}: false)\\
+\code{atMostOne(\{a,b,..\})} & at most one true, $O(k)$ clauses via helper
+variables; ``exactly one'' adds \code{either} over all of them\\
+\end{ctab}\\[0.3ex]
+Typical disguises: every item goes left or right / up or down / gets one of two
+colours, and some pairs of items cannot both take a certain option. Iterative (no deep
+recursion), because \code{SCC} is.}
+
+%DEP SCC
+%LABEL twosat
+\begin{lstlisting}
+struct TwoSat {             // literal x = true, ~x = false
+    int n; vector<vector<int>> g; vector<char> val;
+    TwoSat(int n = 0) : n(n), g(2 * n) {}
+    int node(int x) { return x >= 0 ? 2*x + 1 : 2*~x; }
+    int addVar() {
+        g.emplace_back(); g.emplace_back(); return n++;
+    }
+    void either(int a, int b) {                // a or b
+        g[node(a) ^ 1].push_back(node(b));
+        g[node(b) ^ 1].push_back(node(a));
+    }
+    void implies(int a, int b) { either(~a, b); }
+    void setValue(int a) { either(a, a); }
+    void atMostOne(const vector<int>& li) {
+        if (li.size() <= 1) return;
+        int cur = ~li[0];
+        for (int i = 2; i < (int)li.size(); i++) {
+            int nx = addVar();
+            either(cur, ~li[i]); either(cur, nx);
+            either(~li[i], nx); cur = ~nx;
+        }
+        either(cur, ~li[1]);
+    }
+    bool solve() {
+        SCC s(g); val.assign(n, 0);
+        for (int i = 0; i < n; i++) {
+            if (s.comp[2*i] == s.comp[2*i+1]) return false;
+            val[i] = s.comp[2*i+1] > s.comp[2*i];
+        }
+        return true;
+    }
+};
 \end{lstlisting}
 
 \section{Shortest paths}
 
 \entry{Dijkstra}{$O((n + m) \log n)$ \quad mem $n + m$}{%
 \textbf{Non-negative} weights only --- one negative edge and the answer is silently
-wrong, use \code{bellman}. \code{d[v] == INF} means unreachable. Pass \code{\&par} to
+wrong, use \code{bellmanFord}. \code{d[v] == INF} means unreachable. Pass \code{\&par} to
 recover a path: walk \code{par} back from the target and reverse.\\[0.3ex]
 Variants that are the same loop with a different relax step: maximise the bottleneck
 (\code{max(d[u], w)} with a max-heap), count shortest paths (a second array,
@@ -1431,31 +1600,41 @@ vi dijkstra(const vector<vector<pii>>& g, int s,
 \end{lstlisting}
 
 \entry{Bellman-Ford}{$O(nm)$ \quad mem $n + m$}{%
-Handles negative weights and reports a negative cycle reachable from \code{s}. Stops
-early when a round changes nothing, so it is fast on easy inputs.\\[0.3ex]
+From KACTL. \code{vector<Node> nodes(n); bellmanFord(nodes, eds, s);} with
+\code{eds} = \code{\{a, b, w\}} directed edges. Afterwards \code{nodes[v].dist} is
+\code{inf} if unreachable, \code{-inf} if a negative cycle can make it arbitrarily
+small, and \code{prev} gives the path back. Negative cycle reachable from \code{s}
+$\iff$ some \code{dist == -inf}. \code{w} is \code{int}: make it \code{ll} if weights are
+big (needs $n^2 \max|w| < 2^{63}$). The edge sort is a trick that lets it stop after
+$n/2$ rounds --- keep it.\\[0.3ex]
 \textbf{Difference constraints.} A system of $x_v - x_u \le w$ is exactly a shortest
 path problem: add edge \code{u -> v} of weight \code{w}, add a super-source with a
-0-edge to every vertex, run this from it. The resulting \code{d} is a feasible
+0-edge to every vertex, run this from it. The resulting \code{dist} is a feasible
 assignment, and the system is infeasible iff there is a negative cycle. $x_v - x_u \ge
-w$ becomes $x_u - x_v \le -w$; $x_v - x_u = w$ is both.\\[0.3ex]
-To mark every vertex whose distance is truly $-\infty$, run $n$ more rounds and set
-\code{d[v] = -INF} whenever it still relaxes.}
+w$ becomes $x_u - x_v \le -w$; $x_v - x_u = w$ is both.}
 
+%LABEL bellmanFord
 \begin{lstlisting}
-// e = {u, v, w}; neg = a negative cycle is reachable from s
-vi bellman(int n, const vector<array<ll,3>>& e, int s,
-           bool& neg) {
-    vi d(n, INF); d[s] = 0; neg = false;
-    rep(i, 0, n) {
-        bool ch = false;
-        for (auto [u, v, w] : e)
-            if (d[u] < INF && d[u] + w < d[v]) {
-                d[v] = d[u] + w; ch = true;
-                if (i == n - 1) neg = true;
-            }
-        if (!ch) break;
+const ll inf = LLONG_MAX;
+struct Ed { int a, b, w, s() { return a < b ? a : -a; }};
+struct Node { ll dist = inf; int prev = -1; };
+
+void bellmanFord(vector<Node>& nodes, vector<Ed>& eds,
+                 int s) {
+    nodes[s].dist = 0;
+    sort(all(eds), [](Ed a, Ed b) { return a.s() < b.s(); });
+    int lim = (int)nodes.size() / 2 + 2; // /3+100 shuffled
+    rep(i,0,lim) for (Ed ed : eds) {
+        Node cur = nodes[ed.a], &dest = nodes[ed.b];
+        if (abs(cur.dist) == inf) continue;
+        ll d = cur.dist + ed.w;
+        if (d < dest.dist) {
+            dest.prev = ed.a;
+            dest.dist = (i < lim-1 ? d : -inf);
+        }
     }
-    return d;
+    rep(i,0,lim) for (Ed e : eds)
+        if (nodes[e.a].dist == -inf) nodes[e.b].dist = -inf;
 }
 \end{lstlisting}
 
@@ -1535,8 +1714,8 @@ fewest things to remove so that no allowed pair is left / every edge is touched 
 vertex cover = matching size, \code{cover()} lists them\\
 most things you can pick with no two of them forming an allowed pair & independent set
 $= n - $ matching (complement of \code{cover()})\\
-pairs inside \emph{one} group (people pair with people) & not bipartite, so
-\code{Matching} is wrong; $n \le 20$: bitmask DP\\
+pairs inside \emph{one} group (people pair with people) & not bipartite:
+\code{generalMatching}\\
 cheapest way to disconnect \code{s} from \code{t} by deleting edges & \code{Dinic}, then
 \code{cut()}\\
 delete \emph{vertices} instead of edges / a vertex may be used $k$ times & split
@@ -1548,8 +1727,8 @@ right copy \code{v} per edge; if paths may share vertices, add all reachable pai
 first\\
 choose projects with profit; each needs tools that cost money & project selection: see
 \code{Dinic}\\
-cut the graph in two, no \code{s}/\code{t} given & \code{Dinic} from vertex 0 to
-every other vertex, keep the smallest\\
+cut the graph in two, no \code{s}/\code{t} given & \code{globalMinCut}\\
+min cut between \emph{every} pair of vertices & \code{gomoryHu}: $n-1$ flows\\
 ``smallest time / budget so that everything fits'' & binary search the answer, run a
 flow inside the check\\
 \end{ctab}}\\[0.3ex]
@@ -1970,6 +2149,176 @@ vector<int> eulerPath(int n, const vector<pii>& es,
 }
 \end{lstlisting}
 
+\entry{Global min cut (Stoer-Wagner)}{$O(n^3)$ \quad mem $n^2$}{%
+Cheapest set of edges whose removal splits an \textbf{undirected} graph into two
+non-empty parts, when nobody tells you which two vertices must end up apart. With
+\code{Dinic} you would need $n-1$ flows; this does it in one go from an adjacency
+\emph{matrix} of edge weights (add parallel edges together, keep the diagonal 0).
+Returns \code{\{weight, the vertices of one side\}}.\\[0.3ex]
+How it works, roughly: repeatedly grow a set by always adding the vertex most strongly
+connected to it. The last vertex added, cut away from everything else, is a candidate;
+then it is merged with the second-to-last and the process repeats. Weights must be
+$\ge 0$. ``Is the graph $k$-edge-connected'' is \code{globalMinCut(..).first >= k}.
+From KACTL.}
+
+%LABEL globalMinCut
+\begin{lstlisting}
+pair<ll, vector<int>> globalMinCut(vector<vi> mat) {
+    pair<ll, vector<int>> best = {LLONG_MAX, {}};
+    int n = (int)mat.size();
+    vector<vector<int>> co(n);
+    rep(i, 0, n) co[i] = {(int)i};
+    rep(ph, 1, n) {
+        vi w = mat[0];
+        size_t s = 0, t = 0;
+        rep(it, 0, n - ph) {     // O(n^2); heap -> O(m log n)
+            w[t] = LLONG_MIN;
+            s = t, t = max_element(all(w)) - w.begin();
+            rep(i, 0, n) w[i] += mat[t][i];
+        }
+        best = min(best, {w[t] - mat[t][t], co[t]});
+        co[s].insert(co[s].end(), all(co[t]));
+        rep(i, 0, n) mat[s][i] += mat[t][i];
+        rep(i, 0, n) mat[i][s] = mat[s][i];
+        mat[0][t] = LLONG_MIN;
+    }
+    return best;
+}
+\end{lstlisting}
+
+\entry{Gomory-Hu tree (all-pairs min cut)}{$n - 1$ calls to \code{Dinic}}{%
+Needs \code{Dinic}. For an \textbf{undirected} graph, builds a tree on the same vertices
+such that the min cut (= max flow) between \emph{any} two vertices \code{u, v} equals
+the \textbf{smallest edge weight on the tree path} from \code{u} to \code{v}. So $n^2$
+flow questions become $n-1$ flows plus tree queries.\\[0.3ex]
+Input edges are \code{\{u, v, cap\}}; output tree edges are \code{\{i, parent, flow\}}.
+For many queries, build \code{LCA} on the tree with a min table (see \code{LCA}), or for
+$n \le 3000$ just run a DFS from every vertex. The smallest tree edge overall is also
+the global min cut. Gusfield's version, from KACTL.}
+
+%DEP Dinic
+%LABEL gomoryHu
+\begin{lstlisting}
+vector<array<ll,3>> gomoryHu(int n, vector<array<ll,3>> ed) {
+    vector<array<ll,3>> tree;
+    vector<int> par(n, 0);
+    for (int i = 1; i < n; i++) {
+        Dinic d(n);
+        for (auto [u, v, c] : ed) d.add(u, v, c, c);
+        tree.push_back({i, par[i], d.maxflow(i, par[i])});
+        for (int j = i + 1; j < n; j++)
+            if (par[j] == par[i] && d.inS(j)) par[j] = i;
+    }
+    return tree;
+}
+\end{lstlisting}
+
+\entry{Matrix inverse mod p}{$O(n^3)$ \quad mem $n^2$}{%
+Needs \code{power} (Modular basics). Inverts \code{A} modulo a prime \code{md} in place
+and returns the rank; if the rank is below $n$ the matrix has no inverse and \code{A} is
+garbage. Used by \code{generalMatching} below, but on its own it also solves
+$Ax = b \pmod p$ for many different \code{b} at once ($x = A^{-1}b$).\\[0.3ex]
+\code{md} must be below $2^{31}$ (because of \code{power}). For a real-valued inverse,
+use \code{gauss} on each unit vector instead.}
+
+%DEP modbasics
+%LABEL matInv
+\begin{lstlisting}
+int matInv(vector<vi>& A, ll md) {
+    int n = (int)A.size(); vector<int> col(n);
+    vector<vi> tmp(n, vi(n));
+    rep(i, 0, n) tmp[i][i] = 1, col[i] = i;
+    rep(i, 0, n) {
+        int r = i, c = i;
+        rep(j, i, n) rep(k, i, n) if (A[j][k]) {
+            r = j; c = k; goto found;
+        }
+        return i;
+found:
+        A[i].swap(A[r]); tmp[i].swap(tmp[r]);
+        rep(j, 0, n) swap(A[j][i], A[j][c]),
+                     swap(tmp[j][i], tmp[j][c]);
+        swap(col[i], col[c]);
+        ll v = power(A[i][i], md - 2, md);
+        rep(j, i + 1, n) {
+            ll f = A[j][i] * v % md;
+            A[j][i] = 0;
+            rep(k, i + 1, n)
+                A[j][k] = (A[j][k] - f * A[i][k]) % md;
+            rep(k, 0, n)
+                tmp[j][k] = (tmp[j][k] - f * tmp[i][k]) % md;
+        }
+        rep(j, i + 1, n) A[i][j] = A[i][j] * v % md;
+        rep(j, 0, n) tmp[i][j] = tmp[i][j] * v % md;
+        A[i][i] = 1;
+    }
+    for (int i = n - 1; i > 0; --i) rep(j, 0, i) {
+        ll v = A[j][i];
+        rep(k, 0, n) tmp[j][k] = (tmp[j][k]-v*tmp[i][k]) % md;
+    }
+    rep(i, 0, n) rep(j, 0, n)
+        A[col[i]][col[j]] = (tmp[i][j] % md + md) % md;
+    return n;
+}
+\end{lstlisting}
+
+\entry{General matching}{$O(n^3)$ \quad mem $n^2$}{%
+Needs \code{matInv}. Maximum matching in a graph that is \textbf{not} bipartite ---
+pairing people with people, where triangles and other odd cycles exist and
+\code{Matching} gives wrong answers. Returns the matched pairs. Edges are undirected,
+0-indexed.\\[0.3ex]
+It is randomised (puts random numbers in a skew-symmetric matrix and uses its rank, the
+Tutte matrix trick): wrong with probability about $n / 10^9$, i.e. never in practice.
+$n \le 500$ is comfortable. For a \emph{weighted} general matching there is nothing
+here; for small $n$ ($\le 20$) use bitmask DP over the set of unmatched vertices.
+From KACTL.}
+
+%DEP modbasics matInv
+%LABEL generalMatching
+\begin{lstlisting}
+vector<pii> generalMatching(int N, const vector<pii>& ed) {
+    const ll md = 1e9 + 7;
+    mt19937 rng(2024);
+    vector<vi> mat(N, vi(N)), A;
+    for (auto [a, b] : ed) {
+        ll r = rng() % md;
+        mat[a][b] = r, mat[b][a] = (md - r) % md;
+    }
+    int r = matInv(A = mat, md), M = 2 * N - r, fi, fj;
+    assert(r % 2 == 0);
+    if (M != N) do {
+        mat.resize(M, vi(M));
+        rep(i, 0, N) {
+            mat[i].resize(M);
+            rep(j, N, M) {
+                ll x = rng() % md;
+                mat[i][j] = x, mat[j][i] = (md - x) % md;
+            }
+        }
+    } while (matInv(A = mat, md) != M);
+    vector<int> has(M, 1); vector<pii> ret;
+    rep(it, 0, M / 2) {
+        rep(i, 0, M) if (has[i])
+            rep(j, i + 1, M) if (A[i][j] && mat[i][j]) {
+                fi = i; fj = j; goto done;
+            }
+        assert(0); done:
+        if (fj < N) ret.emplace_back(fi, fj);
+        has[fi] = has[fj] = 0;
+        rep(sw, 0, 2) {
+            ll a = power(A[fi][fj], md - 2, md);
+            rep(i, 0, M) if (has[i] && A[i][fj]) {
+                ll b = A[i][fj] * a % md;
+                rep(j, 0, M)
+                    A[i][j] = (A[i][j] - A[fi][j] * b) % md;
+            }
+            swap(fi, fj);
+        }
+    }
+    return ret;
+}
+\end{lstlisting}
+
 \section{Bitmask and DP}
 
 \entry{PathDP (bitmask)}{$O(2^n n^2)$ \quad mem $2^n n$}{%
@@ -2146,24 +2495,31 @@ vi sos(int n, vi f) {
 \end{lstlisting}
 
 \entry{LIS}{$O(n \log n)$ \quad mem $n$}{%
-\code{c[k]} ends up as the smallest possible tail of an increasing subsequence of
-length \code{k+1}, so \code{c.size()} is the answer. \code{c} itself is \emph{not} a
-valid subsequence.\\[0.3ex]
-\code{lower\_bound} gives \textbf{strictly} increasing; \code{upper\_bound} gives
-non-decreasing. Longest decreasing: reverse the input, or negate it. Minimum number of
-non-increasing chains covering the sequence = length of the LIS (Dilworth).\\[0.3ex]
-To reconstruct, store for each element the index it was placed at plus the predecessor
-\code{c}-index, then walk back from the last placement.}
+From KACTL. \code{lis(S)} returns the \textbf{indices} of one longest
+\textbf{strictly} increasing subsequence, so \code{lis(S).size()} is its length.
+Non-decreasing: change the \code{0} in the \code{lower\_bound} to \code{i}. Longest
+decreasing: negate the input. Minimum number of non-increasing chains covering the
+sequence = length of the LIS (Dilworth).}
 
+%LABEL lis
 \begin{lstlisting}
-ll lis(const vi& a) {
-    vi c;
-    for (ll e : a) {
-        auto it = lower_bound(all(c), e);
-        if (it == c.end()) c.push_back(e);
-        else *it = e;
+template<class I> vi lis(const vector<I>& S) {
+    if (S.empty()) return {};
+    vi prev(S.size());
+    typedef pair<I, int> p;
+    vector<p> res;
+    rep(i,0,(ll)S.size()) {
+        // change 0 -> i for longest non-decreasing
+        auto it = lower_bound(all(res), p{S[i], 0});
+        if (it == res.end())
+            res.emplace_back(), it = res.end()-1;
+        *it = {S[i], i};
+        prev[i] = it == res.begin() ? 0 : (it-1)->second;
     }
-    return (ll)c.size();
+    int L = (int)res.size(), cur = res.back().second;
+    vi ans(L);
+    while (L--) ans[L] = cur, cur = prev[cur];
+    return ans;
 }
 \end{lstlisting}
 
@@ -2284,8 +2640,9 @@ void exgcd(ll a,ll b){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp
 typedef __int128 i128;
+ld eps = 1e-9;
 const ll MAXN=16;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll n,lst[MAXN],a[MAXN],m[MAXN],ans[MAXN],k,temp;
 int main(){
@@ -2312,7 +2669,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 ll gcd(ll a,ll b)
 {
 	ll az=__builtin_ctz(a),bz=__builtin_ctz(b);
@@ -2337,7 +2694,7 @@ ll gcd(ll a,ll b)
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp, math/exgcd.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, math/exgcd.cpp
 ll mul(ll a, ll b, ll m) { return (__int128)a * b % m; }
 ll fast(ll x,ll p,ll m){
     x=(x%m+m)%m;
@@ -2356,7 +2713,7 @@ ll fast(ll x,ll p,ll m){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 ll mul(ll a, ll b, ll m) { /* see math/Fastmod.cpp */ }
 ll fast(ll x,ll p,ll m){ /* see math/Fastmod.cpp */ }
 bool flag;
@@ -2413,7 +2770,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp, math/exgcd.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, math/exgcd.cpp
 ll phi(ll n) {//求欧拉函数
     ll ans = 1;
     for(ll i = 2; i * i <= n; ++ i) {
@@ -2437,7 +2794,7 @@ ll phi(ll n) {//求欧拉函数
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 const ll MAXN=406;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll n,phi[MAXN],ans=1;
 bool p[MAXN];
@@ -2472,7 +2829,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp, math/Linearphi.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, math/Linearphi.cpp
 const int MAXN=106;
 ll n,q;
 int main(){
@@ -2500,7 +2857,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp, math/exgcd.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, math/exgcd.cpp
 const ll MAXN=36;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 map<ll,ll> fac[MAXN];
 int main(){
@@ -2526,7 +2883,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 vector<ll> factor(ll n) {
 	vector<ll> ret;
 	for (ll i = 2; i * i <= n; i++) {
@@ -2665,7 +3022,7 @@ void pollard_rho(LL n)
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 typedef vector<ll> vi;
 typedef vector<vi> matrix;
 #define rep(i, a, b) for(int i = a; i < b; i++)
@@ -2691,7 +3048,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 const ll MOD=1e9+7;
 const ll MAXN=26;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll t,n,fac[MAXN],inv[MAXN],ans,k;
@@ -2719,7 +3076,7 @@ int main(){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp
 const int MAXN=206;
 ll n,p,ans[MAXN],corr[MAXN],now,fac[MAXN],inv[MAXN];
 ll mul(ll a, ll b, ll m) { /* see math/Fastmod.cpp */ }
@@ -2782,7 +3139,7 @@ matrix pow_matrix(matrix a,ll n){
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, geomtery/Lattic_points.cpp, math/Combinumber_inv.cpp, math/Matrix.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp, math/CRT.cpp, math/Combinumber_inv.cpp, math/Matrix.cpp
 ld eps=1e-7;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct matrix{
@@ -2826,9 +3183,7 @@ int main(){
     matrix A;
     A.row=n;
     A.col=n+1;
-    for(int i=1;i<=n;i++){
-        for(int j=1;j<=n+1;j++) cin>>A.m[i][j];
-    }
+    for(int i=1;i<=n;i++) for(int j=1;j<=n+1;j++) cin>>A.m[i][j];
     gauss_elimination(A,res);
     ll sign=1;
     for(int i=1;i<=n;i++){
@@ -2944,9 +3299,7 @@ void xor_gauss(matrix& A){
             }
         }
         if(A.m[i][i]==1){
-            for(int j=1;j<=m;j++){
-                if(i!=j&&A.m[j][i]==1) A.m[j]^=A.m[i];
-            }
+            for(int j=1;j<=m;j++) if(i!=j&&A.m[j][i]==1) A.m[j]^=A.m[i];
         }else{
             k=m+1;
             return;
@@ -3178,101 +3531,201 @@ vi bitConv(vi a, vi b, int mode) {     // same size, 2^k
 }
 \end{lstlisting}
 
+\entry{Discrete log (baby-step giant-step)}{$O(\sqrt m)$}{%
+Smallest $x > 0$ with $a^x \equiv b \pmod m$, or \code{-1}. Works even when
+$\gcd(a, m) \ne 1$. Check $x = 0$ (i.e. $b = 1$) yourself if it is allowed.
+\code{modLog(a, 1, m)} is the \emph{order} of $a$: the length of the cycle of powers.\\[0.3ex]
+Idea: write $x = n i - j$ with $n \approx \sqrt m$. Store $b a^j$ for all small $j$ in a
+hash map (baby steps), then try $a^{n i}$ for $i = 1, 2, \dots$ (giant steps) until one
+is in the map. $m$ up to $\sim 3\cdot10^9$ (products must fit in \code{ll}; above that
+use \code{i128}). From KACTL.}
+
+%LABEL modLog
+\begin{lstlisting}
+ll modLog(ll a, ll b, ll m) {
+    a %= m; b %= m;
+    ll n = (ll)sqrtl(m) + 1, e = 1, f = 1, j = 1;
+    unordered_map<ll, ll> A;
+    while (j <= n && (e = f = e * a % m) != b)
+        A[e * b % m] = j++;
+    if (e == b) return j;
+    if (__gcd(m, e) == __gcd(m, b))
+        rep(i, 2, n + 2) if (A.count(e = e * f % m))
+            return n * i - A[e];
+    return -1;
+}
+\end{lstlisting}
+
+\entry{Modular square root (Tonelli-Shanks)}{$O(\log^2 p)$}{%
+Needs \code{power}. For a \textbf{prime} $p$, finds $x$ with $x^2 \equiv a \pmod p$; the
+other root is $p - x$. A root exists iff $a \equiv 0$ or
+\code{power(a, (p-1)/2, p) == 1} (Euler's criterion) --- test that first, the code
+asserts it. Used for solving $x^2 + bx + c \equiv 0$ (complete the square) and in some
+NTT tricks. From KACTL.}
+
+%DEP modbasics
+%LABEL modSqrt
+\begin{lstlisting}
+ll modSqrt(ll a, ll p) {
+    a %= p; if (a < 0) a += p;
+    if (a == 0) return 0;
+    assert(power(a, (p - 1) / 2, p) == 1);   // no root
+    if (p % 4 == 3) return power(a, (p + 1) / 4, p);
+    ll s = p - 1, n = 2;
+    int r = 0, m;
+    while (s % 2 == 0) ++r, s /= 2;
+    while (power(n, (p - 1) / 2, p) != p - 1) ++n;
+    ll x = power(a, (s + 1) / 2, p);
+    ll b = power(a, s, p), g = power(n, s, p);
+    for (;; r = m) {
+        ll t = b;
+        for (m = 0; m < r && t != 1; ++m) t = t * t % p;
+        if (m == 0) return x;
+        ll gs = power(g, 1LL << (r - m - 1), p);
+        g = gs * gs % p;
+        x = x * gs % p;
+        b = b * g % p;
+    }
+}
+\end{lstlisting}
+
+\entry{Berlekamp-Massey + linear recurrence}{$O(n^2)$, then $O(n^2 \log k)$}{%
+Needs \code{power}. \textbf{The ``guess the formula'' tool.} If the answer for $n$
+follows \emph{some} linear recurrence $a_i = c_1 a_{i-1} + \dots + c_d a_{i-d}$ (mod a
+prime) --- which is true for every ``count paths / tilings / strings with a fixed
+small automaton'' problem and anything a matrix power could solve --- then:\\[0.3ex]
+1. Brute force the first $2d + 10$ terms (more is safer), mod the prime.\\
+2. \code{tr = berlekampMassey(terms, md)} returns $c_1, \dots, c_d$.\\
+3. \code{linearRec(terms, tr, k, md)} gives term $k$ (0-indexed), $k$ up to $10^{18}$.\\[0.3ex]
+Much faster and simpler than building the matrix by hand: you never have to find the
+recurrence yourself. If \code{tr} comes out as long as half your input, you did not
+give enough terms or there is no linear recurrence. Example:
+\code{berlekampMassey(\{0,1,1,3,5,11\}, md)} is \code{\{1, 2\}}. From KACTL.}
+
+%DEP modbasics
+%LABEL bm
+\begin{lstlisting}
+vi berlekampMassey(vi s, ll md) {
+    int n = (int)s.size(), L = 0, m = 0;
+    vi C(n), B(n), T;
+    C[0] = B[0] = 1;
+    ll b = 1;
+    rep(i, 0, n) { ++m;
+        ll d = s[i] % md;
+        rep(j, 1, L + 1) d = (d + C[j] * s[i - j]) % md;
+        if (!d) continue;
+        T = C; ll coef = d * power(b, md - 2, md) % md;
+        rep(j, m, n) C[j] = (C[j] - coef * B[j - m]) % md;
+        if (2 * L > i) continue;
+        L = i + 1 - L; B = T; b = d; m = 0;
+    }
+    C.resize(L + 1); C.erase(C.begin());
+    for (ll& x : C) x = (md - x) % md;
+    return C;
+}
+ll linearRec(vi S, vi tr, ll k, ll md) {   // S[k]
+    int n = (int)tr.size();
+    auto combine = [&](vi a, vi b) {
+        vi res(n * 2 + 1);
+        rep(i, 0, n + 1) rep(j, 0, n + 1)
+            res[i + j] = (res[i + j] + a[i] * b[j]) % md;
+        for (int i = 2 * n; i > n; --i) rep(j, 0, n)
+            res[i-1-j] = (res[i-1-j] + res[i] * tr[j]) % md;
+        res.resize(n + 1);
+        return res;
+    };
+    vi pol(n + 1), e(pol);
+    pol[0] = e[1] = 1;
+    for (++k; k; k /= 2) {
+        if (k % 2) pol = combine(pol, e);
+        e = combine(e, e);
+    }
+    ll res = 0;
+    rep(i, 0, n) res = (res + pol[i + 1] * S[i]) % md;
+    return res;
+}
+\end{lstlisting}
+
 \section{Strings}
 
-\entry{KMP}{$O(n + m)$ \quad mem $n$}{%
-\code{failure(p)[i]} is the length of the longest proper prefix of \code{p[0..i]} that is
-also a suffix --- so \code{m - failure.back()} is the shortest period of \code{p}, and
-\code{p} is a repetition of that period iff the period divides \code{m}.
-\code{kmp(txt, pat)} returns every 0-indexed start where \code{pat} occurs, overlaps
-included.\\[0.3ex]
-Borders of \code{p} are \code{m}, \code{f[m-1]}, \code{f[f[m-1]-1]}, \dots\ --- walk the
-chain. Counting occurrences of every prefix: add 1 at each \code{f} position and push
-the counts down the chain in reverse order.}
+\entry{KMP}{$O(n + m)$ \quad mem $n + m$}{%
+From KACTL. \code{pi(s)[x]} is the length of the longest proper prefix of \code{s} that
+ends at \code{x} (abacaba $\to$ 0010123). \code{match(s, pat)} returns every 0-indexed
+start of \code{pat} in \code{s}, overlaps included; neither may contain
+\code{'\textbackslash0'}.\\[0.3ex]
+Shortest period of \code{s}: \code{n - pi(s).back()}; \code{s} is a repetition of it iff
+it divides \code{n}. Borders of \code{s} are \code{n}, \code{p[n-1]},
+\code{p[p[n-1]-1]}, \dots\ --- walk the chain. Counting occurrences of every prefix: add
+1 at each \code{p} value and push counts down the chain in reverse order.}
 
 %LABEL kmp
 \begin{lstlisting}
-vector<int> failure(const string& p) {
-    int m = (int)p.size(); vector<int> f(m, 0);
-    for (int i = 1, k = 0; i < m; i++) {
-        while (k && p[i] != p[k]) k = f[k-1];
-        if (p[i] == p[k]) k++;
-        f[i] = k;
+vi pi(const string& s) {
+    vi p(s.size());
+    rep(i,1,(ll)s.size()) {
+        int g = p[i-1];
+        while (g && s[i] != s[g]) g = p[g-1];
+        p[i] = g + (s[i] == s[g]);
     }
-    return f;
+    return p;
 }
-vector<int> kmp(const string& txt, const string& pat) {
-    vector<int> r;
-    if (pat.empty()) return r;
-    vector<int> f = failure(pat);
-    int n = (int)txt.size(), m = (int)pat.size();
-    for (int i = 0, k = 0; i < n; i++) {
-        while (k && txt[i] != pat[k]) k = f[k-1];
-        if (txt[i] == pat[k]) k++;
-        if (k == m) { r.push_back(i - m + 1); k = f[k-1]; }
-    }
-    return r;
+vi match(const string& s, const string& pat) {
+    vi p = pi(pat + '\0' + s), res;
+    rep(i,(ll)p.size()-(ll)s.size(),(ll)p.size())
+        if (p[i] == (ll)pat.size())
+            res.push_back(i - 2 * (ll)pat.size());
+    return res;
 }
 \end{lstlisting}
 
 \entry{Z function}{$O(n)$ \quad mem $n$}{%
-\code{z[i]} is the length of the longest common prefix of \code{s} and \code{s[i..]}
-(\code{z[0]} is left 0). Pattern matching: build \code{pat + '\textbackslash1' + txt} and
-look for \code{z[i] == pat.size()}; the separator must not occur in either
-string.\\[0.3ex]
-Often replaces KMP, and is the easier one to get right. Distinct substrings, smallest
-rotation, and ``is this a repetition'' all fall out of it.}
+From KACTL. \code{Z(s)[i]} is the length of the longest common prefix of \code{s} and
+\code{s[i..]}, with \code{z[0] = 0} (abacaba $\to$ 0010301). Pattern matching: build
+\code{pat + '\textbackslash1' + txt} and look for \code{z[i] == pat.size()}; the
+separator must not occur in either string. Often replaces KMP.}
 
 %LABEL zfunc
 \begin{lstlisting}
-vector<int> zfunc(const string& s) {
-    int n = (int)s.size();
-    vector<int> z(n, 0);
-    for (int i = 1, l = 0, r = 0; i < n; i++) {
-        if (i < r) z[i] = min(r - i, z[i - l]);
-        while (i + z[i] < n && s[z[i]] == s[i + z[i]]) z[i]++;
-        if (i + z[i] > r) { l = i; r = i + z[i]; }
+vi Z(const string& S) {
+    vi z(S.size());
+    int l = -1, r = -1;
+    rep(i,1,(ll)S.size()) {
+        z[i] = i >= r ? 0 : min<ll>(r - i, z[i - l]);
+        while (i + z[i] < (ll)S.size()
+               && S[i + z[i]] == S[z[i]])
+            z[i]++;
+        if (i + z[i] > r)
+            l = i, r = i + z[i];
     }
     return z;
 }
 \end{lstlisting}
 
 \entry{Manacher}{$O(n)$ \quad mem $n$}{%
-Every palindromic substring at once. \code{d1[i]} is the radius of the longest
-\emph{odd} palindrome centred at \code{i} (always $\ge 1$), \code{d2[i]} the radius of
-the longest \emph{even} one centred between \code{i-1} and \code{i} (may be 0). The
-number of palindromic substrings is $\sum d1 + \sum d2$.\\[0.3ex]
-\code{isPal(l, r)} answers ``is \code{s[l..r)} a palindrome'' in $O(1)$, which is what
-you usually actually want --- e.g. for ``split the string into the fewest
-palindromes'' DP. Longest palindromic substring:
-$\max(2 d1[i] - 1, 2 d2[i])$.}
+From KACTL. Every palindromic substring at once: \code{auto p = manacher(s);}
+\code{p[1][i]} = half the length (rounded down) of the longest \emph{odd} palindrome
+centred at \code{i}; \code{p[0][i]} = half the length of the longest \emph{even} one
+centred between \code{i-1} and \code{i}. Number of palindromic substrings:
+$\sum (p[1][i] + 1) + \sum p[0][i]$.\\[0.3ex]
+Is \code{s[l..r)} a palindrome, in $O(1)$: with \code{len = r-l}, \code{c = l+len/2},
+it is \code{p[len\%2][c] >= len/2} --- e.g. for ``split into the fewest palindromes''
+DP. Longest palindrome: $\max(2p[1][i]+1, 2p[0][i])$.}
 
 %LABEL manacher
 \begin{lstlisting}
-struct Manacher {
-    int n; vector<int> d1, d2;
-    Manacher(const string& s) : n((int)s.size()),
-                                d1(n, 0), d2(n, 0) {
-        for (int i = 0, l = 0, r = -1; i < n; i++) {
-            int k = i > r ? 1 : min(d1[l+r-i], r-i+1);
-            while (i-k >= 0 && i+k < n && s[i-k] == s[i+k])
-                k++;
-            d1[i] = k--;
-            if (i + k > r) { l = i - k; r = i + k; }
-        }
-        for (int i = 0, l = 0, r = -1; i < n; i++) {
-            int k = i > r ? 0 : min(d2[l+r-i+1], r-i+1);
-            while (i - k - 1 >= 0 && i + k < n
-                   && s[i-k-1] == s[i+k]) k++;
-            d2[i] = k--;
-            if (i + k > r) { l = i - k - 1; r = i + k; }
-        }
+array<vi, 2> manacher(const string& s) {
+    int n = (int)s.size();
+    array<vi,2> p = {vi(n+1), vi(n)};
+    rep(z,0,2) for (int i=0,l=0,r=0; i < n; i++) {
+        int t = r-i+!z;
+        if (i<r) p[z][i] = min<ll>(t, p[z][l+t]);
+        int L = i-p[z][i], R = i+p[z][i]-!z;
+        while (L>=1 && R+1<n && s[L-1] == s[R+1])
+            p[z][i]++, L--, R++;
+        if (R>r) l=L, r=R;
     }
-    bool isPal(int l, int r) {                // s[l..r)
-        int len = r - l, c = l + len / 2;
-        return len % 2 ? 2*d1[c]-1 >= len : 2*d2[c] >= len;
-    }
-};
+    return p;
+}
 \end{lstlisting}
 
 \entry{String hashing}{build $O(n)$, compare $O(1)$ \quad mem $n$}{%
@@ -3310,136 +3763,128 @@ struct Hash {
 \end{lstlisting}
 
 \entry{Suffix array + LCP}{$O(n \log n)$ \quad mem $n$}{%
-\code{sa[i]} is the start of the \code{i}-th smallest suffix; \code{rnk} is its inverse;
-\code{lcp[i]} is the longest common prefix of \code{sa[i]} and \code{sa[i+1]}.
-The input must not contain the byte \code{1}, which is used as a
-sentinel.\\[0.3ex]
+From KACTL. \code{SuffixArray S(s);} \code{S.sa} has size $n+1$: \code{sa[0] = n} is
+the empty suffix, then \code{sa[i]} is the start of the \code{i}-th smallest suffix.
+\code{lcp[i]} = longest common prefix of the suffixes \code{sa[i]} and \code{sa[i-1]}
+(\code{lcp[0] = 0}). \code{s} must not contain \code{'\textbackslash0'}. For a
+\code{vector<int>} input use values $\ge 1$ and set \code{lim} above the
+largest.\\[0.3ex]
 Number of distinct substrings is $\frac{n(n+1)}{2} - \sum \mathrm{lcp}$. Longest
 repeated substring is $\max \mathrm{lcp}$. Longest common substring of two strings: join
-with a separator and take the best \code{lcp} between suffixes from different sides.
-LCP of two arbitrary suffixes = range-min of \code{lcp} between their ranks --- feed
-\code{lcp} to \code{SpTab}.\\[0.3ex]
+with a separator and take the best \code{lcp} between neighbours from different sides.
+LCP of two arbitrary suffixes = min of \code{lcp} between their ranks --- feed
+\code{lcp} to \code{RMQ} (rank = inverse of \code{sa}).\\[0.3ex]
 Consider \code{Hash} plus binary search first: shorter to write, usually fast enough.}
 
 %LABEL sufarr
 \begin{lstlisting}
 struct SuffixArray {
-    int n; vector<int> sa, rnk, lcp;
-    SuffixArray(const string& str) {
-        string s = str; s += char(1);       // sentinel
-        n = (int)s.size();
-        vector<int> p(n), c(n), pn(n), cn(n);
-        vector<int> cnt(max(256, n), 0);
-        for (int i = 0; i < n; i++)
-            cnt[(unsigned char)s[i]]++;
-        for (int i = 1; i < 256; i++) cnt[i] += cnt[i-1];
-        for (int i = 0; i < n; i++)
-            p[--cnt[(unsigned char)s[i]]] = i;
-        int cls = 1; c[p[0]] = 0;
-        for (int i = 1; i < n; i++) {
-            if (s[p[i]] != s[p[i-1]]) cls++;
-            c[p[i]] = cls - 1;
+    vi sa, lcp;
+    SuffixArray(string s, int lim=256) { // or vector<int>
+        s.push_back(0); int n = (int)s.size(), k = 0, a, b;
+        vi x(all(s)), y(n), ws(max(n, lim));
+        sa = lcp = y, iota(all(sa), 0);
+        for (int j = 0, p = 0; p < n;
+             j = max(1, j * 2), lim = p) {
+            p = j, iota(all(y), n - j);
+            rep(i,0,n) if (sa[i] >= j) y[p++] = sa[i] - j;
+            fill(all(ws), 0);
+            rep(i,0,n) ws[x[i]]++;
+            rep(i,1,lim) ws[i] += ws[i - 1];
+            for (int i = n; i--;) sa[--ws[x[y[i]]]] = y[i];
+            swap(x, y), p = 1, x[sa[0]] = 0;
+            rep(i,1,n) a = sa[i - 1], b = sa[i], x[b] =
+                (y[a] == y[b] && y[a + j] == y[b + j])
+                    ? p - 1 : p++;
         }
-        for (int h = 0; (1 << h) < n; h++) {
-            for (int i = 0; i < n; i++) {
-                pn[i] = p[i] - (1 << h);
-                if (pn[i] < 0) pn[i] += n;
-            }
-            fill(cnt.begin(), cnt.begin() + cls, 0);
-            for (int i = 0; i < n; i++) cnt[c[pn[i]]]++;
-            for (int i = 1; i < cls; i++) cnt[i] += cnt[i-1];
-            for (int i = n - 1; i >= 0; i--)
-                p[--cnt[c[pn[i]]]] = pn[i];
-            cn[p[0]] = 0; cls = 1;
-            for (int i = 1; i < n; i++) {
-                int a = p[i], b = p[i-1], d = 1 << h;
-                if (c[a] != c[b]
-                    || c[(a+d) % n] != c[(b+d) % n]) cls++;
-                cn[a] = cls - 1;
-            }
-            c = cn;
-        }
-        sa.assign(p.begin() + 1, p.end());   // drop sentinel
-        n--;
-        rnk.assign(n, 0);
-        for (int i = 0; i < n; i++) rnk[sa[i]] = i;
-        lcp.assign(max(n - 1, 0), 0);
-        for (int i = 0, k = 0; i < n; i++) {
-            if (rnk[i] == n - 1) { k = 0; continue; }
-            int j = sa[rnk[i] + 1];
-            while (i + k < n && j + k < n
-                   && str[i+k] == str[j+k]) k++;
-            lcp[rnk[i]] = k;
-            if (k) k--;
-        }
+        for (int i = 0, j; i < n - 1; lcp[x[i++]] = k)
+            for (k && k--, j = sa[x[i] - 1];
+                    s[i + k] == s[j + k]; k++);
     }
 };
 \end{lstlisting}
 
-\entry{Aho-Corasick}{build $O(\Sigma \cdot \mathrm{tot})$, scan $O(n + \mathrm{hits})$ \quad mem $\Sigma \cdot \mathrm{tot}$}{%
-Many patterns at once. \code{add(s, id)} before \code{build()}, then \code{match(txt, f)}
-calls \code{f(i, id)} for every pattern \code{id} ending at text position \code{i}.
-Lowercase \code{a-z}; change the 26 and the \code{- 'a'} for another
-alphabet.\\[0.3ex]
-\code{out} is the \emph{output link} --- the nearest fail-ancestor that is itself a
-pattern end --- so reporting costs $O(1)$ per hit instead of walking the whole fail
-chain, which is the difference between $O(n + \mathrm{hits})$ and $O(n \cdot
-\mathrm{depth})$. Empty patterns are not allowed (the root is never a match).\\[0.3ex]
-To \emph{count} hits per pattern without listing them, mark \code{cnt[u]++} per text
-position and push counts along \code{fail} in reverse BFS order --- $O(n +
-\mathrm{tot})$ regardless of how many matches there are.}
+\entry{Aho-Corasick}{build $O(26 N)$, \code{find} $O(n)$ \quad mem $26 N$}{%
+From KACTL. Many patterns at once. \code{AhoCorasick ac(pat);} ($N$ = total pattern
+length, no empty patterns). \code{ac.find(word)[i]} = index of the
+\textbf{longest} pattern ending at position \code{i}, or $-1$.
+\code{ac.findAll(pat, word)[i]} = all patterns \textbf{starting} at \code{i} --- that
+can be $N\sqrt N$ matches, so only when the output is small. Alphabet: set
+\code{alpha} and \code{first} (\code{'a'} for lowercase).\\[0.3ex]
+\textbf{Count} matches instead of listing them: \code{nmatches} of a node is the number
+of patterns ending there, fail links included --- uncomment the \code{count} lines in
+\code{find}, $O(n)$ total. Duplicate patterns are fine; \code{backp} chains them.\\[0.3ex]
+DP over ``text avoiding all patterns'': states are node ids, transitions
+\code{N[n].next[c]}, forbidden where \code{N[n].end != -1}.}
 
 %LABEL aho
 \begin{lstlisting}
-struct Aho {
-    struct Nd { int go[26], fail = 0, out = 0, head = -1; };
-    vector<Nd> t;
-    vector<int> idv, nxt;        // id lists on terminal nodes
-    Aho() { newNode(); }
-    int newNode() {
-        t.push_back(Nd{});
-        fill(t.back().go, t.back().go + 26, -1);
-        return (int)t.size() - 1;
-    }
-    void add(const string& s, int id) {  // nonempty s
-        int u = 0;
-        for (char ch : s) {
-            int c = ch - 'a';
-            if (t[u].go[c] < 0) {
-                int v = newNode(); t[u].go[c] = v;
+struct AhoCorasick {
+    enum {alpha = 26, first = 'a'}; // change this!
+    struct Node {
+        // (nmatches is optional)
+        int back, next[alpha], start = -1, end = -1,
+            nmatches = 0;
+        Node(int v) { memset(next, v, sizeof(next)); }
+    };
+    vector<Node> N;
+    vector<int> backp;     // int: assigned via ?: below
+    void insert(string& s, int j) {
+        assert(!s.empty());
+        int n = 0;
+        for (char c : s) {
+            int& m = N[n].next[c - first];
+            if (m == -1) {
+                n = m = (int)N.size(); N.emplace_back(-1);
             }
-            u = t[u].go[c];
+            else n = m;
         }
-        idv.push_back(id); nxt.push_back(t[u].head);
-        t[u].head = (int)idv.size() - 1;
+        if (N[n].end == -1) N[n].start = j;
+        backp.push_back(N[n].end);
+        N[n].end = j;
+        N[n].nmatches++;
     }
-    void build() {
-        vector<int> q;
-        for (int c = 0; c < 26; c++) {
-            int v = t[0].go[c];
-            if (v < 0) t[0].go[c] = 0;
-            else { t[v].fail = 0; q.push_back(v); }
-        }
-        for (int i = 0; i < (int)q.size(); i++) {
-            int u = q[i], f = t[u].fail;
-            t[u].out = t[f].head >= 0 ? f : t[f].out;
-            for (int c = 0; c < 26; c++) {
-                int v = t[u].go[c], w = t[f].go[c];
-                if (v < 0) t[u].go[c] = w;
-                else { t[v].fail = w; q.push_back(v); }
+    AhoCorasick(vector<string>& pat) : N(1, -1) {
+        rep(i,0,(ll)pat.size()) insert(pat[i], i);
+        N[0].back = (int)N.size();
+        N.emplace_back(0);
+        queue<int> q;
+        for (q.push(0); !q.empty(); q.pop()) {
+            int n = q.front(), prev = N[n].back;
+            rep(i,0,alpha) {
+                int &ed = N[n].next[i], y = N[prev].next[i];
+                if (ed == -1) ed = y;
+                else {
+                    N[ed].back = y;
+                    (N[ed].end == -1 ? N[ed].end
+                        : backp[N[ed].start]) = N[y].end;
+                    N[ed].nmatches += N[y].nmatches;
+                    q.push(ed);
+                }
             }
         }
     }
-    template<class F>       // f(end index, pattern id)
-    void match(const string& s, F f) {
-        int u = 0;
-        for (int i = 0; i < (int)s.size(); i++) {
-            u = t[u].go[s[i] - 'a'];
-            for (int v = t[u].head >= 0 ? u : t[u].out; v;
-                 v = t[v].out)
-                for (int e = t[v].head; e >= 0; e = nxt[e])
-                    f(i, idv[e]);
+    vi find(string word) {
+        int n = 0;
+        vi res; // ll count = 0;
+        for (char c : word) {
+            n = N[n].next[c - first];
+            res.push_back(N[n].end);
+            // count += N[n].nmatches;
         }
+        return res;
+    }
+    vector<vi> findAll(vector<string>& pat, string word) {
+        vi r = find(word);
+        vector<vi> res(word.size());
+        rep(i,0,(ll)word.size()) {
+            int ind = r[i];
+            while (ind != -1) {
+                res[i - pat[ind].size() + 1].push_back(ind);
+                ind = backp[ind];
+            }
+        }
+        return res;
     }
 };
 \end{lstlisting}
@@ -3452,7 +3897,7 @@ Keep a counter per node and you can also answer ``how many \code{y} with
 \code{x \textasciicircum{} y < k}'', and delete by decrementing. Maximum XOR
 \emph{subarray}: insert prefix xors as you sweep.\\[0.3ex]
 A plain prefix trie over letters is the same shape with 26 children --- see
-\code{Aho} without the fail links.}
+\code{AhoCorasick} without the fail links.}
 
 \begin{lstlisting}
 struct XorTrie {
@@ -3479,6 +3924,28 @@ struct XorTrie {
         return r;
     }
 };
+\end{lstlisting}
+
+\entry{Minimum rotation}{$O(n)$}{%
+Index where the lexicographically smallest rotation of \code{s} starts:
+\code{rotate(s.begin(), s.begin() + minRotation(s), s.end())}. Two strings (or
+necklaces, or cyclic sequences of numbers) are rotations of each other iff their
+minimum rotations are equal --- the standard way to put a cycle into one canonical form
+before hashing or comparing. Works on \code{vector<int>} too if you change the type.
+From KACTL.}
+
+%LABEL minrot
+\begin{lstlisting}
+int minRotation(string s) {
+    int a = 0, N = (int)s.size(); s += s;
+    rep(b, 0, N) rep(k, 0, N) {
+        if (a + k == b || s[a+k] < s[b+k]) {
+            b += max(0, (int)k - 1); break;
+        }
+        if (s[a+k] > s[b+k]) { a = (int)b; break; }
+    }
+    return a;
+}
 \end{lstlisting}
 
 \section{Geometry (Ruiming)}
@@ -3626,18 +4093,8 @@ ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Angle(Vector A,Vector B){return acos(Dot(A,B)/Len(A)/Len(B));}
 ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
 bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
 ll Point_in_polygon(Point pt, Point *p,ll n){//list of points p representing polygon
     for(int i=1;i<=n;i++){
         //Point on vetices
@@ -3682,16 +4139,8 @@ ll t,n;
 ld ans;
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
-ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
 //UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #include <bits/stdc++.h>
 using namespace std;
@@ -3704,26 +4153,8 @@ const ld pi=acos(-1.0);
 ld eps=1e-6;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
-ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Polygon.cpp */ }
 ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Point_in_polygon(Point pt, Point *p,ll n){ /* see geomtery/Polygon.cpp */ }
-ld Polygon_area(Point *p,ll n){ /* see geomtery/Polygon.cpp */ }
 ll Convex_Hull(Point *p, ll n,Point *ch){
     sort(p+1,p+n+1);
     n=unique(p+1,p+n+1)-(p+1);
@@ -3748,187 +4179,6 @@ ll Convex_Hull(Point *p, ll n,Point *ch){
 Point poly[MAXN],ch[MAXN];
 \end{lstlisting}
 
-\entry{Lattic\_points.cpp}{Ruiming \quad exact}{Integer coordinates with \code{ll} only: no \code{eps}, no wrong answers. \code{Point\_in\_polygon(pt,p,n)} (1-indexed, 3 vertex / 2 edge / 1 inside / 0 outside) and \code{Polygon\_area2} = \textbf{twice} the signed area. Pick: interior lattice points $I = (A_2 - B + 2)/2$, with $B = \sum \gcd(|dx|,|dy|)$ over the edges. Distances and projections come back as \code{ld} \code{Point}s. Coordinates up to $10^9$ keep the cross products inside \code{ll}.}
-
-%NOCOMPILE
-%VERBATIM
-\begin{lstlisting}[breaklines=true]
-// header lines: see geomtery/Line_and_Vectors.cpp
-const ll INF = 1e18;
-const ll MAXN = 1006; // UPDATERA ARRAY STORLEKEN!!!!!!!!!!
-const ld pi = acos(-1.0L);
-ld eps = 1e-9;
-// 浮点比较
-ll ldcmp(ld x, ld y) {
-    if (fabs(x - y) < eps) return 0;
-    return x < y ? -1 : 1;
-}
-// ==================== 整数点 ====================
-struct PointLL {
-    ll x, y;
-    PointLL() : x(0), y(0) {}
-    PointLL(ll x, ll y) : x(x), y(y) {}
-    PointLL operator+(const PointLL& B) const { return PointLL(x + B.x, y + B.y); }
-    PointLL operator-(const PointLL& B) const { return PointLL(x - B.x, y - B.y); }
-    PointLL operator*(ll k) const { return PointLL(x * k, y * k); }
-    PointLL operator/(ll k) const { return PointLL(x / k, y / k); }
-    bool operator==(const PointLL& B) const { return x == B.x && y == B.y; }
-    bool operator!=(const PointLL& B) const { return !(*this == B); }
-};
-Point POF=Point(INF,INF);
-typedef PointLL VectorLL;
-// 点积
-ll Dot(const VectorLL& A, const VectorLL& B) {
-    return A.x * B.x + A.y * B.y;
-}
-// 叉积
-ll Cross(const VectorLL& A, const VectorLL& B) {
-    return A.x * B.y - A.y * B.x;
-}
-// 距离平方
-ll Dist2(const PointLL& A, const PointLL& B) {
-    ll dx = A.x - B.x, dy = A.y - B.y;
-    return dx * dx + dy * dy;
-}
-// 有向面积的两倍
-ll Area2(const PointLL& A, const PointLL& B, const PointLL& C) {
-    return Cross(B - A, C - A);
-}
-// 判断平行
-bool Parallel(const VectorLL& A, const VectorLL& B) {
-    return Cross(A, B) == 0;
-}
-// 直线（整数点）
-struct LineLL {
-    PointLL p1, p2;
-    LineLL() {}
-    LineLL(const PointLL& p1, const PointLL& p2) : p1(p1), p2(p2) {}
-};
-// 点与直线关系：1 左侧，2 右侧，0 在直线上
-ll Point_line_relation(const PointLL& P, const LineLL& v) {
-    ll c = Cross(P - v.p1, v.p2 - v.p1);
-    if (c < 0) return 1;
-    if (c > 0) return 2;
-    return 0;
-}
-// 点是否在线段上
-bool Point_on_seg(const PointLL& P, const LineLL& v) {
-    return Cross(P - v.p1, v.p2 - v.p1) == 0 &&
-           min(v.p1.x, v.p2.x) <= P.x && P.x <= max(v.p1.x, v.p2.x) &&
-           min(v.p1.y, v.p2.y) <= P.y && P.y <= max(v.p1.y, v.p2.y);
-}
-// 两直线关系：0 平行，1 重合，2 相交
-ll Line_relation(const LineLL& v1, const LineLL& v2) {
-    if (Cross(v1.p2 - v1.p1, v2.p2 - v2.p1) == 0) {
-        if (Cross(v1.p1 - v2.p1, v2.p2 - v2.p1) == 0) return 1;
-        return 0;
-    }
-    return 2;
-}
-// 点与多边形关系（整数精确）
-// 返回：3 顶点，2 边，1 内部，0 外部
-ll Point_in_polygon(const PointLL& pt, const PointLL* p, ll n) {
-    for (int i = 1; i <= n; i++) {
-        if (p[i] == pt) return 3;
-    }
-    for (int i = 1; i <= n; i++) {
-        int nxt = (i % n) + 1;
-        LineLL v(p[i], p[nxt]);
-        if (Point_on_seg(pt, v)) return 2;
-    }
-    bool inside = false;
-    for (int i = 1, j = n; i <= n; j = i++) {
-        if ((p[i].y > pt.y) != (p[j].y > pt.y)) {
-            ll dy = p[j].y - p[i].y;
-            ll dx = p[j].x - p[i].x;
-            ll lhs = (pt.x - p[i].x) * dy;
-            ll rhs = (pt.y - p[i].y) * dx;
-            if (dy > 0) {
-                if (lhs < rhs) inside = !inside;
-            } else {
-                if (lhs > rhs) inside = !inside;
-            }
-        }
-    }
-    return inside ? 1 : 0;
-}
-// 多边形面积的两倍（有向），返回 ll
-ll Polygon_area2(const PointLL* p, ll n) {
-    ll area = 0;
-    for (int i = 1; i <= n; i++) {
-        int nxt = (i % n) + 1;
-        area += p[i].x * p[nxt].y - p[i].y * p[nxt].x;
-    }
-    return area;
-}
-bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-// ==================== 浮点点 ====================
-struct Point{
-    ld x,y;
-    Point(): x(0),y(0){}
-    Point(ld x,ld y): x(x),y(y) {}
-    Point operator + (Point B){return Point(x+B.x,y+B.y);}
-    Point operator - (Point B){return Point(x-B.x,y-B.y);}
-    Point operator * (ld k){return Point(x*k,y*k);}
-    Point operator / (ld k){return Point(x/k,y/k);}
-    bool operator == (Point B){return ((ldcmp(x-B.x,0)==0)&&(ldcmp(y-B.y,0)==0));}
-    bool operator < (Point B){
-        if (x != B.x) return x < B.x;
-        return y < B.y;
-    }
-};
-typedef Point Vector;
-// 距离
-ld Dist(const PointLL& A, const PointLL& B) {
-    return sqrt((ld)Dist2(A, B));
-}
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
-// 点到直线距离
-ld Dis_point_line(const PointLL& P, const LineLL& v) {
-    return fabs((ld)Cross(P - v.p1, v.p2 - v.p1)) / Dist(v.p1, v.p2);
-}
-// 点到线段距离
-ld Dis_point_seg(const PointLL& P, const LineLL& v) {
-    if (Dot(P - v.p1, v.p2 - v.p1) < 0 || Dot(P - v.p2, v.p1 - v.p2) < 0) return min(Dist(P, v.p1), Dist(P, v.p2));
-    return Dis_point_line(P, v);
-}
-// 点在直线上的投影（返回浮点点）
-Point Point_line_proj(const PointLL& P, const LineLL& v) {
-    ld k = (ld)Dot(v.p2 - v.p1, P - v.p1) / Dot(v.p2 - v.p1, v.p2 - v.p1);
-    return Point(v.p1.x + (v.p2.x - v.p1.x) * k, v.p1.y + (v.p2.y - v.p1.y) * k);
-}
-// 点关于直线的对称点（返回浮点点）
-Point Point_line_symmetry(const PointLL& P, const LineLL& v) {
-    Point q = Point_line_proj(P, v);
-    return Point(2 * q.x - P.x, 2 * q.y - P.y);
-}
-// 两直线交点（返回浮点点）。要求两直线不平行。
-Point Cross_point(const PointLL& a, const PointLL& b, const PointLL& c, const PointLL& d) {
-    ld s1 = (ld)Cross(b - a, c - a);
-    ld s2 = (ld)Cross(b - a, d - a);
-    ld denom = s2 - s1;
-    return Point(
-        (c.x * s2 - d.x * s1) / denom,
-        (c.y * s2 - d.y * s1) / denom
-    );
-}
-// 向量旋转（返回浮点点）
-Point Rotate(const PointLL& A, ld rad) {
-    ld c = cos(rad), s = sin(rad);
-    return Point(A.x * c - A.y * s, A.x * s + A.y * c);
-}
-// 全局数组和读入示例
-PointLL poly[MAXN];
-ll n,m;
-\end{lstlisting}
-
 \entry{Closest\_pair.cpp}{Ruiming \quad $O(n \log^2 n)$}{Smallest distance between two of the points \code{p[1..n]}. \textbf{Sort first}: \code{sort(p+1, p+n+1, cmpx); closest\_pair(1, n)} returns the distance. Divide and conquer on $x$, then check the strip sorted by $y$.}
 
 %NOCOMPILE
@@ -3941,24 +4191,6 @@ struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
 Point POF=Point(INF,INF);
 ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
-struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
 bool cmpx(Point A,Point B){
     return ldcmp(A.x-B.x,0)<0||(ldcmp(A.x-B.x,0)==0&&ldcmp(A.y-B.y,0)<0);
 }
@@ -3975,9 +4207,7 @@ ld closest_pair(ll left,ll right){
     ld cand2=closest_pair(mid+1,right);
     dis=min(cand1,cand2);
     ll k=0;
-    for(int i=left;i<=right;i++){
-        if(fabs(p[mid].x-p[i].x)<=dis) tmp[++k]=p[i];
-    }
+    for(int i=left;i<=right;i++) if(fabs(p[mid].x-p[i].x)<=dis) tmp[++k]=p[i];
     sort(tmp+1,tmp+k+1,cmpy);
     for(int i=1;i<=k;i++){
         for(int j=i+1;j<=k;j++){
@@ -4013,16 +4243,8 @@ struct Point{
     }
 };
 Point POF=Point(INF,INF);
-ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Line {
     Point p1, p2;
     Vector v;
@@ -4056,13 +4278,6 @@ struct Line {
         return ldcmp(Cross(L.p1 - p1, L.p2 - p1), 0) > 0;
     }
 };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
 bool OnLeft(Line L, Point p) {
     return ldcmp(Cross(L.v, p - L.p1), 0) >= 0;
 }
@@ -4117,24 +4332,11 @@ struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
 Point POF=Point(INF,INF);
 ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
 Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
 ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Circle{
     Point c;
     ld r;
@@ -4199,30 +4401,8 @@ struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
 Point POF=Point(INF,INF);
 ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
 typedef Point Vector;
-ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
-ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
-Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
-ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
-ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
-Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
-struct Circle{ /* see geomtery/Circle.cpp */ };
-ll Point_circle_relation(Point P,Circle C){ /* see geomtery/Circle.cpp */ }
-ll Line_Circle_relation(Line v,Circle C){ /* see geomtery/Circle.cpp */ }
 typedef Line Segment;
-ll Seg_circle_relation(Segment v,Circle C){ /* see geomtery/Circle.cpp */ }
-ll Line_Cross_Circle(Line v,Circle C,Point &pa,Point &pb){ /* see geomtery/Circle.cpp */ }
 Point Circumcenter(Point A,Point B,Point C){ /* see geomtery/Circle.cpp */ }
 void min_center_circle(Point *p,ll n,Point &c,ld &r){
     random_shuffle(p+1,p+n+1);
@@ -4255,64 +4435,37 @@ Point p[MAXN];
 
 \section{Searching}
 
-\entry{Binary search on a predicate}{$O(\log)$}{%
-\code{pred} must be monotone false$\dots$false true$\dots$true. Returns the first
-\code{x} in \code{[lo, hi]} with \code{pred(x)}, or \code{hi+1} if none --- so test the
-return value before using it.\\[0.3ex]
-``Largest \code{x} that still works'' is the same call on the negated predicate minus
-one, or just search for the first failing \code{x} and subtract 1. Almost every
-``minimise the maximum'' / ``can we do it within $k$'' problem is this function plus a
-greedy check.\\[0.3ex]
-Reals: fix the iteration count (100 halvings covers any range to $10^{-30}$) rather than
-looping on a tolerance, which can spin forever.}
+\entry{Binary search on the answer}{$O(\log)$}{%
+No template needed. The predicate must be monotone false$\dots$false
+true$\dots$true; keep the invariant \code{pred(lo)} false, \code{pred(hi)} true and
+loop \code{while (hi - lo > 1)} with \code{m = lo + (hi-lo)/2}; the answer is
+\code{hi}. On a sorted array use \code{lower\_bound}/\code{upper\_bound}, or
+\code{partition\_point(all(v), pred)}.\\[0.3ex]
+Almost every ``minimise the maximum'' / ``can we do it within $k$'' problem is this
+plus a greedy check. Reals: fix the iteration count (100 halvings) instead of looping
+on a tolerance, which can spin forever.}
 
+\entry{Ternary search}{$O(\log(b-a))$}{%
+From KACTL. \code{ternSearch(a, b, f)}: the smallest \code{i} in \code{[a, b]} that
+\textbf{maximises} \code{f(i)}, assuming $f(a) < \dots < f(i) \ge \dots \ge f(b)$. To
+\textbf{minimise}, change the \code{<} at (A) and at (B) to \code{>}. To allow flat
+stretches on the other side, make (A) \code{<=} and reverse the loop at
+(B).\\[0.3ex]
+Usage: \code{int ind = ternSearch(0, n-1, [\&](int i)\{ return a[i]; \});}. Reals:
+the classic thirds loop, 200 iterations, on \code{ld}.}
+
+%LABEL ternSearch
 \begin{lstlisting}
 template<class F>
-ll bsearch(ll lo, ll hi, F pred) {   // first true in [lo,hi]
-    hi++;                            // hi = "none found"
-    while (lo < hi) {
-        ll m = lo + (hi - lo) / 2;   // no overflow
-        if (pred(m)) hi = m; else lo = m + 1;
+int ternSearch(int a, int b, F f) {
+    assert(a <= b);
+    while (b - a >= 5) {
+        int mid = (a + b) / 2;
+        if (f(mid) < f(mid+1)) a = mid; // (A)
+        else b = mid+1;
     }
-    return lo;
-}
-template<class F>
-ld bsearchReal(ld lo, ld hi, F pred) {
-    rep(it, 0, 100) {
-        ld m = (lo + hi) / 2;
-        if (pred(m)) hi = m; else lo = m;
-    }
-    return lo;
-}
-\end{lstlisting}
-
-\entry{Ternary search}{$O(\log)$}{%
-For a \textbf{strictly unimodal} function --- one valley, no flat stretches. A flat
-region breaks it silently, so if ties are possible make the comparison
-\code{<=} vs \code{<} deliberately, or binary-search on
-\code{f(m+1) - f(m)} instead, which is the more robust trick.\\[0.3ex]
-The integer version finishes by scanning the last three candidates, which is where
-off-by-ones normally live. For a maximum, negate \code{f}.}
-
-\begin{lstlisting}
-template<class F>              // argmin of a unimodal f
-ll tsearch(ll lo, ll hi, F f) {
-    while (hi - lo > 2) {
-        ll m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
-        if (f(m1) < f(m2)) hi = m2; else lo = m1;
-    }
-    ll best = lo;
-    for (ll x = lo + 1; x <= hi; x++)
-        if (f(x) < f(best)) best = x;
-    return best;
-}
-template<class F>
-ld tsearchReal(ld lo, ld hi, F f) {
-    rep(it, 0, 200) {
-        ld m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3;
-        if (f(m1) < f(m2)) hi = m2; else lo = m1;
-    }
-    return (lo + hi) / 2;
+    rep(i,a+1,b+1) if (f(a) < f(i)) a = i; // (B)
+    return a;
 }
 \end{lstlisting}
 
@@ -4333,6 +4486,36 @@ vi compress(vi vals) {
 }
 int id(const vi& c, ll v) {
     return (int)(lower_bound(all(c), v) - c.begin());
+}
+\end{lstlisting}
+
+\entry{Interval cover}{$O(n \log n)$}{%
+Fewest intervals from \code{I} that together cover the target \code{G}; returns their
+indices, or empty if impossible. Intervals are \textbf{half-open} \code{[a, b)}; for
+closed ones on integers use \code{[a, b+1)}. Greedy: from the current point, among the
+intervals starting at or before it, take the one that reaches furthest. Same idea for
+``fewest jumps'' and ``fewest refuelling stops'' problems. From KACTL.}
+
+%LABEL cover
+\begin{lstlisting}
+template<class T>
+vector<int> cover(pair<T,T> G, vector<pair<T,T>> I) {
+    vector<int> S(I.size()), R;
+    iota(all(S), 0);
+    sort(all(S), [&](int a, int b) { return I[a] < I[b]; });
+    T cur = G.first;
+    int at = 0;
+    while (cur < G.second) {
+        pair<T, int> mx = make_pair(cur, -1);
+        while (at < (int)I.size() && I[S[at]].first <= cur) {
+            mx = max(mx, make_pair(I[S[at]].second, S[at]));
+            at++;
+        }
+        if (mx.second == -1) return {};
+        cur = mx.first;
+        R.push_back(mx.second);
+    }
+    return R;
 }
 \end{lstlisting}
 
@@ -4498,6 +4681,28 @@ Polygon on lattice points: Pick, see \emph{Graph facts}. Volume of a polyhedron 
 outward faces: $\frac16\sum_{\text{faces}} (a \times b)\cdot c$ over triangulated
 faces.}
 
+\entry{Vectors and linear algebra}{}{%
+\textbf{Cross product.} 2D: $a \times b = a_x b_y - a_y b_x$ $= |a||b|\sin\theta$; $> 0$
+iff $b$ is counter-clockwise from $a$. Triangle area $= \frac12|(b-a)\times(c-a)|$.
+3D: $a \times b = (a_y b_z - a_z b_y,\; a_z b_x - a_x b_z,\; a_x b_y - a_y b_x)$,
+perpendicular to both, length = parallelogram area. $a\cdot(b\times c)$ = signed volume
+of the parallelepiped (tetrahedron: $\frac16$); $=0$ iff coplanar.\\[0.3ex]
+\textbf{Dot} $a\cdot b = |a||b|\cos\theta$; projection of $p$ on $u$:
+$\frac{p\cdot u}{u\cdot u}u$. Plane $n\cdot x = n\cdot p$, distance of $q$:
+$|n\cdot(q-p)|/|n|$. \textbf{Lines} $p + t\,r$, $q + s\,u$:
+$t = \frac{(q-p)\times u}{r\times u}$, $s = \frac{(q-p)\times r}{r\times u}$;
+parallel iff $r \times u = 0$; segments meet iff $0 \le t, s \le 1$.\\[0.3ex]
+\textbf{Matrices.} 2$\times$2 inverse $= \frac{1}{ad-bc}(d, -b; -c, a)$. Cramer:
+$x_i = \det A_i / \det A$ ($A_i$: column $i$ replaced by $b$). $\det(AB) = \det A\det
+B$; a row swap flips the sign. $Ax = b$ is solvable iff $\mathrm{rank}\,A =
+\mathrm{rank}[A|b]$, then $p^{n-\mathrm{rank}}$ solutions mod $p$. Order-$k$ linear
+recurrence: $k\times k$ matrix power, $O(k^3\log n)$; walks of length $L$:
+$\text{adj}^L$.\\[0.3ex]
+\textbf{Counting.} $\sum_k\binom nk = 2^n$, $\sum_k k\binom nk = n2^{n-1}$,
+$\sum_k\binom nk^2 = \binom{2n}{n}$. Circle arrangements $(n-1)!$; $k$ from $n$ kinds
+with repetition $\binom{n+k-1}{k}$. Fibonacci: $F_{2n} = F_n(2F_{n+1}-F_n)$,
+$F_{2n+1} = F_n^2 + F_{n+1}^2$, $\gcd(F_m,F_n) = F_{\gcd(m,n)}$.}
+
 \entry{Technique by symptom}{}{%
 \begin{ctab}{0.43}{0.52}
 \textbf{You see} & \textbf{Try}\\
@@ -4535,7 +4740,7 @@ almost always an edge case from the Pitfalls list --- most often multiple test c
 an overflow.\\[0.3ex]
 \footnotesize
 \emph{Team Wery Accepted: Ruben, Ruiming, Teo. Sources: templates by Ruben, Ruiming,
-b5xu and Martin (earlier teammate), consolidated. Entries marked ``From KACTL'' and
+and b5xu, consolidated. Entries marked ``From KACTL'' and
 \code{LineContainer} are adapted from KACTL (KTH, CC0). Provenance and the per-entry
 diff against the original files are in \code{notebook/README.md}.}}
 

@@ -317,3 +317,36 @@ void dfs(int u, int par) {
     undo(t);                     // exit: exact inverse
 }
 \end{lstlisting}
+
+\entry{Virtual tree (compress tree)}{$O(k \log k)$ per query}{%
+Needs \code{LCA} and \code{euler} (same root). A query names $k$ important vertices of a
+huge tree, and the sum of all $k$ is small. Build a small tree containing just those
+vertices plus the LCAs needed to keep the shape (at most $k-1$ extra), then run the
+normal tree DP on it. Edge lengths are \code{dep[b] - dep[a]} from the \code{LCA} struct
+(or weighted depth).\\[0.3ex]
+Returns pairs \code{(parent index, vertex)}; index 0 is the root and points to itself,
+and parents always come earlier in the list, so a loop from the back is a bottom-up DP.
+Sorting by \code{tin} is the whole trick: neighbours in that order have all the LCAs you
+need. From KACTL.}
+
+%DEP LCA euler
+%LABEL vtree
+\begin{lstlisting}
+vector<pair<int,int>> virtualTree(LCA& L,
+        const vector<int>& tin, vector<int> li) {
+    static vector<int> rev; rev.resize(tin.size());
+    auto cmp = [&](int a, int b) { return tin[a] < tin[b]; };
+    sort(all(li), cmp);
+    int m = (int)li.size() - 1;
+    rep(i, 0, m) li.push_back(L.lca(li[i], li[i+1]));
+    sort(all(li), cmp);
+    li.erase(unique(all(li)), li.end());
+    rep(i, 0, (ll)li.size()) rev[li[i]] = (int)i;
+    vector<pair<int,int>> ret = {{0, li[0]}};
+    rep(i, 0, (ll)li.size() - 1) {
+        int a = li[i], b = li[i+1];
+        ret.push_back({rev[L.lca(a, b)], b});
+    }
+    return ret;
+}
+\end{lstlisting}

@@ -160,6 +160,28 @@ Polygon on lattice points: Pick, see \emph{Graph facts}. Volume of a polyhedron 
 outward faces: $\frac16\sum_{\text{faces}} (a \times b)\cdot c$ over triangulated
 faces.}
 
+\entry{Vectors and linear algebra}{}{%
+\textbf{Cross product.} 2D: $a \times b = a_x b_y - a_y b_x$ $= |a||b|\sin\theta$; $> 0$
+iff $b$ is counter-clockwise from $a$. Triangle area $= \frac12|(b-a)\times(c-a)|$.
+3D: $a \times b = (a_y b_z - a_z b_y,\; a_z b_x - a_x b_z,\; a_x b_y - a_y b_x)$,
+perpendicular to both, length = parallelogram area. $a\cdot(b\times c)$ = signed volume
+of the parallelepiped (tetrahedron: $\frac16$); $=0$ iff coplanar.\\[0.3ex]
+\textbf{Dot} $a\cdot b = |a||b|\cos\theta$; projection of $p$ on $u$:
+$\frac{p\cdot u}{u\cdot u}u$. Plane $n\cdot x = n\cdot p$, distance of $q$:
+$|n\cdot(q-p)|/|n|$. \textbf{Lines} $p + t\,r$, $q + s\,u$:
+$t = \frac{(q-p)\times u}{r\times u}$, $s = \frac{(q-p)\times r}{r\times u}$;
+parallel iff $r \times u = 0$; segments meet iff $0 \le t, s \le 1$.\\[0.3ex]
+\textbf{Matrices.} 2$\times$2 inverse $= \frac{1}{ad-bc}(d, -b; -c, a)$. Cramer:
+$x_i = \det A_i / \det A$ ($A_i$: column $i$ replaced by $b$). $\det(AB) = \det A\det
+B$; a row swap flips the sign. $Ax = b$ is solvable iff $\mathrm{rank}\,A =
+\mathrm{rank}[A|b]$, then $p^{n-\mathrm{rank}}$ solutions mod $p$. Order-$k$ linear
+recurrence: $k\times k$ matrix power, $O(k^3\log n)$; walks of length $L$:
+$\text{adj}^L$.\\[0.3ex]
+\textbf{Counting.} $\sum_k\binom nk = 2^n$, $\sum_k k\binom nk = n2^{n-1}$,
+$\sum_k\binom nk^2 = \binom{2n}{n}$. Circle arrangements $(n-1)!$; $k$ from $n$ kinds
+with repetition $\binom{n+k-1}{k}$. Fibonacci: $F_{2n} = F_n(2F_{n+1}-F_n)$,
+$F_{2n+1} = F_n^2 + F_{n+1}^2$, $\gcd(F_m,F_n) = F_{\gcd(m,n)}$.}
+
 \entry{Technique by symptom}{}{%
 \begin{ctab}{0.43}{0.52}
 \textbf{You see} & \textbf{Try}\\
@@ -197,6 +219,6 @@ almost always an edge case from the Pitfalls list --- most often multiple test c
 an overflow.\\[0.3ex]
 \footnotesize
 \emph{Team Wery Accepted: Ruben, Ruiming, Teo. Sources: templates by Ruben, Ruiming,
-b5xu and Martin (earlier teammate), consolidated. Entries marked ``From KACTL'' and
+and b5xu, consolidated. Entries marked ``From KACTL'' and
 \code{LineContainer} are adapted from KACTL (KTH, CC0). Provenance and the per-entry
 diff against the original files are in \code{notebook/README.md}.}}

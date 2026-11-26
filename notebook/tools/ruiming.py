@@ -3,14 +3,17 @@ r"""Generate the Ruiming parts of the notebook from Ruiming/*, keeping his code.
 What is allowed to differ from his files (agreed with the team), and nothing else:
   1. empty / whitespace-only lines are dropped;
   2. layout only: a block holding ONE simple statement loses its braces and goes
-     on one line:  if(x){ / a; / }  ->  if(x) a;   (never when that statement is
-     itself an if, never when the head line has a comment after its '{');
+     on one line:  if(x){ / a; / }  ->  if(x) a;   (the statement may itself be
+     a one-line if/for/while, but not right before '}else'; never when the head
+     line has a comment after its '{');
   3. a top-level function/struct (with the // lines right above it) identical to
      one printed in an earlier file becomes  <first line up to '{'> /* see F */ }
   4. header lines (before the first function/struct) identical to header lines of
      an earlier file are dropped; the file starts with  // header lines: see F
   5. usage-only demo functions (main/solve/init that only read input and print,
-     listed in DROP) are left out; what they showed is in the entry text instead.
+     listed in DROP) are left out; what they showed is in the entry text instead;
+  6. geometry: a repeated function/struct (rule 3) that the file's own code never
+     uses is left out instead of stubbed -- only real dependencies point upward.
 Long lines are wrapped by the printer (breaklines), the text is not touched.
 
 Checks run every time:
@@ -66,13 +69,6 @@ PARTS = [
     'a strict right turn). Note the last \\code{sort}: \\code{ch} comes back sorted by ',
     '$(x, y)$, \\textbf{not} in counter-clockwise order --- sort with \\code{cmp} around an ',
     'inside point, or drop that line, before walking the hull.')),
-   ('geomtery/Lattic_points.cpp', 'exact', T(
-    'Integer coordinates with \\code{ll} only: no \\code{eps}, no wrong answers. ',
-    '\\code{Point\\_in\\_polygon(pt,p,n)} (1-indexed, 3 vertex / 2 edge / 1 inside / 0 ',
-    'outside) and \\code{Polygon\\_area2} = \\textbf{twice} the signed area. Pick: ',
-    'interior lattice points $I = (A_2 - B + 2)/2$, with $B = \\sum \\gcd(|dx|,|dy|)$ over ',
-    'the edges. Distances and projections come back as \\code{ld} \\code{Point}s. ',
-    'Coordinates up to $10^9$ keep the cross products inside \\code{ll}.')),
    ('geomtery/Closest_pair.cpp', '$O(n \\log^2 n)$', T(
     'Smallest distance between two of the points \\code{p[1..n]}. \\textbf{Sort first}: ',
     '\\code{sort(p+1, p+n+1, cmpx); closest\\_pair(1, n)} returns the distance. ',
@@ -184,7 +180,6 @@ DROP = {
   'geomtery/Line_and_Vectors.cpp': ['void init', 'void solve', 'int main'],
   'geomtery/Polygon.cpp': ['void init', 'void solve', 'int main'],
   'geomtery/Convex_Hull.cpp': ['void solve', 'int main'],
-  'geomtery/Lattic_points.cpp': ['void solve', 'int main'],
   'geomtery/Closest_pair.cpp': ['void init', 'void solve', 'int main'],
   'geomtery/Half_Plane_Intersect.cpp': ['void solve', 'int main'],
   'geomtery/Circle.cpp': ['void init', 'void solve', 'int main'],
@@ -239,8 +234,11 @@ def collapse(lines):
                            or (h.rstrip().endswith('{') and re.match(r'^}\s*else\b', hs)
                                and code_part(h).count('{') == 1))
                 cp = code_part(s).strip()
+                # a one-line if/for/while is fine as the single statement, but
+                # not before '}else' (the else would bind to the inner if)
                 stmt_ok = (cp.endswith(';') and '{' not in cp and '}' not in cp
-                           and not CTRL.match(ss) and not ss.startswith('//')
+                           and (not CTRL.match(ss) or (cs == '}' and not ss.startswith('else')))
+                           and not ss.startswith('//')
                            and not ss.startswith('#') and ss != ''
                            and not re.match(r'^(case|default)\b', ss))
                 if head_ok and stmt_ok and (cs == '}' or re.match(r'^}\s*else\b', cs)):
@@ -287,6 +285,25 @@ def items_of(lines):
         else:
             out.append(('one', ls, False))
     return out
+
+def blk_name(blk):
+    h = code_part(head_of(blk))
+    m = re.match(r'\s*(?:struct|class)\s+(\w+)', h)
+    if m: return m.group(1)
+    m = re.search(r'(\w+)\s*\(', h)
+    return m.group(1) if m else None
+
+def used(name, its, seen_blk, path):
+    """rule 6: is `name` used by this file's own printed code, i.e. by any line
+    outside the repeated (stubbed) and the dropped demo functions?"""
+    if name is None: return True
+    pat = re.compile(r'\b%s\b' % re.escape(name))
+    for t, ls, _ in its:
+        if t == 'blk' and ('\n'.join(ls) in seen_blk
+                           or any(head_of(ls).startswith(p) for p in DROP.get(path, []))):
+            continue
+        if any(pat.search(code_part(l)) for l in ls): return True
+    return False
 
 def head_of(blk):
     return [l for l in blk if not l.startswith('//')][0]
@@ -363,6 +380,7 @@ def main():
             its = items_of(lines)
             first_blk = next((k for k, (t, _, _) in enumerate(its) if t == 'blk'), len(its))
             body, removed_from, nstub, dropped_hdr, dropped_blk = [], [], 0, [], []
+            nunused = 0
             for k, (t, ls, _) in enumerate(its):
                 if is_sh:
                     body += ls; continue
@@ -378,7 +396,10 @@ def main():
                     if any(head_of(ls).startswith(p) for p in DROP.get(path, [])):
                         dropped_blk.append(ls); continue
                     key = '\n'.join(ls)
-                    if key in seen_blk:
+                    if (key in seen_blk and path.startswith('geomtery/')
+                            and not used(blk_name(ls), its, seen_blk, path)):
+                        dropped_blk.append(ls); nunused += 1     # rule 6
+                    elif key in seen_blk:
                         body.append(stub(ls, seen_blk[key])); nstub += 1
                     else:
                         seen_blk[key] = path
@@ -388,7 +409,8 @@ def main():
             if removed_from:
                 body.insert(0, '// header lines: see ' + ', '.join(removed_from))
             verify(path, lines, body, seen_blk, dropped_hdr, dropped_blk, is_sh)
-            report.append((path, len(read_lines(path)), len(body), nstub, len(dropped_blk)))
+            report.append((path, len(read_lines(path)), len(body), nstub,
+                           len(dropped_blk) - nunused, nunused))
             name = path.split('/')[-1]
             tex.append('\\entry{%s}{%s}{%s}' % (tex_escape(name),
                        ('Ruiming \\quad ' + cplx) if cplx else 'Ruiming', desc))
@@ -410,8 +432,9 @@ def main():
             text = '\n'.join(tex) + '\n'
         open(dest, 'w', encoding='utf-8', newline='\n').write(text)
     check_collapse(allfiles)
-    for p, a, b, s, d in report:
-        print('%-36s %4d lines -> %4d printed, %2d stubs, %d demo fns left out' % (p, a, b, s, d))
+    for p, a, b, s, d, u in report:
+        print('%-34s %4d -> %4d printed, %2d stubs, %2d unused, %d demo fns left out'
+              % (p, a, b, s, u, d))
     print('total printed lines:', sum(r[2] for r in report))
 
 def verify(path, lines, body, seen_blk, dropped_hdr, dropped_blk, is_sh):

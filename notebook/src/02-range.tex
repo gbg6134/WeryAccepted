@@ -99,28 +99,31 @@ struct Seg {
 };
 \end{lstlisting}
 
-\entry{Sparse table}{build $O(n \log n)$, query $O(1)$ \quad mem $n \log n$}{%
-\textbf{Idempotent} \code{op} only --- min, max, gcd, and, or. \code{op(x,x)} must
-be \code{x}, because the two halves of a query overlap. No \code{ID} needed, and
-no updates ever. For sum use \code{BIT}, for updates use \code{Seg}.}
+\entry{Sparse table (RMQ)}{build $O(n \log n)$, query $O(1)$ \quad mem $n \log n$}{%
+From KACTL. \code{RMQ<ll> r(a); r.query(l, r)} = min of \code{a[l..r)}, needs
+\code{l < r}. No updates ever. Max, gcd, and, or work too: replace \textbf{both}
+\code{min}s. The op must be \textbf{idempotent} (\code{op(x,x) = x}), because the two
+halves of a query overlap --- so never sum; for sum use \code{BIT}, for updates
+\code{Seg}.\\[0.3ex]
+The argmin instead of the min: store \code{pii\{a[i], i\}}.}
 
+%LABEL rmq
 \begin{lstlisting}
-struct SpTab {
-    using T = ll;
-    static T op(T a, T b) { return min(a, b); }
-
-    int n; vector<vector<T>> t;
-    SpTab(const vector<T>& a) : n((int)a.size()), t(1, a) {
-        for (int k = 1; (1 << k) <= n; k++) {
-            t.push_back(vector<T>(n - (1 << k) + 1));
-            for (int i = 0; i < (int)t[k].size(); i++)
-                t[k][i] = op(t[k-1][i],
-                             t[k-1][i + (1 << (k-1))]);
+template<class T>
+struct RMQ {
+    vector<vector<T>> jmp;
+    RMQ(const vector<T>& V) : jmp(1, V) {
+        for (int pw = 1, k = 1; pw * 2 <= (int)V.size();
+             pw *= 2, ++k) {
+            jmp.emplace_back((int)V.size() - pw * 2 + 1);
+            rep(j, 0, (int)jmp[k].size())
+                jmp[k][j] = min(jmp[k-1][j], jmp[k-1][j+pw]);
         }
     }
-    T query(int l, int r) {          // a[l..r), needs l < r
-        int k = __lg(r - l);
-        return op(t[k][l], t[k][r - (1 << k)]);
+    T query(int a, int b) {
+        assert(a < b); // or return inf if a == b
+        int dep = 31 - __builtin_clz(b - a);
+        return min(jmp[dep][a], jmp[dep][b - (1 << dep)]);
     }
 };
 \end{lstlisting}
@@ -446,4 +449,82 @@ struct LineContainer : multiset<Line, less<>> {
         return l.k * x + l.m;
     }
 };
+\end{lstlisting}
+
+\entry{Mo's algorithm}{$O((n + q)\sqrt n)$ moves}{%
+Offline range queries where no segment tree works, but you \emph{can} cheaply add or
+remove one element at an end of the current range: number of distinct values, most
+frequent value count, number of pairs of equal values in \code{[l, r)}, ...\\[0.3ex]
+You write three functions: \code{add(i, end)} puts \code{a[i]} into the current range,
+\code{del(i, end)} takes it out (\code{end} is 0 for the left end, 1 for the right, in
+case it matters), \code{calc()} gives the answer for the current range. \code{mo}
+sorts the queries so that the two ends move only $O(n\sqrt q)$ steps in total, and
+returns the answers in the original order.\\[0.3ex]
+Queries are \textbf{half-open} \code{[l, r)}. Set \code{blk} $\approx n / \sqrt q$.
+Removal hard but adding easy? sort the same way and, inside each block, restart the
+left end every time (``Mo with rollback''). Tree paths: KACTL's \code{moTree} (not
+here) or flatten with an Euler tour. Shown with ``count distinct''. From KACTL.}
+
+%LABEL mo
+\begin{lstlisting}
+vector<int> a, cnt(1 << 20);   // example: distinct values
+ll distinct = 0;
+void add(int i, int end) { if (cnt[a[i]]++ == 0) distinct++; }
+void del(int i, int end) { if (--cnt[a[i]] == 0) distinct--; }
+ll calc() { return distinct; }
+
+vi mo(const vector<pii>& Q) {           // Q[i] = [l, r)
+    int L = 0, R = 0, blk = 350;          // ~ n / sqrt(q)
+    vector<int> s(Q.size()); vi res(Q.size());
+    iota(all(s), 0);
+    auto K = [&](pii x) {
+        return pii(x.first / blk,
+                   x.second ^ -(x.first / blk & 1));
+    };
+    sort(all(s), [&](int x, int y) {
+        return K(Q[x]) < K(Q[y]); });
+    for (int qi : s) {
+        pii q = Q[qi];
+        while (L > q.first) add(--L, 0);
+        while (R < q.second) add(R++, 1);
+        while (L < q.first) del(L++, 0);
+        while (R > q.second) del(--R, 1);
+        res[qi] = calc();
+    }
+    return res;
+}
+\end{lstlisting}
+
+\entry{Set of disjoint intervals}{$O(\log n)$ amortised}{%
+Keeps a \code{set} of non-overlapping \textbf{half-open} intervals \code{[L, R)}.
+\code{addInterval} merges the new interval with everything it overlaps or touches and
+returns an iterator to the merged piece; \code{removeInterval} cuts a range out,
+splitting an interval in two if needed. Total covered length, ``is \code{x} covered''
+(\code{upper\_bound(\{x, LLONG\_MAX\})} then step back), painting a line, merging
+bookings --- all one line each on top of this. From KACTL.}
+
+%LABEL intervals
+\begin{lstlisting}
+set<pii>::iterator addInterval(set<pii>& is, ll L, ll R) {
+    if (L == R) return is.end();
+    auto it = is.lower_bound({L, R}), before = it;
+    while (it != is.end() && it->first <= R) {
+        R = max(R, it->second);
+        before = it = is.erase(it);
+    }
+    if (it != is.begin() && (--it)->second >= L) {
+        L = min(L, it->first);
+        R = max(R, it->second);
+        is.erase(it);
+    }
+    return is.insert(before, {L, R});
+}
+void removeInterval(set<pii>& is, ll L, ll R) {
+    if (L == R) return;
+    auto it = addInterval(is, L, R);
+    ll r2 = it->second;
+    if (it->first == L) is.erase(it);
+    else const_cast<ll&>(it->second) = L;
+    if (R != r2) is.emplace(R, r2);
+}
 \end{lstlisting}

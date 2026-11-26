@@ -2,8 +2,8 @@
 
 `notebook.tex` is the single file to paste into Overleaf, **together with `kth.pdf`**
 (the logo on the cover; copied from KACTL). Without the logo file the cover still
-compiles, it just has no logo. Nothing under `Ruben/`, `Ruiming/`, `b5xu/` or `martin/`
-was modified.
+compiles, it just has no logo. Nothing under `Ruben/`, `Ruiming/` or `b5xu/` was modified. (`martin/` was deleted;
+every entry that came from it was replaced by KACTL's version, see below.)
 
 ## Build
 
@@ -12,8 +12,8 @@ tools/build.sh    # src/*.tex  ->  notebook.tex   (run after any edit)
 tools/pdf.sh      # notebook.tex -> build/pdf/notebook.pdf  (tectonic)
 tools/lint.sh     # unescaped % _ # &, unbalanced $   -> 0 issues
 tools/width.sh    # every code line <= 62 chars             -> 0 over
-tools/check.sh    # every listing compiled, gnu++17 + gnu++20
-tools/smoke.sh    # templates vs brute force            -> 21 test files, 0 failed
+tools/check.sh    # every listing compiled, gnu++17 + gnu++20 (parallel, ~2 min)
+tools/smoke.sh    # templates vs brute force, 6 at a time -> 17 test files, 0 failed
 tools/pages.sh    # rough page estimate without compiling (reads high: 19.4 when the PDF was 16)
 ```
 
@@ -22,7 +22,7 @@ PDF: `tools/pdf.sh` locally (tectonic, self-contained, downloads its TeX bundle 
 first run), or paste `notebook.tex` into Overleaf and hit Recompile. Tectonic is
 XeTeX-based. **Overleaf must be switched to XeLaTeX** (Menu -> Compiler): Ruiming's code is printed verbatim and has Chinese comments, which pdfLaTeX cannot typeset.
 
-**Current output: 25 pages (front page + 24 of content), 0 overfull hboxes, 112 index lines** — exactly at the limit, no slack.
+**Current output: 25 pages (front page + 24 of content), 0 overfull hboxes, 125 index lines** — at the limit (last column 93% full).
 
 ## Ruiming's code
 
@@ -32,8 +32,9 @@ His code is printed as he wrote it. The only differences, all checked by the scr
 
 1. empty lines are dropped;
 2. a block with one simple statement loses its braces and goes on one line
-   (`if(x){ a; }` -> `if(x) a;`). Checked by compiling each original file and the
-   re-laid-out one to assembly: identical. (`Convex_Hull`, `Lattic_points` and
+   (`if(x){ a; }` -> `if(x) a;`, also `for(..){ if(x) a; }` -> `for(..) if(x) a;`,
+   but never right before `}else`). Checked by compiling each original file and the
+   re-laid-out one to assembly: identical. (`Convex_Hull` and
    `gaussjordanelimination` do not compile on their own, so for those the check is that
    only `{`/`}` were removed);
 3. a function/struct already printed in an earlier file becomes
@@ -41,9 +42,11 @@ His code is printed as he wrote it. The only differences, all checked by the scr
 4. header lines (includes, typedefs, `INF`, `MAXN`, ...) already printed in an earlier
    file are dropped, with a `// header lines: see ...` comment;
 5. usage-only `main`/`solve`/`init` (read input, print) are left out — list in `DROP`;
-   what they showed is in the entry text. A `main` that holds the algorithm is kept.
+   what they showed is in the entry text. A `main` that holds the algorithm is kept;
+6. geometry: a repeated function/struct that the file's own code never uses is left
+   out completely — only the ones it actually calls keep a `/* see ... */` line.
 
-`Big_Integer.cpp` and `NewCodeforces.cpp` are not printed. Each entry's text (how to
+`Big_Integer.cpp`, `NewCodeforces.cpp` and `Lattic_points.cpp` are not printed. Each entry's text (how to
 call it, 1-indexing, return codes, pitfalls) lives in `PARTS` in the script.
 
 Team name, university, members and contest are macros at the top of
@@ -56,10 +59,10 @@ and the contest name and date at the bottom.
 
 | Rule | How |
 | --- | --- |
-| max **25 pages** | **25** incl. the front page, measured from the compiled PDF — no slack |
+| max **25 pages** | **25** incl. the front page, measured from the compiled PDF |
 | single-sided, A4 | A4 landscape (still "A4 size"); print one-sided |
 | university name **upper left** | `\lhead{\uni}` = "KTH Royal Institute of Technology", on **every** page incl. the front page |
-| page number **upper right** | `\rhead{\thepage}` on every page; the front page is page 1, so the last page shows 25 |
+| page number **upper right** | `\rhead{\thepage}` on every page; the front page is page 1, so the last page shows the page count |
 | front page | KTH logo, university, team name, members, "NWERC 2026" + date, plus the normal header |
 | readable at 0.5 m | 8pt code — *exactly* KACTL's size (see below); nothing smaller than `\footnotesize` (7pt) |
 | hand-written notes | fronts only — the pages are single-sided anyway |
@@ -185,9 +188,6 @@ the print by eye, as the rules demand anyway.
 | `Ruiming/String/Hash.cpp` | `get_hash` returns `ll` from `ull` arithmetic (sign bug); single overflow-mod hash |
 | `Ruiming/Data Structures/Weighted_union_find.cpp` | `merge_set` never sets the weight, so the potentials are never usable |
 | `Ruiming/graph/Hugarian_algorithm.cpp` | is **Kuhn's unweighted matching**, not the Hungarian algorithm |
-| `martin/claude/strings/aho_corasick.cpp` | `search` walks the whole fail chain per position: O(n·depth), not the advertised O(n + matches) |
-| `martin/claude/strings/suffix_array.cpp` | O(n log²n) via comparator sort |
-| `martin/claude/math/number_theory.cpp` | `crt` arithmetic is fragile |
 
 Two more were found *by the tooling* while building this, worth knowing:
 
@@ -208,27 +208,21 @@ functions. Names are kept wherever there was a real interface.
 | Entry | From | Call site change |
 | --- | --- | --- |
 | `Tree` (order statistics) | `Ruiming/.../OrderStatisticTree.cpp` | none — his `Tree<T>` alias kept |
-| `lis` | `martin/dp/lis.cpp` | none — `lis(a)` still returns the length |
-| `kmp`, `failure` | `martin/string/kmp.cpp` | none — `kmp(txt, pat)` still returns start indices |
 | `precompute`, `C` | `Ruben/PrecomputeBinCoeff.cpp` | none |
 | `power`, `ext_gcd`, `inv` | `Ruben/InverseModulu.cpp` | none |
-| `SpTab` | Ruiming + martin sparse tables | **was** global `st[j][i]`/`back[j][i]` 1-indexed arrays + `log2()`. Now `SpTab s(a); s.query(l, r)`, half-open, configurable `op` |
 | `WDSU` | `Ruiming/.../Weighted_union_find.cpp` | **was** `find_set`/`merge_set` on globals `s[]`, `d[]`, `height[]`. Now `join(a,b,w)` returns false on a contradiction, `diff(a,b)` reads the difference |
 | `diameter` | `Ruiming/graph/Tree_Diamter.cpp` | **was** two recursive DFS writing globals `place`/`ans`. Now returns `{length, a, b}`, iterative |
 | `centroids` | `Ruiming/graph/Centroid.cpp` | **was** recursive DFS filling a global `cand`. Now returns the vector, iterative |
 | `sumOfDists` | `Ruiming/.../Tree DP.cpp` | **was** `dfs`/`dfs1` on globals. Now returns `ans`, iterative |
 | `kruskal` | Ruben's `.tex` snippet | wrapped in a function returning `{cost, edges}` instead of inline statements |
 | `floyd` | `Ruiming/graph/Floyd-Warshall.cpp` | takes a `matrix&`, 0-indexed, `INF` guards added; **the min bug is fixed** |
-| `dijkstra`, `bellman` | Ruiming + martin | **was** `Link`/`Edge`/`insert` linked-list adjacency, 1-indexed globals. Now `vector<vector<pii>>`, 0-indexed; `dijkstra` can fill a parent array |
+| `dijkstra` | Ruiming + martin (the only martin-derived entry left: KACTL has no Dijkstra) | **was** `Link`/`Edge`/`insert` linked-list adjacency, 1-indexed globals. Now `vector<vector<pii>>`, 0-indexed; `dijkstra` can fill a parent array |
 | `kShortest` | `Ruiming/graph/kth_longest_path.cpp` | **was** a per-node `priority_queue` array. Now one function returning the k lengths |
 | `eulerPath` | Ruiming's two `Eulertour` files | **was** recursive, adjacency-matrix or `multiset`, 1-indexed, with the degree checks inline in `main`. Now one iterative function for both directions, returning `{}` when no path exists |
 | `Matching` | `Ruben/Matching.cpp` | **replaced** martin's Kuhn with Hopcroft-Karp. `add(l, r)` / `run()` / `ml` / `mr` instead of `addEdge` / `maxMatching()` / `matchL` / `matchR`; added `cover()` |
 | `Dinic` | `Ruben/Dinic.cpp` | **replaced** martin's recursive one with an iterative one. `add` instead of `addEdge`, `flow(id)` instead of `flowOn(id)`, `inS(v)` instead of `cut()[v]`; `cut()` now returns edge ids; added `reset()`, incremental `maxflow` |
 | `MCMF` | `Ruben/MCMF.cpp` | **replaced** martin's SPFA one with Dijkstra + potentials. `add` instead of `addEdge` (now returns an id), `run(s, t, k, neg)` |
 | `Hash` | `Ruiming/String/Hash.cpp` | **was** `Bhash(s)` + `get_hash(v, a, b)`, 1-indexed inclusive, single overflow hash. Now `Hash h(s); h.get(l, r)`, 0-indexed half-open, two moduli |
-| `Manacher` | Ruiming + martin | **was** inline in `main` over a `#`-padded buffer. Now a struct with `d1`, `d2` and `isPal(l, r)` |
-| `SuffixArray` | `martin/claude/.../suffix_array.cpp` | O(n log n) instead of O(n log²n); one struct holding `sa`, `rnk`, `lcp` |
-| `Aho` | `martin/claude/.../aho_corasick.cpp` | output links added (so it hits its advertised complexity) and duplicate patterns now work; `match(txt, f)` callback instead of a returned matrix |
 | `gauss` | `Ruiming/math/gaussjordanelimination.cpp` | **was** globals `A`/`b`/`ans` with the answer printed from `main`. Now returns the rank and fills `x`; partial pivoting added |
 | `crt` | `Ruiming/math/CRT.cpp` | **was** an `O(m)` search loop over residues. Now `extGcd`-based, handles non-coprime moduli, returns `{-1,-1}` if inconsistent |
 | `isPrime`, `factor` | `Ruiming/math/miller_rabin.cpp`, `Pollard_rho.cpp` | **was** `getchar` fast-IO and `typedef __int128 ll`. Now plain `ll` with `i128` only inside `mulm` |
@@ -240,6 +234,35 @@ functions. Names are kept wherever there was a real interface.
 assignment), `ntt`/`conv` (FFT), `closest` (closest pair), `circleLine`,
 `circleCircle`, `inConvex`, `sos` (subset sums), `compress`, and the whole
 *Reference* section.
+
+### martin/ removed (November 2026)
+
+`martin/` is deleted. Every entry that came from it is now KACTL's code (CC0), with
+only `sz(x)` written out (our header has no `sz`) and lines re-wrapped to 62
+characters. Our `vi` is `vector<ll>`, KACTL's is `vector<int>`; the code works with
+ours, except `AhoCorasick::backp`, which must be `vector<int>` (it is assigned through
+a `?:` together with an `int`).
+
+| Was | Now (KACTL) | Call site |
+| --- | --- | --- |
+| `SpTab` | `RMQ<T>` | `RMQ<ll> r(a); r.query(l, r)`, min only (change both `min`s) |
+| `bellman(n, e, s, neg)` | `bellmanFord` | `vector<Node> nodes(n); bellmanFord(nodes, eds, s)`; `dist` is `inf` / `-inf` |
+| `topo(g)` | `topoSort` | cycle iff result shorter than `n` (was: empty) |
+| `lis(a)` (length) | `lis(S)` | returns the **indices**; length is `.size()` |
+| `failure`, `kmp(txt, pat)` | `pi`, `match(s, pat)` | same results |
+| `zfunc` | `Z` | same |
+| `Manacher` struct + `isPal` | `manacher(s)` -> `array<vi,2>` | `isPal` rule is in the entry text (smoke-tested) |
+| `SuffixArray` (`sa`, `rnk`, `lcp`) | `SuffixArray` | `sa` has `n+1` entries, `sa[0] = n`; `lcp[i]` is vs `sa[i-1]`; no `rnk` |
+| `Aho` (`add`/`build`/`match`) | `AhoCorasick(pat)` | `find` / `findAll` |
+| `bsearch`, `bsearchReal` | — | KACTL has none; text-only entry |
+| `tsearch`, `tsearchReal` | `ternSearch` | **maximises**; flip `<` to minimise |
+
+To fill back up to 25 pages these KACTL entries (written for the 24-page version,
+then cut for Ruiming's code) were restored with their explanations and smoke tests:
+2-SAT, global min cut, Gomory-Hu, matrix inverse + general matching, Mo's, set of
+disjoint intervals, virtual tree, interval cover, minimum rotation, discrete log,
+modular square root, Berlekamp-Massey. Next in line if space frees up: floor sums,
+determinant, directed MST, simplex.
 
 ### Added in the November 2026 update
 
