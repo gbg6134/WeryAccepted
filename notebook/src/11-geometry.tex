@@ -1,495 +1,904 @@
-\section{Geometry}
+\section{Geometry (Ruiming)}
 
-\entry{Point / vector}{}{%
-One template instead of a float-only \code{Point}. \code{Pl} is \code{P<ll>} and is
-\textbf{exact} --- use it for everything decided by a sign (orientation, hulls,
-point-in-polygon, segment crossing) and you have no \code{eps} to tune and no wrong
-answers. \code{Pd} is \code{P<ld>}, for the metric answers where you must divide or take
-a root.\\[0.3ex]
-\begin{ctab}{0.22}{0.73}
-\code{cross(p)} & $x p_y - y p_x$. Sign = which side; $|\cdot|$ = area of the
-parallelogram.\\
-\code{a.cross(b,c)} & \code{(b-a).cross(c-a)}, the turn at \code{a}.\\
-\code{dot(p)} & $<0$ means the angle is obtuse.\\
-\code{dist2()} & squared length, exact for \code{Pl}. Compare these, never
-\code{dist()}.\\
-\code{perp()} & rotate $90^\circ$ counter-clockwise.\\
-\code{angle()} & \code{atan2}, in $(-\pi, \pi]$.\\
-\end{ctab}\\[0.3ex]
-\code{unit()} and \code{rotate()} only make sense for \code{Pd} (they divide / call
-\code{cos}); they simply will not compile for \code{Pl}, which is the point.
-Overflow: \code{cross} on coordinates up to $10^9$ reaches $2\cdot10^{18}$, just inside
-\code{ll} --- above that use \code{i128}.\\[0.3ex]
-\code{ccw(a,b,c)} is \code{+1} if \code{a->b->c} turns left, \code{-1} right, \code{0}
-collinear. Nearly every predicate below is built from it.}
+\entry{Line\_and\_Vectors.cpp}{Ruiming, verbatim}{Points, vectors, lines and segments: dot, cross, angles, rotation, point-line relations, projection, reflection, intersections. \code{ldcmp} compares with \code{eps}.}
 
-%LABEL point
-\begin{lstlisting}
-template<class T> struct P {
-    T x, y;
-    P(T x = 0, T y = 0) : x(x), y(y) {}
-    P operator+(P p) const { return {x + p.x, y + p.y}; }
-    P operator-(P p) const { return {x - p.x, y - p.y}; }
-    P operator*(T k) const { return {x * k, y * k}; }
-    P operator/(T k) const { return {x / k, y / k}; }
-    T dot(P p)   const { return x * p.x + y * p.y; }
-    T cross(P p) const { return x * p.y - y * p.x; }
-    T cross(P a, P b) const {         // turn at *this
-        return (a - *this).cross(b - *this);
-    }
-    T dist2()  const { return x * x + y * y; }
-    ld dist()  const { return sqrtl((ld)dist2()); }
-    ld angle() const { return atan2l((ld)y, (ld)x); }
-    P perp()   const { return {-y, x}; }      // 90 deg ccw
-    P unit() const { return *this / (T)dist(); } // Pd only
-    P rotate(ld a) const {             // Pd only
-        return {x * cosl(a) - y * sinl(a),
-                x * sinl(a) + y * cosl(a)};
-    }
-    bool operator<(P p) const {
-        return tie(x, y) < tie(p.x, p.y);
-    }
-    bool operator==(P p) const {
-        return tie(x, y) == tie(p.x, p.y);
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp
+const ll INF=1e18;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n,a[MAXN],ans;
+const ld pi=acos(-1.0);
+ld eps=1e-6;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll ldcmp(ld x,ld y){
+    if(fabs(x-y)<eps) return 0;
+    else return x<y?-1:1;
+    //is x<y return -1, x>y return 1;
+}
+struct Point{
+    ld x,y;
+    Point(): x(0),y(0){}
+    Point(ld x,ld y): x(x),y(y) {}
+    Point operator + (Point B){return Point(x+B.x,y+B.y);}
+    Point operator - (Point B){return Point(x-B.x,y-B.y);}
+    Point operator * (ld k){return Point(x*k,y*k);}
+    Point operator / (ld k){return Point(x/k,y/k);}
+    bool operator == (Point B){return ((ldcmp(x-B.x,0)==0)&&(ldcmp(y-B.y,0)==0));}
+    bool operator < (Point B){
+        if (x != B.x) return x < B.x;
+        return y < B.y;
     }
 };
-using Pl = P<ll>;          // exact: signs, hulls, areas
-using Pd = P<ld>;          // metric: distances, intersections
-
-template<class T> int sgn(T v) { return (v > 0) - (v < 0); }
-template<class T> int ccw(P<T> a, P<T> b, P<T> c) {
-    return sgn(a.cross(b, c));
+Point POF=Point(INF,INF);
+ld Dist(Point A,Point B){
+    return sqrt((A.x-B.x)*(A.x-B.x)+(A.y-B.y)*(A.y-B.y));
 }
-\end{lstlisting}
-
-\entry{Segments and lines}{exact where it matters}{%
-\code{onSeg} and \code{segInter} are \textbf{exact} on \code{Pl} and handle every
-degenerate case --- collinear overlap, shared endpoints, zero-length segments. That is
-the usual source of wrong answers, so prefer these over an orientation-only
-test.\\[0.3ex]
-\code{lineInter} works on infinite lines and returns \code{false} when they are parallel
-(including identical). \code{segDist} is point-to-\emph{segment}; for
-segment-to-segment take the min of the four endpoint-to-segment distances, or 0 if they
-cross.}
-
-%DEP point
-%LABEL seg
-\begin{lstlisting}
-bool onSeg(Pl p, Pl a, Pl b) {          // p on segment ab
-    return (b - a).cross(p - a) == 0
-        && (a - p).dot(b - p) <= 0;
+typedef Point Vector;
+ld Dot(Vector A,Vector B){return A.x*B.x+A.y*B.y;}
+ld Len(Vector A){return sqrt(Dot(A,A));}
+ld Cross(Vector A,Vector B){return A.x*B.y-A.y*B.x;}
+bool Parallel(Vector A,Vector B){return ldcmp(Cross(A,B),0)==0;}
+ld Angle(Vector A,Vector B){
+    if(Parallel(A,B)) return 0;
+    return acos(Dot(A,B)/Len(A)/Len(B));
 }
-bool segInter(Pl a, Pl b, Pl c, Pl d) {
-    int d1 = ccw(c, d, a), d2 = ccw(c, d, b);
-    int d3 = ccw(a, b, c), d4 = ccw(a, b, d);
-    if (d1 * d2 < 0 && d3 * d4 < 0) return true;
-    return onSeg(a, c, d) || onSeg(b, c, d)
-        || onSeg(c, a, b) || onSeg(d, a, b);
+ld DirectedAngle(Vector A, Vector B) {
+    return atan2l(Cross(A,B), Dot(A,B));
 }
-// lines ab and cd; false if parallel
-bool lineInter(Pd a, Pd b, Pd c, Pd d, Pd& out) {
-    ld den = (b - a).cross(d - c);
-    if (fabsl(den) < 1e-12) return false;
-    out = a + (b - a) * ((c - a).cross(d - c) / den);
-    return true;
+ld Area(Point A,Point B,Point C){return Cross(B-A,C-A)/2;}
+Vector Rotate(Vector A,ld rad){
+    return Vector(A.x*cos(rad)-A.y*sin(rad),A.x*sin(rad)+A.y*cos(rad));
 }
-ld segDist(Pd p, Pd a, Pd b) {          // point to segment
-    if (a == b) return (p - a).dist();
-    ld t = (p - a).dot(b - a) / (ld)(b - a).dist2();
-    t = max((ld)0, min((ld)1, t));
-    return (p - (a + (b - a) * t)).dist();
-}
-\end{lstlisting}
-
-\entry{Polygons}{$O(n)$, \code{inConvex} $O(\log n)$}{%
-\code{area2} is \emph{twice} the signed area (shoelace), exact: positive means the
-vertices are counter-clockwise. The real area is \code{abs(area2)/2.0} --- keep the
-doubled integer as long as you can.\\[0.3ex]
-\code{inPoly} works for any simple polygon, convex or not, and returns \code{2} on the
-boundary so you can decide what counts. \code{inConvex} is the $O(\log n)$ version and
-needs a strictly convex counter-clockwise polygon, i.e. exactly what \code{hull}
-returns.\\[0.3ex]
-\textbf{Pick's theorem} (lattice polygon): $A = I + B/2 - 1$, so with \code{area2} and
-the boundary count $B = \sum \gcd(|dx|, |dy|)$ over the edges, the interior count is
-$I = (\texttt{area2} - B + 2)/2$.}
-
-%DEP point seg
-%LABEL poly
-\begin{lstlisting}
-ll area2(const vector<Pl>& p) {        // signed, 2x area
-    ll a = 0; int n = (int)p.size();
-    rep(i, 0, n) a += p[i].cross(p[(i+1) % n]);
-    return a;
-}
-// 0 = outside, 1 = inside, 2 = on the boundary
-int inPoly(const vector<Pl>& p, Pl q) {
-    int n = (int)p.size(), c = 0;
-    rep(i, 0, n) {
-        Pl a = p[i], b = p[(i+1) % n];
-        if (onSeg(q, a, b)) return 2;
-        if (a.y > b.y) swap(a, b);
-        if (a.y <= q.y && q.y < b.y
-            && (b - a).cross(q - a) > 0) c ^= 1;
-    }
-    return c;
-}
-// p = strictly convex, ccw (what hull() gives)
-int inConvex(const vector<Pl>& p, Pl q) {
-    int n = (int)p.size();
-    if (n == 1) return p[0] == q ? 2 : 0;
-    if (n == 2) return onSeg(q, p[0], p[1]) ? 2 : 0;
-    if (ccw(p[0], p[1], q) < 0) return 0;
-    if (ccw(p[0], p[n-1], q) > 0) return 0;
-    int lo = 1, hi = n - 1;
-    while (hi - lo > 1) {
-        int m = (lo + hi) / 2;
-        if (ccw(p[0], p[m], q) >= 0) lo = m; else hi = m;
-    }
-    int c = ccw(p[lo], p[lo+1], q);
-    if (c < 0) return 0;
-    if (c == 0) return 2;
-    if (onSeg(q, p[0], p[1]) || onSeg(q, p[0], p[n-1]))
-        return 2;
-    return 1;
-}
-\end{lstlisting}
-
-\entry{Convex hull}{$O(n \log n)$ \quad mem $n$}{%
-Andrew's monotone chain. Counter-clockwise, \textbf{no collinear points}, first vertex
-not repeated at the end. Duplicates in the input are removed. Fewer than 3 distinct
-points come back as-is.\\[0.3ex]
-To \emph{keep} collinear boundary points change \code{<= 0} to \code{< 0} --- but then
-the ``is every input point on the hull'' test becomes
-\code{hull(p).size() == p.size()}, which is what Ruiming's original was checking.\\[0.3ex]
-Diameter of a point set = farthest pair on the hull: rotating calipers, or just
-$O(h^2)$ over hull vertices when $h$ is small. Minimum-width / minimum-area enclosing
-rectangle also come from calipers on the hull.}
-
-%DEP point
-%LABEL hull
-\begin{lstlisting}
-vector<Pl> hull(vector<Pl> p) {
-    sort(all(p)); p.erase(unique(all(p)), p.end());
-    int n = (int)p.size();
-    if (n < 3) return p;
-    vector<Pl> h;
-    rep(phase, 0, 2) {              // lower, then upper
-        size_t start = h.size();
-        for (Pl q : p) {
-            while (h.size() >= start + 2
-                   && ccw(h[h.size()-2], h.back(), q) <= 0)
-                h.pop_back();
-            h.push_back(q);
+struct Line{
+    Point p1,p2;
+    Line(){}
+    Line(Point p1,Point p2): p1(p1),p2(p2){}
+    Line(Point P,ld angle){
+        p1=P;
+        if(ldcmp(angle-pi/2,0)==0){
+            p2=p1+Point(0,1);
+        }else{
+            p2=p1+Point(1,tan(angle));
         }
-        h.pop_back();
-        reverse(all(p));
     }
-    return h;
-}
-\end{lstlisting}
-
-\entry{Closest pair}{$O(n \log n)$ \quad mem $n$}{%
-Returns the smallest \textbf{squared} distance and the two points. Exact on \code{Pl};
-the only floating point is a deliberately generous \code{sqrtl} bound on the sweep
-window, so rounding cannot lose the answer. Needs $n \ge 2$; duplicate points give 0,
-which is the correct answer.\\[0.3ex]
-Sweep in \code{x}, keep a \code{set} ordered by \code{y} holding everything within the
-current best distance, and only compare against the \code{y}-band. Coordinates up to
-$10^9$ keep \code{dist2} inside \code{ll}.}
-
-%DEP point
-%LABEL closest
-\begin{lstlisting}
-pair<ll, pair<Pl,Pl>> closest(vector<Pl> p) {
-    sort(all(p));                        // by x, then y
-    ll best = LLONG_MAX;
-    pair<Pl,Pl> bp{p[0], p[1]};
-    set<pii> s;                          // (y, x)
-    int j = 0;
-    rep(i, 0, (ll)p.size()) {
-        while (j < i) {
-            ll dx = p[i].x - p[j].x;
-            if (dx * dx <= best) break;
-            s.erase({p[j].y, p[j].x}); j++;
+    Line(ld a,ld b,ld c){
+        if(ldcmp(a,0)==0){
+            p1=Point(0,-c/b);
+            p2=Point(1,-c/b);
+        }else if(ldcmp(b,0)==0){
+            p1=Point(-c/a,0);
+            p2=Point(-c/a,1);
+        }else{
+            p1=Point(0,-c/b);
+            p2=Point(1,(-c-a)/b);
         }
-        ll d = (ll)sqrtl((ld)best) + 1;
-        auto lo = s.lower_bound({p[i].y - d, LLONG_MIN});
-        auto hi = s.upper_bound({p[i].y + d, LLONG_MAX});
-        for (auto it = lo; it != hi; ++it) {
-            Pl q(it->second, it->first);
-            ll dd = (p[i] - q).dist2();
-            if (dd < best) { best = dd; bp = {q, p[i]}; }
-        }
-        s.insert({p[i].y, p[i].x});
     }
-    return {best, bp};
+};
+//for directed lines from p1 to p2
+ll Point_line_relation(Point P, Line v){
+    ll c=ldcmp(Cross(P-v.p1,v.p2-v.p1),0);
+    if(c<0) return 1;//P on the leftside of v
+    if(c>0) return 2;//P on the rightside of v
+    return 0; //P on v
+}
+bool Point_on_seg(Point P, Line v){
+    return ldcmp(Cross(P-v.p1,v.p2-v.p1),0)==0&&ldcmp(Dot(P-v.p1,P-v.p2),0)<=0;
+}
+ld Dis_point_line(Point P, Line v){
+    return fabs(Cross(P-v.p1,v.p2-v.p1)/Dist(v.p1,v.p2));
+}
+Point Point_line_proj(Point P, Line v){
+    ld k=Dot(v.p2-v.p1,P-v.p1)/Dot(v.p2-v.p1,v.p2-v.p1);
+    return v.p1+(v.p2-v.p1)*k;
+}
+Point Point_line_symmetry(Point P, Line v){
+    Point q=Point_line_proj(P,v);
+    return Point(2*q.x-P.x,2*q.y-P.y);
+}
+ld Dis_point_seg(Point P, Line v){
+    if(ldcmp(Dot(P-v.p1,v.p2-v.p1),0)<0||ldcmp(Dot(P-v.p2,v.p1-v.p2),0)<0){
+        return min(Dist(P,v.p1),Dist(P,v.p2));
+    }
+    return Dis_point_line(P,v);
+}
+//Directed lines
+ll Line_relation(Line v1, Line v2){
+    if(ldcmp(Cross(v1.p2-v1.p1,v2.p2-v2.p1),0)==0){
+        //overlapp
+        if(Point_line_relation(v1.p1,v2)==0) return 1;
+        //parallell
+        else return 0;
+    }
+    //intersect
+    return 2;
+}
+//Must have ab,cd not the same
+Point Cross_point(Point a,Point b,Point c,Point d){
+    ld s1=Cross(b-a,c-a);
+    ld s2=Cross(b-a,d-a);
+    return Point(c.x*s2-d.x*s1,c.y*s2-d.y*s1)/(s2-s1);
+}
+bool Cross_Segment(Point a,Point b,Point c,Point d){
+    Point P=Cross_point(a,b,c,d);
+    if(P==POF) return 0;
+    //special case if all share a line, in line case whatever works, not in segment case
+    if(Point_on_seg(a,Line(c,d))||Point_on_seg(b,Line(c,d))||Point_on_seg(c,Line(a,b))||Point_on_seg(d,Line(a,b))) return 1;
+    if(Point_on_seg(P,Line(a,b))&&Point_on_seg(P,Line(c,d))) return 1;
+    else return 0;
+}
+void init(){ /* see NewCodeforces.cpp */ }
+void solve(){
+    Point p1,p2;
+    cin>>p1.x>>p1.y>>p2.x>>p2.y;
+    //relative error
+    eps=1e-6;
+    eps = max(eps,1e-6* (ld)max(abs(p1.x),abs(p1.y)));
+    Line l1=Line(p1,p2);
+}
+int main(){ /* see NewCodeforces.cpp */ }
+\end{lstlisting}
+
+\entry{Polygon.cpp}{Ruiming, verbatim}{Polygon area, point in polygon, angle sort (\code{cmp}).}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+const ll MAXN=1006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
+ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
+typedef Point Vector;
+ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Angle(Vector A,Vector B){return acos(Dot(A,B)/Len(A)/Len(B));}
+ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
+Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
+ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
+ll Point_in_polygon(Point pt, Point *p,ll n){//list of points p representing polygon
+    for(int i=1;i<=n;i++){
+        //Point on vetices
+        if(ldcmp(Dist(p[i],pt),0)==0) return 3;
+    }
+    for(int i=1;i<=n;i++){
+        Line v=Line(p[i],p[i%n+1]);
+        //Point on Edge
+        if(Point_on_seg(pt,v)) return 2;
+    }
+    ll num=0;
+    for(int i=1;i<=n;i++){
+        ll j=i%n+1;
+        ll c=ldcmp(Cross(pt-p[j],p[i]-p[j]),0);
+        ll u=ldcmp(p[i].y-pt.y,0);
+        ll v=ldcmp(p[j].y-pt.y,0);
+        if(c>0&&u<0&&v>=0) num++;
+        if(c<0&&u>=0&&v<0) num--;
+    }
+    //return 1 is inside, 0 is outside
+    return num!=0;
+}
+ld Polygon_area(Point *p,ll n){
+    ld area=0;
+    for(int i=1;i<=n;i++){
+        area+=Cross(p[i],p[i%n+1]);
+    }
+    return abs(area/2.0);
+}
+bool cmp(Point x,Point y){//sort in anti clockwise
+    return atan2l(x.y,x.x)<atan2l(y.y,y.x);
+}
+void init(){ /* see NewCodeforces.cpp */ }
+Point poly[MAXN];
+void solve(){
+    cin>>n;
+    eps=1e-6;
+    for(int i=1;i<=n;i++){
+        cin>>poly[i].x>>poly[i].y;
+        //eps = max(eps,1e-6* (ld)max(abs(poly[i].x),abs(poly[i].y)));
+    }
+    cout<<abs(Polygon_area(poly,n))<<'\n';
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    solve();
 }
 \end{lstlisting}
 
-\entry{Circles}{}{%
-\code{circleLine} intersects a circle with the \emph{infinite} line through \code{a,b};
-\code{circleCircle} with another circle. Both return 0, 1 (tangent) or 2 points. For a
-\emph{segment} instead, intersect with the line and then test each result with
-\code{segDist} or a parameter check.\\[0.3ex]
-Two identical circles return \code{\{\}} --- infinitely many points is not something the
-caller can use, so check that case yourself.\\[0.3ex]
-Tangent length from an outside point \code{p} to circle \code{(c,r)} is
-$\sqrt{|pc|^2 - r^2}$. Circle through three points: the circumcentre is the intersection
-of two perpendicular bisectors, i.e. \code{lineInter} of
-\code{(m1, m1+(b-a).perp())} and \code{(m2, m2+(c-a).perp())} with \code{m} the
-midpoints.}
+\entry{Convex\_Hull.cpp}{Ruiming, verbatim}{Convex hull (\code{Convex\_Hull}), with point in polygon and polygon area.}
 
-%DEP point
-%LABEL circle
-\begin{lstlisting}
-vector<Pd> circleLine(Pd c, ld r, Pd a, Pd b) {
-    Pd ab = b - a;
-    Pd m = a + ab * ((c - a).dot(ab) / ab.dist2());
-    ld h2 = r * r - (m - c).dist2();
-    if (h2 < -1e-12) return {};
-    if (h2 <= 1e-12) return {m};
-    Pd h = ab.unit() * sqrtl(h2);
-    return {m - h, m + h};
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+const ll MAXN=200006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n;
+ld ans;
+ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
+ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
+typedef Point Vector;
+ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
+ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
+Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+typedef long long ll;
+typedef long double ld;
+const ll INF=1e18;
+const ll MAXN=1006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n,a[MAXN],ans;
+const ld pi=acos(-1.0);
+ld eps=1e-6;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
+ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
+typedef Point Vector;
+ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Angle(Vector A,Vector B){ /* see geomtery/Polygon.cpp */ }
+ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
+Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
+ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
+ll Point_in_polygon(Point pt, Point *p,ll n){ /* see geomtery/Polygon.cpp */ }
+ld Polygon_area(Point *p,ll n){ /* see geomtery/Polygon.cpp */ }
+ll Convex_Hull(Point *p, ll n,Point *ch){
+    sort(p+1,p+n+1);
+    n=unique(p+1,p+n+1)-(p+1);
+    if (n == 1) { ch[1] = p[1]; return 1; }
+    if (n == 2) { ch[1] = p[1]; ch[2] = p[2]; return 2; }
+    ll v=0;
+    for(int i=1;i<=n;i++){
+        while(v>1&&ldcmp(Cross(ch[v]-ch[v-1],p[i]-ch[v]),0)<0){
+            v--;
+        }
+        ch[++v]=p[i];
+    }
+    ll j=v;
+    for(int i=n-1;i>=1;i--){
+        //<=0 do not count points on the side of convex hull
+        while(v>j&&ldcmp(Cross(ch[v]-ch[v-1],p[i]-ch[v]),0)<0){
+            v--;
+        }
+        ch[++v]=p[i];
+    }
+    sort(ch+1,ch+v+1);
+    v=unique(ch+1,ch+v+1)-(ch+1);
+    //might include double points on the line case
+    return v;
 }
-vector<Pd> circleCircle(Pd c1, ld r1, Pd c2, ld r2) {
-    Pd d = c2 - c1;
-    ld dd = d.dist2(), dist = sqrtl(dd);
-    if (dist < 1e-12) return {};          // concentric
-    if (dist > r1 + r2 + 1e-12) return {};
-    if (dist < fabsl(r1 - r2) - 1e-12) return {};
-    ld a = (dd + r1 * r1 - r2 * r2) / (2 * dist);
-    ld h2 = r1 * r1 - a * a;
-    Pd m = c1 + d.unit() * a;
-    if (h2 <= 1e-12) return {m};
-    Pd per = d.unit().perp() * sqrtl(h2);
-    return {m - per, m + per};
+Point poly[MAXN],ch[MAXN];
+void solve(){
+    cin>>n;
+    cout<<fixed<<setprecision(1);
+    for(int i=1;i<=n;i++) cin>>poly[i].x>>poly[i].y;
+    if(Convex_Hull(poly,n,ch)!=n) cout<<0<<'\n';
+    else cout<<1<<'\n';
 }
+int main(){ /* see geomtery/Polygon.cpp */ }
 \end{lstlisting}
 
-\entry{Projection, reflection, angle sort}{}{%
-\code{lineProj(a, b, p)} is the point on line \code{ab} closest to \code{p} (the foot
-of the perpendicular); with \code{refl = true} it is \code{p} mirrored across the line.
-Use \code{Pd}; with \code{Pl} the division truncates.\\[0.3ex]
-\code{angleLess} sorts vectors by angle around the origin, counter-clockwise starting
-from the positive $x$-axis, \textbf{exactly} on \code{Pl} (no \code{atan2}). Ruiming's
-\code{cmp} with \code{atan2l} does the same in floating point; fine for small
-coordinates, but two nearly equal angles can swap. To sort around a point \code{c},
-sort \code{p - c}. The origin itself must not be in the list. Vectors at the same angle
-compare equal; break ties by \code{dist2()} if needed.}
+\entry{Lattic\_points.cpp}{Ruiming, verbatim}{Exact integer geometry on \code{PointLL}: dot, cross, squared distance, area, lattice points.}
 
-%DEP point
-%LABEL lineproj
-\begin{lstlisting}
-template<class T>
-P<T> lineProj(P<T> a, P<T> b, P<T> p, bool refl = false) {
-    P<T> v = b - a;
-    return p - v.perp() * (1 + refl) * v.cross(p - a)
-             / v.dist2();
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp
+const ll INF = 1e18;
+const ll MAXN = 1006; // UPDATERA ARRAY STORLEKEN!!!!!!!!!!
+const ld pi = acos(-1.0L);
+// 浮点比较
+ll ldcmp(ld x, ld y) {
+    if (fabs(x - y) < eps) return 0;
+    return x < y ? -1 : 1;
 }
-bool upperHalf(Pl p) {
-    return p.y > 0 || (p.y == 0 && p.x > 0);
+// ==================== 整数点 ====================
+struct PointLL {
+    ll x, y;
+    PointLL() : x(0), y(0) {}
+    PointLL(ll x, ll y) : x(x), y(y) {}
+    PointLL operator+(const PointLL& B) const { return PointLL(x + B.x, y + B.y); }
+    PointLL operator-(const PointLL& B) const { return PointLL(x - B.x, y - B.y); }
+    PointLL operator*(ll k) const { return PointLL(x * k, y * k); }
+    PointLL operator/(ll k) const { return PointLL(x / k, y / k); }
+    bool operator==(const PointLL& B) const { return x == B.x && y == B.y; }
+    bool operator!=(const PointLL& B) const { return !(*this == B); }
+};
+Point POF=Point(INF,INF);
+typedef PointLL VectorLL;
+// 点积
+ll Dot(const VectorLL& A, const VectorLL& B) {
+    return A.x * B.x + A.y * B.y;
 }
-bool angleLess(Pl a, Pl b) {         // ccw from +x axis
-    bool ha = upperHalf(a), hb = upperHalf(b);
-    if (ha != hb) return ha;
-    return a.cross(b) > 0;
+// 叉积
+ll Cross(const VectorLL& A, const VectorLL& B) {
+    return A.x * B.y - A.y * B.x;
 }
-\end{lstlisting}
-
-\entry{Circumcircle, minimum enclosing circle}{\code{mec} expected $O(n)$}{%
-\code{ccCenter(A, B, C)} is the centre of the circle through three points (they must
-not be collinear) and \code{ccRadius} its radius.\\[0.3ex]
-\code{mec(ps)} is the smallest circle containing every point: returns
-\code{\{centre, radius\}}. Randomised (Welzl): the points are shuffled, and whenever a
-point lies outside the current circle it must be on the boundary of the new one, which
-is rebuilt from 1, 2 or 3 boundary points. Expected linear time --- $10^6$ points is
-fine. Also answers ``place one tower to cover all houses with the smallest range''.
-Ruiming's \code{min\_center\_circle} and KACTL's \code{mec} are the same algorithm; this
-is it on \code{Pd}.}
-
-%DEP point
-%LABEL mec
-\begin{lstlisting}
-ld ccRadius(Pd A, Pd B, Pd C) {
-    return (B - A).dist() * (C - B).dist() * (A - C).dist()
-         / fabsl((B - A).cross(C - A)) / 2;
+// 距离平方
+ll Dist2(const PointLL& A, const PointLL& B) {
+    ll dx = A.x - B.x, dy = A.y - B.y;
+    return dx * dx + dy * dy;
 }
-Pd ccCenter(Pd A, Pd B, Pd C) {
-    Pd b = C - A, c = B - A;
-    return A + (b * c.dist2() - c * b.dist2()).perp()
-                 / b.cross(c) / 2;
+// 有向面积的两倍
+ll Area2(const PointLL& A, const PointLL& B, const PointLL& C) {
+    return Cross(B - A, C - A);
 }
-pair<Pd, ld> mec(vector<Pd> ps) {
-    shuffle(all(ps), mt19937(1234));
-    Pd o = ps[0]; ld r = 0, EPS = 1 + 1e-10;
-    rep(i, 0, (ll)ps.size()) if ((o - ps[i]).dist() > r*EPS) {
-        o = ps[i], r = 0;
-        rep(j, 0, i) if ((o - ps[j]).dist() > r * EPS) {
-            o = (ps[i] + ps[j]) / 2;
-            r = (o - ps[i]).dist();
-            rep(k, 0, j) if ((o - ps[k]).dist() > r * EPS) {
-                o = ccCenter(ps[i], ps[j], ps[k]);
-                r = (o - ps[i]).dist();
+// 判断平行
+bool Parallel(const VectorLL& A, const VectorLL& B) {
+    return Cross(A, B) == 0;
+}
+// 直线（整数点）
+struct LineLL {
+    PointLL p1, p2;
+    LineLL() {}
+    LineLL(const PointLL& p1, const PointLL& p2) : p1(p1), p2(p2) {}
+};
+// 点与直线关系：1 左侧，2 右侧，0 在直线上
+ll Point_line_relation(const PointLL& P, const LineLL& v) {
+    ll c = Cross(P - v.p1, v.p2 - v.p1);
+    if (c < 0) return 1;
+    if (c > 0) return 2;
+    return 0;
+}
+// 点是否在线段上
+bool Point_on_seg(const PointLL& P, const LineLL& v) {
+    return Cross(P - v.p1, v.p2 - v.p1) == 0 &&
+           min(v.p1.x, v.p2.x) <= P.x && P.x <= max(v.p1.x, v.p2.x) &&
+           min(v.p1.y, v.p2.y) <= P.y && P.y <= max(v.p1.y, v.p2.y);
+}
+// 两直线关系：0 平行，1 重合，2 相交
+ll Line_relation(const LineLL& v1, const LineLL& v2) {
+    if (Cross(v1.p2 - v1.p1, v2.p2 - v2.p1) == 0) {
+        if (Cross(v1.p1 - v2.p1, v2.p2 - v2.p1) == 0) return 1;
+        return 0;
+    }
+    return 2;
+}
+// 点与多边形关系（整数精确）
+// 返回：3 顶点，2 边，1 内部，0 外部
+ll Point_in_polygon(const PointLL& pt, const PointLL* p, ll n) {
+    for (int i = 1; i <= n; i++) {
+        if (p[i] == pt) return 3;
+    }
+    for (int i = 1; i <= n; i++) {
+        int nxt = (i % n) + 1;
+        LineLL v(p[i], p[nxt]);
+        if (Point_on_seg(pt, v)) return 2;
+    }
+    bool inside = false;
+    for (int i = 1, j = n; i <= n; j = i++) {
+        if ((p[i].y > pt.y) != (p[j].y > pt.y)) {
+            ll dy = p[j].y - p[i].y;
+            ll dx = p[j].x - p[i].x;
+            ll lhs = (pt.x - p[i].x) * dy;
+            ll rhs = (pt.y - p[i].y) * dx;
+            if (dy > 0) {
+                if (lhs < rhs) inside = !inside;
+            } else {
+                if (lhs > rhs) inside = !inside;
             }
         }
     }
-    return {o, r};
+    return inside ? 1 : 0;
 }
-\end{lstlisting}
-
-\entry{Circle tangents}{}{%
-\code{tangents(c1, r1, c2, r2)} gives the lines that touch both circles, each as a pair
-of touching points (on circle 1, on circle 2). These are the \emph{outer} tangents; pass
-\code{-r2} for the \emph{inner} ones (the ones that cross between the circles). 0, 1 or
-2 results: 0 if one circle is inside the other (or they are equal), 1 if they touch.\\[0.3ex]
-Tangents from a point \code{p} to a circle: \code{tangents(c, r, p, 0)}; the touching
-points are the \code{.first}s. Shortest path around a round obstacle goes along a
-tangent, then the arc, then a tangent --- this is the building block. From KACTL.}
-
-%DEP point
-%LABEL tangents
-\begin{lstlisting}
-vector<pair<Pd,Pd>> tangents(Pd c1, ld r1, Pd c2, ld r2) {
-    Pd d = c2 - c1;
-    ld dr = r1 - r2, d2 = d.dist2(), h2 = d2 - dr * dr;
-    if (d2 == 0 || h2 < 0) return {};
-    vector<pair<Pd,Pd>> out;
-    for (ld sg : {-1, 1}) {
-        Pd v = (d * dr + d.perp() * sqrtl(h2) * sg) / d2;
-        out.push_back({c1 + v * r1, c2 + v * r2});
+// 多边形面积的两倍（有向），返回 ll
+ll Polygon_area2(const PointLL* p, ll n) {
+    ll area = 0;
+    for (int i = 1; i <= n; i++) {
+        int nxt = (i % n) + 1;
+        area += p[i].x * p[nxt].y - p[i].y * p[nxt].x;
     }
-    if (h2 == 0) out.pop_back();
-    return out;
+    return area;
 }
-\end{lstlisting}
-
-\entry{Circle-polygon intersection area}{$O(n)$}{%
-Area of the part of a polygon (counter-clockwise, need not be convex) that lies inside
-the circle \code{(c, r)}. Works by adding up signed pieces for each edge as seen from
-the centre, so it handles every case without special code. A clockwise polygon gives the
-negative answer. From KACTL.}
-
-%DEP point
-%LABEL circlePoly
-\begin{lstlisting}
-ld circlePoly(Pd c, ld r, vector<Pd> ps) {
-    auto arg = [](Pd p, Pd q) {
-        return atan2l(p.cross(q), p.dot(q)); };
-    auto tri = [&](Pd p, Pd q) {
-        ld r2 = r * r / 2;
-        Pd d = q - p;
-        ld a = d.dot(p) / d.dist2();
-        ld b = (p.dist2() - r * r) / d.dist2();
-        ld det = a * a - b;
-        if (det <= 0) return arg(p, q) * r2;
-        ld s = max((ld)0, -a - sqrtl(det));
-        ld t = min((ld)1, -a + sqrtl(det));
-        if (t < 0 || 1 <= s) return arg(p, q) * r2;
-        Pd u = p + d * s, v = q + d * (t - 1);
-        return arg(p, u) * r2 + u.cross(v) / 2
-             + arg(v, q) * r2;
-    };
-    ld sum = 0;
-    rep(i, 0, (ll)ps.size())
-        sum += tri(ps[i] - c, ps[(i + 1) % ps.size()] - c);
-    return sum;
-}
-\end{lstlisting}
-
-\entry{Polygon cut, centroid}{$O(n)$}{%
-\code{polygonCut(poly, s, e)} keeps the part of the polygon to the \textbf{right} of the
-directed line \code{s -> e} (everything on the left is cut away). The polygon should be
-convex; for a non-convex one the result can contain zero-width bridges.\\[0.3ex]
-\textbf{Half-plane intersection for small inputs}: start from a huge square and cut
-once per half-plane --- $O(n^2)$, simple, and enough for $n \le 5000$. Keep the
-\emph{left} side of \code{s -> e} by cutting with \code{(e, s)}.\\[0.3ex]
-\code{polygonCenter} is the centre of mass of the filled polygon (not the average of
-the vertices). Both from KACTL.}
-
-%DEP point
-%LABEL polyCut
-\begin{lstlisting}
-vector<Pd> polygonCut(const vector<Pd>& poly, Pd s, Pd e) {
-    vector<Pd> res;
-    rep(i, 0, (ll)poly.size()) {
-        Pd cur = poly[i], prev = i ? poly[i-1] : poly.back();
-        ld a = s.cross(e, cur), b = s.cross(e, prev);
-        if ((a < 0) != (b < 0))
-            res.push_back(cur + (prev - cur) * (a / (a - b)));
-        if (a < 0) res.push_back(cur);
+bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
+// ==================== 浮点点 ====================
+struct Point{
+    ld x,y;
+    Point(): x(0),y(0){}
+    Point(ld x,ld y): x(x),y(y) {}
+    Point operator + (Point B){return Point(x+B.x,y+B.y);}
+    Point operator - (Point B){return Point(x-B.x,y-B.y);}
+    Point operator * (ld k){return Point(x*k,y*k);}
+    Point operator / (ld k){return Point(x/k,y/k);}
+    bool operator == (Point B){return ((ldcmp(x-B.x,0)==0)&&(ldcmp(y-B.y,0)==0));}
+    bool operator < (Point B){
+        if (x != B.x) return x < B.x;
+        return y < B.y;
     }
-    return res;
+};
+typedef Point Vector;
+// 距离
+ld Dist(const PointLL& A, const PointLL& B) {
+    return sqrt((ld)Dist2(A, B));
 }
-Pd polygonCenter(const vector<Pd>& v) {
-    Pd res(0, 0); ld A = 0;
-    for (int i = 0, j = (int)v.size() - 1; i < (int)v.size();
-         j = i++) {
-        res = res + (v[i] + v[j]) * v[j].cross(v[i]);
-        A += v[j].cross(v[i]);
+ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
+ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
+Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
+// 点到直线距离
+ld Dis_point_line(const PointLL& P, const LineLL& v) {
+    return fabs((ld)Cross(P - v.p1, v.p2 - v.p1)) / Dist(v.p1, v.p2);
+}
+// 点到线段距离
+ld Dis_point_seg(const PointLL& P, const LineLL& v) {
+    if (Dot(P - v.p1, v.p2 - v.p1) < 0 || Dot(P - v.p2, v.p1 - v.p2) < 0) {
+        return min(Dist(P, v.p1), Dist(P, v.p2));
     }
-    return res / A / 3;
+    return Dis_point_line(P, v);
+}
+// 点在直线上的投影（返回浮点点）
+Point Point_line_proj(const PointLL& P, const LineLL& v) {
+    ld k = (ld)Dot(v.p2 - v.p1, P - v.p1) / Dot(v.p2 - v.p1, v.p2 - v.p1);
+    return Point(v.p1.x + (v.p2.x - v.p1.x) * k, v.p1.y + (v.p2.y - v.p1.y) * k);
+}
+// 点关于直线的对称点（返回浮点点）
+Point Point_line_symmetry(const PointLL& P, const LineLL& v) {
+    Point q = Point_line_proj(P, v);
+    return Point(2 * q.x - P.x, 2 * q.y - P.y);
+}
+// 两直线交点（返回浮点点）。要求两直线不平行。
+Point Cross_point(const PointLL& a, const PointLL& b, const PointLL& c, const PointLL& d) {
+    ld s1 = (ld)Cross(b - a, c - a);
+    ld s2 = (ld)Cross(b - a, d - a);
+    ld denom = s2 - s1;
+    return Point(
+        (c.x * s2 - d.x * s1) / denom,
+        (c.y * s2 - d.y * s1) / denom
+    );
+}
+// 向量旋转（返回浮点点）
+Point Rotate(const PointLL& A, ld rad) {
+    ld c = cos(rad), s = sin(rad);
+    return Point(A.x * c - A.y * s, A.x * s + A.y * c);
+}
+// 全局数组和读入示例
+PointLL poly[MAXN];
+ll n,m;
+void solve() {
+    cin>>n>>m;
+    eps = 1e-6;
+    for (int i = 1; i <= n; i++) {
+        cin >> poly[i].x >> poly[i].y;
+    }
+    for(int i=1;i<=m;i++){
+        PointLL P;
+        cin>>P.x>>P.y;
+        ll x=Point_in_polygon(P,poly,n);
+        if(x>=2) cout<<"BOUNDARY"<<'\n';
+        else if(x==1){
+            cout<<"INSIDE"<<'\n';
+        }else cout<<"OUTSIDE"<<'\n';
+    }
+}
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    solve();
+    return 0;
 }
 \end{lstlisting}
 
-\entry{Hull diameter (rotating calipers)}{$O(n)$}{%
-The two points of a convex polygon that are farthest apart. Input is what \code{hull}
-returns (counter-clockwise, no collinear points); for a point set call \code{hull}
-first. Returns the pair; \code{(a - b).dist2()} is the squared diameter, exact.\\[0.3ex]
-How: walk \code{i} around the hull and keep a second pointer \code{j} at the vertex
-farthest from edge \code{i}; \code{j} only ever moves forward, so the total is
-linear. The same two-pointer walk gives minimum width (smallest edge-to-farthest-vertex
-distance) and the smallest enclosing rectangle. From KACTL.}
+\entry{Closest\_pair.cpp}{Ruiming, verbatim}{Closest pair of points, divide and conquer, $O(n \log n)$.}
 
-%DEP point
-%LABEL hullDiam
-\begin{lstlisting}
-array<Pl,2> hullDiameter(const vector<Pl>& S) {
-    int n = (int)S.size(), j = n < 2 ? 0 : 1;
-    pair<ll, array<Pl,2>> res({0, {S[0], S[0]}});
-    rep(i, 0, j)
-        for (;; j = (j + 1) % n) {
-            res = max(res, {(S[i] - S[j]).dist2(),
-                            {S[i], S[j]}});
-            if ((S[(j+1)%n] - S[j]).cross(S[i+1] - S[i]) >= 0)
-                break;
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+const ll MAXN=10006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
+Point POF=Point(INF,INF);
+ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
+typedef Point Vector;
+ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
+ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
+Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
+ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool cmpx(Point A,Point B){
+    return ldcmp(A.x-B.x,0)<0||(ldcmp(A.x-B.x,0)==0&&ldcmp(A.y-B.y,0)<0);
+}
+bool cmpy(Point A,Point B){
+    return ldcmp(A.y-B.y,0)<0;
+}
+void init(){ /* see NewCodeforces.cpp */ }
+Point p[MAXN],tmp[MAXN];
+ld closest_pair(ll left,ll right){
+    ld dis=INF;
+    if(left==right) return dis;
+    if(left+1==right) return Dist(p[left],p[right]);
+    ll mid=(right+left)/2;
+    ld cand1=closest_pair(left,mid);
+    ld cand2=closest_pair(mid+1,right);
+    dis=min(cand1,cand2);
+    ll k=0;
+    for(int i=left;i<=right;i++){
+        if(fabs(p[mid].x-p[i].x)<=dis){
+            tmp[++k]=p[i];
         }
-    return res.second;
+    }
+    sort(tmp+1,tmp+k+1,cmpy);
+    for(int i=1;i<=k;i++){
+        for(int j=i+1;j<=k;j++){
+            if(ldcmp(tmp[j].y-tmp[i].y,dis)>=0) break;
+            dis=min(dis,Dist(tmp[i],tmp[j]));
+        }
+    }
+    return dis;
+}
+void solve(){
+    cin>>n;
+    for(int i=1;i<=n;i++){
+        cin>>p[i].x>>p[i].y;
+    }
+    sort(p+1,p+n+1,cmpx);
+    cout<<fixed<<setprecision(4);
+    cout<<closest_pair(1,n)<<'\n';
+}
+int main(){ /* see geomtery/Polygon.cpp */ }
+\end{lstlisting}
+
+\entry{Half\_Plane\_Intersect.cpp}{Ruiming, verbatim}{Half-plane intersection: area of the intersection of convex polygons.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+#include<bits/stdc++.h>
+ll t,n,ans;
+ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Point{
+    ld x,y;
+    Point(): x(0),y(0){}
+    Point(ld x,ld y): x(x),y(y) {}
+    Point operator + (Point B){return Point(x+B.x,y+B.y);}
+    Point operator - (Point B){return Point(x-B.x,y-B.y);}
+    Point operator * (ld k){return Point(x*k,y*k);}
+    Point operator / (ld k){return Point(x/k,y/k);}
+    bool operator == (Point B){return ((ldcmp(x-B.x,0)==0)&&(ldcmp(y-B.y,0)==0));}
+    bool operator<(Point B) {
+        if (ldcmp(x, B.x) != 0) return x < B.x;
+        return y < B.y;
+    }
+};
+Point POF=Point(INF,INF);
+ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
+typedef Point Vector;
+ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
+ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
+Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Line {
+    Point p1, p2;
+    Vector v;
+    ld ang;
+    Line() : p1(0,0), p2(0,0), v(0,0), ang(0) {}
+    Line(Point p1, Point p2) : p1(p1), p2(p2) {
+        v = p2 - p1;
+        ang = atan2l(v.y, v.x);
+    }
+    Line(Point P, ld angle) : p1(P) {
+        p2 = p1 + Point(cosl(angle), sinl(angle));
+        v = p2 - p1;
+        ang = atan2l(v.y, v.x);
+    }
+    Line(ld a, ld b, ld c) {
+        if (ldcmp(a, 0) == 0) {
+            p1 = Point(0, -c/b);
+            p2 = Point(1, -c/b);
+        } else if (ldcmp(b, 0) == 0) {
+            p1 = Point(-c/a, 0);
+            p2 = Point(-c/a, 1);
+        } else {
+            p1 = Point(0, -c/b);
+            p2 = Point(1, (-c-a)/b);
+        }
+        v = p2 - p1;
+        ang = atan2l(v.y, v.x);
+    }
+    bool operator<(Line L) {
+        if (ldcmp(ang, L.ang) != 0) return ang < L.ang;
+        return ldcmp(Cross(L.p1 - p1, L.p2 - p1), 0) > 0;
+    }
+};
+ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool OnLeft(Line L, Point p) {
+    return ldcmp(Cross(L.v, p - L.p1), 0) >= 0;
+}
+Point Cross_point(Line a, Line b) {
+    Vector u = a.p1 - b.p1;
+    ld t = Cross(b.v, u) / Cross(a.v, b.v);
+    return a.p1 + a.v * t;
+}
+vector<Point> HPI(vector<Line> L) {
+    int n = L.size();
+    if (n == 0) return {};
+    sort(L.begin(), L.end());
+    // 极角去重，只保留最靠左的一条
+    vector<Line> lines;
+    for (int i = 0; i < n; i++) {
+        if (i > 0 && ldcmp(L[i].ang, L[i-1].ang) == 0) continue;
+        lines.push_back(L[i]);
+    }
+    n = lines.size();
+    if (n <= 2) return {};
+    vector<Line> q(n);
+    vector<Point> p(n);
+    int first = 0, last = 0;
+    q[0] = lines[0];
+    for (int i = 1; i < n; i++) {
+        while (first < last && !OnLeft(lines[i], p[last-1])) last--;
+        while (first < last && !OnLeft(lines[i], p[first])) first++;
+        q[++last] = lines[i];
+        if (ldcmp(Cross(q[last].v, q[last-1].v), 0) == 0) {
+            last--;
+            if (OnLeft(q[last], lines[i].p1)) q[last] = lines[i];
+        }
+        if (first < last) {
+            p[last-1] = Cross_point(q[last-1], q[last]);
+        }
+    }
+    while (first < last && !OnLeft(q[first], p[last-1])) last--;
+    if (last - first <= 1) return {};
+    p[last] = Cross_point(q[last], q[first]);
+    vector<Point> ans;
+    for (int i = first; i <= last; i++) ans.push_back(p[i]);
+    return ans;
+}
+void solve() {
+    int numPoly;
+    cin >> numPoly;          // 多边形数量
+    vector<Line> L;
+    for (int i = 0; i < numPoly; i++) {
+        int m;
+        cin >> m;            // 当前多边形的点数
+        vector<Point> poly(m);
+        for (int j = 0; j < m; j++) {
+            cin >> poly[j].x >> poly[j].y;
+        }
+        // 将多边形的每条边转换为有向直线（逆时针，左侧为内部）
+        for (int j = 0; j < m; j++) {
+            L.push_back(Line(poly[j], poly[(j+1)%m]));
+        }
+    }
+    vector<Point> poly = HPI(L);
+    if (poly.empty()) {
+        cout << "0.000\n";
+        return;
+    }
+    ld area = 0;
+    int m = poly.size();
+    for (int i = 0; i < m; i++) {
+        area += Cross(poly[i], poly[(i+1)%m]);
+    }
+    area = fabs(area) / 2.0;
+    cout << fixed << setprecision(3) << area << '\n';
+}
+int main(){
+    solve();
 }
 \end{lstlisting}
 
-\entry{Manhattan MST}{$O(n \log n)$}{%
-Minimum spanning tree where the cost of joining two points is
-$|x_1 - x_2| + |y_1 - y_2|$. The complete graph has $n^2$ edges, too many; this returns
-at most $4n$ candidate edges \code{\{w, a, b\}} that are guaranteed to contain an MST.
-Feed them straight to \code{kruskal}. (For each point it only keeps the nearest point
-in each of 8 directions, found by a sweep.)\\[0.3ex]
-Chebyshev distance $\max(|dx|, |dy|)$ instead: map every point to $(x + y, x - y)$.
-Manhattan distance between the new points is exactly \emph{twice} the Chebyshev
-distance between the old ones, so the same tree works; halve the total. From KACTL.}
+\entry{Circle.cpp}{Ruiming, verbatim}{Circles: point / line / segment vs circle, line-circle intersection points, circumcentre.}
 
-%DEP point
-%LABEL manhattan
-\begin{lstlisting}
-vector<array<ll,3>> manhattanMST(vector<Pl> ps) {
-    vector<int> id(ps.size()); iota(all(id), 0);
-    vector<array<ll,3>> edges;
-    rep(k, 0, 4) {
-        sort(all(id), [&](int i, int j) {
-            return (ps[i] - ps[j]).x < (ps[j] - ps[i]).y; });
-        map<ll, int> sweep;
-        for (int i : id) {
-            for (auto it = sweep.lower_bound(-ps[i].y);
-                 it != sweep.end(); sweep.erase(it++)) {
-                int j = it->second;
-                Pl d = ps[i] - ps[j];
-                if (d.y > d.x) break;
-                edges.push_back({d.y + d.x, i, j});
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
+Point POF=Point(INF,INF);
+ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
+typedef Point Vector;
+ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
+ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
+Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
+ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Circle{
+    Point c;
+    ld r;
+    Circle(){}
+    Circle(Point c,ld r): c(c),r(r){}
+    Circle(ld x,ld y,ld _r){c=Point(x,y),r=_r;}
+};
+ll Point_circle_relation(Point P,Circle C){
+    ld dist=Dist(P,C.c);
+    if(ldcmp(dist-C.r,0)<0) return 0; //inside circle
+    if(ldcmp(dist-C.r,0)==0) return 1; //on circle
+    return 2; //outside of circle
+}
+ll Line_Circle_relation(Line v,Circle C){
+    ld dist=Dis_point_line(C.c,v);
+    if(ldcmp(dist-C.r,0)<0) return 0;
+    if(ldcmp(dist-C.r,0)==0) return 1;
+    return 2;
+}
+typedef Line Segment;
+ll Seg_circle_relation(Segment v,Circle C){
+    ld dist=Dis_point_seg(C.c,v);
+    if(ldcmp(dist-C.r,0)<0) return 0;
+    if(ldcmp(dist-C.r,0)==0) return 1;
+    return 2;
+}
+ll Line_Cross_Circle(Line v,Circle C,Point &pa,Point &pb){
+    if(Line_Circle_relation(v,C)==2) return 0;
+    Point q=Point_line_proj(C.c,v);
+    ld d=Dis_point_line(C.c,v);
+    ld k=sqrt(C.r*C.r-d*d);
+    if(ldcmp(k,0)==0){
+        pa=q;
+        pb=q;
+        return 1;
+    }
+    Point n=(v.p2-v.p1)/Len(v.p2-v.p1);
+    pa=q+n*k;
+    pb=q-n*k;
+    return 2;
+}
+Point Circumcenter(Point A,Point B,Point C){
+    Point center;
+    ld a1=B.x-A.x,b1=B.y-A.y,c1=(a1*a1+b1*b1)/2;
+    ld a2=C.x-A.x,b2=C.y-A.y,c2=(a2*a2+b2*b2)/2;
+    ld d=a1*b2-a2*b1;
+    center.x=A.x+(c1*b2-c2*b1)/d;
+    center.y=A.y+(a1*c2-a2*c1)/d;
+    return center;
+}
+void init(){ /* see NewCodeforces.cpp */ }
+void solve(){
+    Point p1,p2,p3;
+    cin>>p1.x>>p1.y;
+    cin>>p2.x>>p2.y;
+    cin>>p3.x>>p3.y;
+    Point center=Circumcenter(p1,p2,p3);
+    cout<<fixed<<setprecision(10);
+    cout<<center.x<<' '<<center.y<<' '<<Dist(center,p1)<<'\n';
+}
+int main(){ /* see geomtery/Polygon.cpp */ }
+\end{lstlisting}
+
+\entry{min\_cover\_circle.cpp}{Ruiming, verbatim}{Minimum enclosing circle, randomised, expected $O(n)$.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+const ll MAXN=100006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
+Point POF=Point(INF,INF);
+ld Dist(Point A,Point B){ /* see geomtery/Line_and_Vectors.cpp */ }
+typedef Point Vector;
+ld Dot(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Len(Vector A){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Cross(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Parallel(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Angle(Vector A,Vector B){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld DirectedAngle(Vector A, Vector B) { /* see geomtery/Line_and_Vectors.cpp */ }
+ld Area(Point A,Point B,Point C){ /* see geomtery/Line_and_Vectors.cpp */ }
+Vector Rotate(Vector A,ld rad){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Line{ /* see geomtery/Line_and_Vectors.cpp */ };
+ll Point_line_relation(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Point_on_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_line(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_proj(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Point_line_symmetry(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ld Dis_point_seg(Point P, Line v){ /* see geomtery/Line_and_Vectors.cpp */ }
+ll Line_relation(Line v1, Line v2){ /* see geomtery/Line_and_Vectors.cpp */ }
+Point Cross_point(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
+bool Cross_Segment(Point a,Point b,Point c,Point d){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct Circle{ /* see geomtery/Circle.cpp */ };
+ll Point_circle_relation(Point P,Circle C){ /* see geomtery/Circle.cpp */ }
+ll Line_Circle_relation(Line v,Circle C){ /* see geomtery/Circle.cpp */ }
+typedef Line Segment;
+ll Seg_circle_relation(Segment v,Circle C){ /* see geomtery/Circle.cpp */ }
+ll Line_Cross_Circle(Line v,Circle C,Point &pa,Point &pb){ /* see geomtery/Circle.cpp */ }
+Point Circumcenter(Point A,Point B,Point C){ /* see geomtery/Circle.cpp */ }
+void min_center_circle(Point *p,ll n,Point &c,ld &r){
+    random_shuffle(p+1,p+n+1);
+    c=p[1];
+    r=0;
+    for(int i=2;i<=n;i++){
+        if(ldcmp(Dist(p[i],c)-r,0)>0){
+            c=p[i];
+            r=0;
+            for(int j=1;j<i;j++){
+                if(ldcmp(Dist(p[j],c)-r,0)>0){
+                    c.x=(p[i].x+p[j].x)/2;
+                    c.y=(p[i].y+p[j].y)/2;
+                    r=Dist(p[i],c);
+                    for(int k=1;k<j;k++){
+                        if(ldcmp(Dist(p[k],c)-r,0)>0){
+                            c=Circumcenter(p[i],p[j],p[k]);
+                            r=Dist(p[i],c);
+                        }
+                    }
+                }
             }
-            sweep[-ps[i].y] = i;
         }
-        for (Pl& p : ps)
-            if (k & 1) p.x = -p.x; else swap(p.x, p.y);
     }
-    return edges;
 }
+Point p[MAXN];
+void solve(){
+    cin>>n;
+    Point c;
+    ld r;
+    for(int i=1;i<=n;i++){
+        cin>>p[i].x>>p[i].y;
+    }
+    min_center_circle(p,n,c,r);
+    cout<<fixed<<setprecision(10);
+    cout<<r<<' '<<c.x<<' '<<c.y<<'\n';
+}
+int main(){ /* see geomtery/Polygon.cpp */ }
 \end{lstlisting}
+
+% ---- other geometry (not Ruiming) ----

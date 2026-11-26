@@ -36,7 +36,7 @@ digits, \code{long double} 18--19 on x86.}
 \code{cnt}/\code{timer}. The most common repeat-offender bug there is.\\[0.3ex]
 \textbf{Recursion depth:} a DFS on a path of $2\cdot10^5$ vertices can blow the stack.
 The iterative \code{euler}, \code{SCC}, \code{Bridges}, \code{centroids},
-\code{eulerPath}, \code{Dinic}, \code{MCMF}, \code{Matching}, \code{TwoSat} and
+\code{eulerPath}, \code{Dinic}, \code{MCMF}, \code{Matching} and
 \code{centroidTree} here are safe; \code{HLD} is not.\\[0.3ex]
 \textbf{Output:} \code{'\textbackslash n'} not \code{endl} (\code{endl} flushes).
 Keep \code{sync\_with\_stdio(false)}, and then never mix \code{printf} with
@@ -104,7 +104,7 @@ vertices. A connected graph has an Euler circuit iff every degree is even (direc
 $\le 5$. Four colours always suffice, five are easy to find.\\[0.3ex]
 \textbf{Spanning trees:} Cayley gives $n^{n-2}$ labelled trees on $n$ vertices; for a
 general graph it is any cofactor of the Laplacian (Matrix-Tree), i.e. one
-\code{gauss} determinant.\\[0.3ex]
+determinant (Gauss mod $p$: product of the pivots, sign flips per row swap).\\[0.3ex]
 \textbf{Pick:} a lattice polygon has $A = I + B/2 - 1$, with
 $B = \sum \gcd(|dx|,|dy|)$ over the edges.}
 
@@ -156,7 +156,7 @@ Sphere: $V = \frac43\pi r^3$, $A = 4\pi r^2$; cap of height $h$: $V = \frac{\pi 
 (3r - h)}{3}$, $A = 2\pi r h$. Cone / pyramid: $V = \frac13 \cdot$ base $\cdot$ height.\\[0.3ex]
 Great-circle distance, latitude $\varphi$, longitude $\lambda$:
 $d = r \arccos(\sin\varphi_1\sin\varphi_2 + \cos\varphi_1\cos\varphi_2\cos\Delta\lambda)$.\\[0.3ex]
-Polygon on lattice points: Pick, see \code{Polygons}. Volume of a polyhedron with
+Polygon on lattice points: Pick, see \emph{Graph facts}. Volume of a polyhedron with
 outward faces: $\frac16\sum_{\text{faces}} (a \times b)\cdot c$ over triangulated
 faces.}
 
@@ -165,13 +165,13 @@ faces.}
 \textbf{You see} & \textbf{Try}\\
 answer is ``smallest $x$ such that \dots works'' & binary search on $x$\\
 min of a max / max of a min & binary search, or sort + DSU\\
-queries offline, any order & sort queries; Mo; DFS + rollback\\
+queries offline, any order & sort queries; DFS + rollback; Mo ($\sqrt n$ blocks)\\
 ``for every pair'' and $n \le 10^5$ & sort, two pointers, sweep, FFT\\
 sum over all subarrays & contribution of each element\\
 subsets and $n \le 20$ & bitmask DP, SOS\\
 $n \le 40$ & meet in the middle\\
 shortest path, few weights & 0-1 BFS (deque), Dijkstra\\
-``number of ways'' mod $p$ & DP, combinatorics, Berlekamp-Massey\\
+``number of ways'' mod $p$ & DP, combinatorics, matrix power\\
 $k$ up to $10^{18}$ steps & matrix power, cycle finding, doubling\\
 grid, ``each cell one of two'' & bipartite / flow / 2-SAT\\
 intervals & sort by end (greedy), sweep with events\\
@@ -180,7 +180,7 @@ tree, path queries & HLD, LCA + prefix sums\\
 DAG / game & DP in topological order, Grundy\\
 strings, many patterns & Aho-Corasick, suffix array, hashing\\
 XOR of subsets & XOR basis, trie\\
-points, ``nearest / enclosing'' & hull, closest pair, \code{mec}\\
+points, ``nearest / enclosing'' & hull, closest pair, min cover circle\\
 exact formula unknown & brute force small cases, find the pattern\\
 \end{ctab}}
 

@@ -1,0 +1,75 @@
+\entry{NewCodeforces.cpp}{Ruiming, verbatim}{Ruiming's contest skeleton: header, \code{init()} to clear the arrays, \code{solve()} per test case.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+typedef long long ll;
+typedef long double ld;
+typedef __int128 i128;
+ld eps = 1e-9;
+inline int nxt(int i, int m) { return i % m + 1; }        // m -> 1
+inline int prv(int i, int m) { return i == 1 ? m : i - 1; }
+const ll INF=1e18;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n,a[MAXN],ans;
+void init(){
+    for(int i=0;i<=n;i++){
+        a[i]=0;
+    }
+}
+void solve(){
+    cin>>n;
+    init();
+    for(int i=1;i<=n;i++) cin>>a[i];
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>t;
+    while(t--){
+        solve();
+    }
+}
+\end{lstlisting}
+
+\entry{NewStresstest.sh}{Ruiming, verbatim}{Stress test: compares \code{sol.cpp} against \code{brute.cpp} on random inputs.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[language=bash,breaklines=true]
+#!/bin/bash
+# stress.sh — compares sol.cpp against brute.cpp on many random inputs.
+# Usage: bash stress.sh            (put your solution in sol.cpp)
+set -e   # stop if compilation fails
+g++ -O2 -o sol   sol.cpp
+g++ -O2 -o brute brute.cpp
+for i in $(seq 1 10000); do
+    python3 gen.py $i > in.txt     # 1. make a random test (seed = i)
+    ./sol   < in.txt > out1.txt    # 2. run your solution
+    ./brute < in.txt > out2.txt    # 3. run the brute force on the SAME input
+    # 4. compare; cmp -s is silent and returns non-zero if files differ
+    if ! cmp -s out1.txt out2.txt; then
+        echo "Mismatch on test $i"
+        echo "--- input ---";      cat in.txt
+        echo "--- sol says ---";   cat out1.txt
+        echo "--- brute says ---"; cat out2.txt
+        exit 1
+    fi
+done
+echo "All 10000 tests passed"
+\end{lstlisting}
+
+\entry{Stresstest.sh}{Ruiming, verbatim}{Short version of the stress-test loop.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[language=bash,breaklines=true]
+python3 generator.py>testcase.txt
+./mine<testcase.txt>my_output.txt
+./ans<testcase.txt>answer.txt
+diff my_output.txt answer.txt
+\end{lstlisting}
+

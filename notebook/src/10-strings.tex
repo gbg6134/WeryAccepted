@@ -300,25 +300,3 @@ struct XorTrie {
     }
 };
 \end{lstlisting}
-
-\entry{Minimum rotation}{$O(n)$}{%
-Index where the lexicographically smallest rotation of \code{s} starts:
-\code{rotate(s.begin(), s.begin() + minRotation(s), s.end())}. Two strings (or
-necklaces, or cyclic sequences of numbers) are rotations of each other iff their
-minimum rotations are equal --- the standard way to put a cycle into one canonical form
-before hashing or comparing. Works on \code{vector<int>} too if you change the type.
-From KACTL.}
-
-%LABEL minrot
-\begin{lstlisting}
-int minRotation(string s) {
-    int a = 0, N = (int)s.size(); s += s;
-    rep(b, 0, N) rep(k, 0, N) {
-        if (a + k == b || s[a+k] < s[b+k]) {
-            b += max(0, (int)k - 1); break;
-        }
-        if (s[a+k] > s[b+k]) { a = (int)b; break; }
-    }
-    return a;
-}
-\end{lstlisting}

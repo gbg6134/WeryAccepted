@@ -35,217 +35,6 @@ ll inv(ll a, ll m) {                 // -1 if none exists
 }
 \end{lstlisting}
 
-\entry{CRT}{$O(\log)$ \quad }{%
-Merges $x \equiv r_1 \pmod{m_1}$ and $x \equiv r_2 \pmod{m_2}$ into one congruence
-modulo $\mathrm{lcm}(m_1,m_2)$. Moduli need \emph{not} be coprime; returns
-\code{\{-1,-1\}} when the two are incompatible. Fold a list by merging one at a
-time.\\[0.3ex]
-Watch the size: the intermediate \code{m1 / g * m2} must fit, so with several moduli
-near $10^9$ switch to \code{i128}.}
-
-%LABEL crt
-%DEP modbasics
-\begin{lstlisting}
-// x = r1 (mod m1), x = r2 (mod m2)  ->  {r, lcm} or {-1,-1}
-pair<ll,ll> crt(ll r1, ll m1, ll r2, ll m2) {
-    ll x, y, g = ext_gcd(m1, m2, x, y);
-    if ((r2 - r1) % g) return {-1, -1};
-    ll l = m1 / g * m2, t = m2 / g;
-    ll k = ((r2 - r1) / g % t) * (x % t) % t;
-    ll r = (r1 + (i128)m1 * k) % l;
-    return {(r % l + l) % l, l};
-}
-\end{lstlisting}
-
-\entry{Sieves}{$O(n \log\log n)$ / $O(n)$ \quad mem $n$}{%
-\code{sieve(n)} lists the primes up to \code{n} inclusive. \code{spf(n)} gives the
-smallest prime factor of every number, which factorises any \code{x <= n} in
-$O(\log x)$ by dividing repeatedly --- that is the one to build when you must factorise
-many numbers. \code{phis(n)} computes Euler's $\varphi$ for everything at once by the
-linear sieve.\\[0.3ex]
-$\varphi(n) = n \prod_{p \mid n} (1 - 1/p)$; $\sum_{d \mid n} \varphi(d) = n$. Number of
-divisors and their sum are multiplicative, so the same linear sieve shape computes
-them.}
-
-%LABEL sieves
-\begin{lstlisting}
-vector<int> sieve(int n) {
-    vector<char> comp(n + 1, 0); vector<int> ps;
-    for (int i = 2; i <= n; i++) if (!comp[i]) {
-        ps.push_back(i);
-        for (ll j = (ll)i * i; j <= n; j += i) comp[j] = 1;
-    }
-    return ps;
-}
-vector<int> spf(int n) {         // smallest prime factor
-    vector<int> s(n + 1);
-    iota(all(s), 0);
-    for (int i = 2; (ll)i * i <= n; i++) if (s[i] == i)
-        for (int j = i * i; j <= n; j += i)
-            if (s[j] == j) s[j] = i;
-    return s;
-}
-vi phis(int n) {                      // linear sieve
-    vi phi(n + 1); vector<int> ps;
-    vector<char> comp(n + 1, 0);
-    phi[1] = 1;
-    for (int i = 2; i <= n; i++) {
-        if (!comp[i]) { ps.push_back(i); phi[i] = i - 1; }
-        for (int p : ps) {
-            if ((ll)p * i > n) break;
-            comp[p * i] = 1;
-            if (i % p == 0) { phi[p*i] = p * phi[i]; break; }
-            phi[p * i] = (p - 1) * phi[i];
-        }
-    }
-    return phi;
-}
-\end{lstlisting}
-
-\entry{Miller-Rabin + Pollard rho}{$O(\log^2 n)$ / $O(n^{1/4})$}{%
-\code{isPrime} is \textbf{deterministic} for every \code{n} that fits in
-\code{ll}: those 12 bases are proven sufficient below $3.3\cdot10^{24}$.
-\code{factor(n)} returns the prime factors with multiplicity, unsorted --- sort if you
-want them grouped. Both use \code{i128} for the multiplications, so \code{n} up to
-$9\cdot10^{18}$ is safe.\\[0.3ex]
-Use trial division up to $\sqrt n$ instead when $n \le 10^{12}$ or so; it is shorter and
-you will not mistype it under pressure.}
-
-%LABEL pollard
-\begin{lstlisting}
-ll mulm(ll a, ll b, ll m) { return (i128)a * b % m; }
-ll powm(ll a, ll b, ll m) {
-    ll r = 1; a %= m;
-    for (; b; b >>= 1, a = mulm(a, a, m))
-        if (b & 1) r = mulm(r, a, m);
-    return r;
-}
-bool isPrime(ll n) {
-    if (n < 2) return false;
-    for (ll p : {2,3,5,7,11,13,17,19,23,29,31,37})
-        if (n % p == 0) return n == p;
-    ll d = n - 1; int s = 0;
-    while (!(d & 1)) d >>= 1, s++;
-    for (ll a : {2,3,5,7,11,13,17,19,23,29,31,37}) {
-        ll x = powm(a, d, n);
-        if (x == 1 || x == n - 1) continue;
-        bool ok = false;
-        rep(i, 1, s) {
-            x = mulm(x, x, n);
-            if (x == n - 1) { ok = true; break; }
-        }
-        if (!ok) return false;
-    }
-    return true;
-}
-ll pollard(ll n) {                 // a nontrivial factor
-    if (!(n & 1)) return 2;
-    static mt19937_64 rr(88172645463325252ULL);
-    while (true) {
-        ll x = rr() % n, c = rr() % n + 1, y = x, d = 1;
-        auto f = [&](ll v){ return (mulm(v,v,n)+c) % n; };
-        while (d == 1) {
-            x = f(x); y = f(f(y));
-            if (x == y) break;
-            d = __gcd(x > y ? x - y : y - x, n);
-        }
-        if (d != 1 && d != n) return d;
-    }
-}
-void factor(ll n, vi& out) {
-    if (n == 1) return;
-    if (isPrime(n)) { out.push_back(n); return; }
-    ll d = pollard(n);
-    factor(d, out); factor(n / d, out);
-}
-\end{lstlisting}
-
-\entry{Discrete log (baby-step giant-step)}{$O(\sqrt m)$}{%
-Smallest $x > 0$ with $a^x \equiv b \pmod m$, or \code{-1}. Works even when
-$\gcd(a, m) \ne 1$. Check $x = 0$ (i.e. $b = 1$) yourself if it is allowed.
-\code{modLog(a, 1, m)} is the \emph{order} of $a$: the length of the cycle of powers.\\[0.3ex]
-Idea: write $x = n i - j$ with $n \approx \sqrt m$. Store $b a^j$ for all small $j$ in a
-hash map (baby steps), then try $a^{n i}$ for $i = 1, 2, \dots$ (giant steps) until one
-is in the map. $m$ up to $\sim 3\cdot10^9$ (products must fit in \code{ll}; above that
-use \code{i128}). From KACTL.}
-
-%LABEL modLog
-\begin{lstlisting}
-ll modLog(ll a, ll b, ll m) {
-    a %= m; b %= m;
-    ll n = (ll)sqrtl(m) + 1, e = 1, f = 1, j = 1;
-    unordered_map<ll, ll> A;
-    while (j <= n && (e = f = e * a % m) != b)
-        A[e * b % m] = j++;
-    if (e == b) return j;
-    if (__gcd(m, e) == __gcd(m, b))
-        rep(i, 2, n + 2) if (A.count(e = e * f % m))
-            return n * i - A[e];
-    return -1;
-}
-\end{lstlisting}
-
-\entry{Modular square root (Tonelli-Shanks)}{$O(\log^2 p)$}{%
-Needs \code{power}. For a \textbf{prime} $p$, finds $x$ with $x^2 \equiv a \pmod p$; the
-other root is $p - x$. A root exists iff $a \equiv 0$ or
-\code{power(a, (p-1)/2, p) == 1} (Euler's criterion) --- test that first, the code
-asserts it. Used for solving $x^2 + bx + c \equiv 0$ (complete the square) and in some
-NTT tricks. From KACTL.}
-
-%DEP modbasics
-%LABEL modSqrt
-\begin{lstlisting}
-ll modSqrt(ll a, ll p) {
-    a %= p; if (a < 0) a += p;
-    if (a == 0) return 0;
-    assert(power(a, (p - 1) / 2, p) == 1);   // no root
-    if (p % 4 == 3) return power(a, (p + 1) / 4, p);
-    ll s = p - 1, n = 2;
-    int r = 0, m;
-    while (s % 2 == 0) ++r, s /= 2;
-    while (power(n, (p - 1) / 2, p) != p - 1) ++n;
-    ll x = power(a, (s + 1) / 2, p);
-    ll b = power(a, s, p), g = power(n, s, p);
-    for (;; r = m) {
-        ll t = b;
-        for (m = 0; m < r && t != 1; ++m) t = t * t % p;
-        if (m == 0) return x;
-        ll gs = power(g, 1LL << (r - m - 1), p);
-        g = gs * gs % p;
-        x = x * gs % p;
-        b = b * g % p;
-    }
-}
-\end{lstlisting}
-
-\entry{Floor sums}{$O(\log m)$}{%
-\code{divsum(to, c, k, m)} $= \sum_{i=0}^{to-1} \lfloor (k i + c) / m \rfloor$ and
-\code{modsum(to, c, k, m)} $= \sum_{i=0}^{to-1} (k i + c) \bmod m$, for huge
-\code{to} (like $10^{18}$). It works like Euclid's gcd: swap the roles of $k$ and $m$ and
-recurse.\\[0.3ex]
-Where it shows up: counting lattice points under a line segment (that is exactly
-\code{divsum}), ``how many $i \le n$ have $(ai+b) \bmod m < c$'' (difference of two
-floor sums), and sums of \code{x \% m} over an arithmetic progression. All arguments
-non-negative for \code{divsum}; \code{modsum} accepts negative \code{c}, \code{k}.
-Overflow is handled with \code{ull} as long as the true answer fits. From KACTL.}
-
-%LABEL floorsum
-\begin{lstlisting}
-ull sumsq(ull to) { return to / 2 * ((to - 1) | 1); }
-ull divsum(ull to, ull c, ull k, ull m) {
-    ull res = k / m * sumsq(to) + c / m * to;
-    k %= m; c %= m;
-    if (!k) return res;
-    ull to2 = (to * k + c) / m;
-    return res + (to - 1) * to2 - divsum(to2, m-1-c, m, k);
-}
-ll modsum(ull to, ll c, ll k, ll m) {
-    c = ((c % m) + m) % m;
-    k = ((k % m) + m) % m;
-    return to * c + k * sumsq(to) - m * divsum(to, c, k, m);
-}
-\end{lstlisting}
-
 \entry{Binomials mod p}{precompute $O(n)$, query $O(1)$ \quad mem $n$}{%
 Call \code{precompute()} once, then \code{C(n, k)}. \code{MOD} must be \textbf{prime}
 and larger than \code{MAXN}. Returns 0 outside the triangle, so no guards at the call
@@ -276,78 +65,6 @@ ll C(ll n, ll k) {
 }
 \end{lstlisting}
 
-\entry{Matrix power}{$O(k^3 \log n)$ \quad mem $k^2$}{%
-For linear recurrences: put the recurrence in a $k\times k$ matrix, raise it, read off
-an entry. Fibonacci is \code{\{\{1,1\},\{1,0\}\}} to the $n$, entry \code{[0][1]}.\\[0.3ex]
-Same code with \code{min}/\code{+} instead of \code{+}/\code{*} gives ``cheapest walk
-using exactly $n$ edges''; with \code{or}/\code{and} it gives reachability in exactly
-$n$ steps. \code{MOD} is only used in \code{mul}, so drop it for those.}
-
-%DEP modbasics binom
-\begin{lstlisting}
-matrix mul(const matrix& a, const matrix& b) {   // % MOD
-    int n = (int)a.size(), m = (int)b[0].size(),
-        k = (int)b.size();
-    matrix c(n, vi(m, 0));
-    rep(i, 0, n) rep(j, 0, k) if (a[i][j])
-        rep(l, 0, m)
-            c[i][l] = (c[i][l] + a[i][j] * b[j][l]) % MOD;
-    return c;
-}
-matrix mpow(matrix a, ll e) {
-    int n = (int)a.size();
-    matrix r(n, vi(n, 0));
-    rep(i, 0, n) r[i][i] = 1;
-    for (; e; e >>= 1, a = mul(a, a))
-        if (e & 1) r = mul(r, a);
-    return r;
-}
-\end{lstlisting}
-
-\entry{Gaussian elimination}{$O(n^3)$ \quad mem $n^2$}{%
-Solves $Ax=b$ over the reals. Returns the rank; \code{x} holds \emph{a} solution with
-free variables set to 0. Check consistency yourself afterwards: if a row of \code{a} is
-all zero but its \code{b} is not, there is no solution; if \code{rank < n} and it is
-consistent, there are infinitely many.\\[0.3ex]
-Partial pivoting (largest absolute pivot) is what keeps it stable --- do not remove it.
-\code{eps} at $10^{-9}$ suits inputs of moderate size; raise it for large
-coefficients.\\[0.3ex]
-Over $\mathbb{F}_2$ use \code{bitset<N>} rows and \code{\textasciicircum=}, which is
-64x faster and exact --- that is the version for XOR-basis and lights-out problems.
-Mod a prime: replace \code{/} with \code{inv}.}
-
-%LABEL gauss
-\begin{lstlisting}
-// solves a*x = b in place; returns the rank
-int gauss(vector<vector<ld>> a, vector<ld> b,
-          vector<ld>& x) {
-    int n = (int)a.size(), m = (int)a[0].size(), rank = 0;
-    const ld eps = 1e-9;
-    vector<int> where(m, -1);
-    for (int col = 0; col < m && rank < n; col++) {
-        int sel = rank;
-        for (int i = rank; i < n; i++)
-            if (fabsl(a[i][col]) > fabsl(a[sel][col]))
-                sel = i;
-        if (fabsl(a[sel][col]) < eps) continue;
-        swap(a[sel], a[rank]); swap(b[sel], b[rank]);
-        where[col] = rank;
-        for (int i = 0; i < n; i++) if (i != rank) {
-            ld c = a[i][col] / a[rank][col];
-            for (int j = col; j < m; j++)
-                a[i][j] -= c * a[rank][j];
-            b[i] -= c * b[rank];
-        }
-        rank++;
-    }
-    x.assign(m, 0);
-    for (int j = 0; j < m; j++)
-        if (where[j] != -1)
-            x[j] = b[where[j]] / a[where[j]][j];
-    return rank;
-}
-\end{lstlisting}
-
 \entry{FFT / NTT (convolution)}{$O(n \log n)$ \quad mem $n$}{%
 \code{conv(a, b)} multiplies two polynomials: \code{c[i] = sum a[j]*b[i-j]}, length
 \code{a.size()+b.size()-1}. This is also ``for every pair of elements, bucket their
@@ -358,7 +75,8 @@ So the result must be wanted mod that prime, and the transform length must be a 
 of two $\le 2^{23}$. Other friendly primes: $1004535809$ (root 3),
 $167772161$ (root 3).\\[0.3ex]
 If the true coefficients are needed exactly and exceed \code{P}, run it under two
-different primes and \code{crt} the results. For real/complex input use a
+different primes and combine them with the Chinese remainder theorem via
+\code{ext\_gcd} (the primes are far too big for \code{CRT.cpp}'s stepping loop). For real/complex input use a
 \code{complex<double>} FFT instead --- but it loses precision above $\sim10^{14}$ in the
 output, so prefer NTT whenever the answer is modular.}
 
@@ -406,6 +124,39 @@ vi conv(vi a, vi b) {
     rep(i, 0, n) a[i] = a[i] * b[i] % P;
     ntt(a, true);
     a.resize(need);
+    return a;
+}
+\end{lstlisting}
+
+\entry{AND / OR / XOR convolution}{$O(n \log n)$, $n = 2^k$}{%
+\code{c[z]} = sum of \code{a[x]*b[y]} over all pairs with \code{x OP y == z}, where OP
+is AND (\code{mode 0}), OR (\code{1}) or XOR (\code{2}). The same job as \code{conv} for
+$+$, but on bit masks. Pad both arrays with zeros to the same power of two.\\[0.3ex]
+Uses: ``number of pairs whose XOR is $z$'' for all $z$ at once; combining two
+distributions over subsets; Nim-like games (XOR of piles) summed over choices.
+\code{FST} on its own: OR forward = sum over subsets (same as \code{sos}), AND forward
+= sum over supersets. Values grow like $n \cdot \max^2$; to work mod a prime, add
+\code{\% md} to every line and replace the final \code{/ n} by multiplying with
+\code{power(n, md-2, md)}. b5xu's \code{bitwise-xor-convolution}, fixed (the original
+does not compile) and extended with KACTL's AND/OR.}
+
+%LABEL fst
+\begin{lstlisting}
+void FST(vi& a, bool inv, int mode) {    // 0 AND 1 OR 2 XOR
+    int n = (int)a.size();
+    for (int s = 1; s < n; s *= 2)
+        for (int i = 0; i < n; i += 2 * s) rep(j, i, i + s) {
+            ll &u = a[j], &v = a[j + s];
+            if (mode == 0) u += inv ? -v : v;
+            else if (mode == 1) v += inv ? -u : u;
+            else tie(u, v) = pii(u + v, u - v);
+        }
+    if (inv && mode == 2) for (ll& x : a) x /= n;
+}
+vi bitConv(vi a, vi b, int mode) {     // same size, 2^k
+    FST(a, 0, mode); FST(b, 0, mode);
+    rep(i, 0, (ll)a.size()) a[i] *= b[i];
+    FST(a, 1, mode);
     return a;
 }
 \end{lstlisting}

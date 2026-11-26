@@ -1,28 +1,6 @@
-// DEPS: mo intervals hashmap dnc knuth cover minrot
+// DEPS: dnc knuth
 int main(){
     mt19937 rng(9);
-    // Mo: distinct count vs brute
-    rep(it, 0, 50) {
-        int n = 1 + rng() % 200; a.assign(n, 0); rep(i, 0, n) a[i] = rng() % 20;
-        fill(all(cnt), 0); distinct = 0;
-        vector<pii> Q; rep(i, 0, 100) { ll l = rng() % (n + 1), r = rng() % (n + 1); if (l > r) swap(l, r); Q.push_back({l, r}); }
-        auto res = mo(Q);
-        rep(i, 0, (ll)Q.size()) { set<int> s(a.begin() + Q[i].first, a.begin() + Q[i].second); if ((ll)s.size() != res[i]) { puts("mo"); return 1; } }
-    }
-    // intervals vs boolean array
-    rep(it, 0, 300) {
-        set<pii> is; vector<int> cov(40, 0);
-        rep(op, 0, 30) {
-            ll L = rng() % 40, R = rng() % 41; if (L > R) swap(L, R);
-            if (rng() % 2) { addInterval(is, L, R); rep(i, L, R) cov[i] = 1; }
-            else { removeInterval(is, L, R); rep(i, L, R) cov[i] = 0; }
-            vector<int> c2(40, 0); ll prevR = -1;
-            for (auto [l, r] : is) { if (l >= r || l <= prevR) { puts("intervals not disjoint/merged"); return 1; } prevR = r; rep(i, l, r) c2[i] = 1; }
-            if (c2 != cov) { puts("intervals"); return 1; }
-        }
-    }
-    // hash map basic
-    { rep(i, 0, 100000) h[i * 1024] = (int)i; rep(i, 0, 100000) if (h[i * 1024] != i) { puts("hashmap"); return 1; } }
     // dnc DP: split into k groups minimising sum of (group sum)^2 vs O(k n^2)
     rep(it, 0, 200) {
         int n = 1 + rng() % 30, k = 1 + rng() % n;
@@ -50,25 +28,5 @@ int main(){
         }
         if (dp[0][n] != b[0][n]) { puts("knuth"); return 1; }
     }
-    // interval cover vs brute over subsets
-    rep(it, 0, 500) {
-        int m = rng() % 8; vector<pii> I; rep(i, 0, m) { ll l = rng() % 10, r = rng() % 11; if (l > r) swap(l, r); I.push_back({l, r}); }
-        ll gl = rng() % 10, gr = gl + 1 + rng() % 4;
-        int best = 100;
-        rep(mask, 0, 1 << m) {
-            vector<int> c(20, 0); rep(i, 0, m) if (mask >> i & 1) rep(x, I[i].first, I[i].second) c[x] = 1;
-            bool ok = true; rep(x, gl, gr) if (!c[x]) ok = false;
-            if (ok) best = min(best, __builtin_popcount(mask));
-        }
-        auto R = cover(pii(gl, gr), I);
-        if ((best == 100) != R.empty() || (best < 100 && (int)R.size() != best)) { puts("cover"); return 1; }
-    }
-    // minRotation vs brute
-    rep(it, 0, 2000) {
-        int n = 1 + rng() % 10; string s; rep(i, 0, n) s += char('a' + rng() % 3);
-        string best = s; rep(i, 0, n) best = min(best, s.substr(i) + s.substr(0, i));
-        int r = minRotation(s);
-        if (s.substr(r) + s.substr(0, r) != best) { puts("minRotation"); return 1; }
-    }
-    puts("OK mo 50x100 queries, interval set 300x30 ops, gp_hash_table 1e5, D&C DP 200, Knuth 200, interval cover 500, minRotation 2000");
+    puts("OK D&C DP 200 vs O(k n^2), Knuth 200 vs O(n^3)");
 }

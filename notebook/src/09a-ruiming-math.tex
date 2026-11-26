@@ -1,0 +1,949 @@
+\section{Math (Ruiming)}
+
+\entry{exgcd.cpp}{Ruiming, verbatim}{Extended Euclid; prints the inverse of \code{a} mod \code{b}.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+ll n,a[MAXN],ans;
+ll x,y,px,py,d;
+void exgcd(ll a,ll b){
+    if(b==0){
+        x=1;
+        y=0;
+        d=a;    
+    }else{
+        exgcd(b,a-a/b*b);
+        px=x;
+        py=y;
+        x=py;
+        y=px-py*(a/b);
+    }
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    ll a,b;
+    cin>>a>>b;
+    exgcd(a,b);
+    cout<<(x%b+b)%b<<'\n';
+}
+\end{lstlisting}
+
+\entry{CRT.cpp}{Ruiming, verbatim}{Chinese remainder theorem by stepping through residues (small coprime moduli).}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+const ll MAXN=16;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,lst[MAXN],a[MAXN],m[MAXN],ans[MAXN],k,temp;
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+    for(int i=1;i<=n;i++){
+        cin>>m[i]>>a[i];
+    }
+    ans[1]=a[1];
+    for(int i=2;i<=n;i++){
+        for(ll j=0;j<=m[i]-1;j++){
+            if(((j*m[i-1]+ans[i-1])%m[i])==a[i]){
+                ans[i]=j*m[i-1]+ans[i-1];
+                break;
+            }            
+        }
+        m[i]*=m[i-1];
+    }
+    cout<<ans[n]<<'\n';
+}
+\end{lstlisting}
+
+\entry{Fast\_gcd.cpp}{Ruiming, verbatim}{Binary gcd with \code{\_\_builtin\_ctz}.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp
+ll gcd(ll a,ll b)
+{
+	ll az=__builtin_ctz(a),bz=__builtin_ctz(b);
+	ll z=min(az,bz);
+	ll dif;
+	b>>=bz;
+	while(a)
+	{
+		a>>=az;
+		dif=b-a;
+		az=__builtin_ctz(dif);
+		if(a<b) b=a;
+		if(dif<0) a=-dif;
+		else a=dif;
+	}
+	return b<<z;
+}
+\end{lstlisting}
+
+\entry{Fastmod.cpp}{Ruiming, verbatim}{\code{mul} (safe \code{a*b\%m}) and \code{fast} ($x^p \bmod m$).}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp, math/exgcd.cpp
+ll mul(ll a, ll b, ll m) { return (__int128)a * b % m; }
+ll fast(ll x,ll p,ll m){
+    x=(x%m+m)%m;
+    ll ans=1%m;
+    while(p>0){
+        if(p&1){
+            ans=mul(ans,x,m);
+        }
+        x=mul(x,x,m);
+        p>>=1;
+    }
+    return ans;
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+}
+\end{lstlisting}
+
+\entry{Eulerthm.cpp}{Ruiming, verbatim}{Euler's theorem: $a^b \bmod m$ for a huge exponent $b$.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp
+ll mul(ll a, ll b, ll m) { /* see math/Fastmod.cpp */ }
+ll fast(ll x,ll p,ll m){ /* see math/Fastmod.cpp */ }
+bool flag;
+ll gcd(ll x,ll y){
+    while(x!=y){
+        if(x>y) swap(x,y);
+        if(y%x==0) return x;
+        y-=x*(y/x);
+    }
+    return x;
+}
+ll a,m,phi=1;
+string b;
+ll read(){
+    string x;
+    cin>>x;
+    ll ans=0;
+    for(int i=0;i<x.size();i++){
+        ans=(ans*10+(x[i]-'0'));
+        if(ans>=phi) flag=true;
+        ans%=phi;
+    }
+    return ans;
+}
+int main(){
+    cin>>a>>m;
+    //find the euler function to m
+    ll d=gcd(a,m);
+    ll temp=m;
+    for(int i=2;i<=temp;i++){
+        if(temp%i==0){//here uses temp still makes sure i is a prime
+            ll times=0;
+            while(temp%i==0){
+                times++;
+                temp/=i;//makes sure i is a prime
+            }
+            phi*=pow(i,times-1)*(i-1);
+        }
+    }
+    //if(phi==1) phi=m-1;
+    //b needs to be stored as a string and takes mod phi
+    //then we can calculate it with fast mod
+    ll b=read();
+    ll ans;
+    if(flag) ans=fast(a,b+phi,m);
+    else ans=fast(a,b,m);
+    //deal with d d|m, will lead up to a , should be some period
+    cout<<ans<<'\n';
+}
+\end{lstlisting}
+
+\entry{Phi.cpp}{Ruiming, verbatim}{Euler's $\varphi(n)$ for one $n$.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp, math/exgcd.cpp
+ll phi(ll n) {//求欧拉函数
+    ll ans = 1;
+    for(ll i = 2; i * i <= n; ++ i) {
+        if(n % i == 0) {
+            n /= i;
+            ans *= i - 1;
+            while(n % i == 0) {
+                n /= i;
+                ans *= i;
+            }
+        }
+    }
+    if(n > 1)//优化，n>1表示分解剩下一个质数
+        ans *= n - 1;
+    return ans;
+}
+int main(){ /* see math/Fastmod.cpp */ }
+\end{lstlisting}
+
+\entry{Linearphi.cpp}{Ruiming, verbatim}{$\varphi$ for all numbers up to $n$ (linear sieve).}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+const ll MAXN=406;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,phi[MAXN],ans=1;
+bool p[MAXN];
+vector<ll> primes;
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+    if(n==1) cout<<0<<'\n';
+    else{
+        phi[1]=1;
+        for(int i=2;i<=n;i++){//modiying euler sieve
+            if(!p[i]){
+                primes.push_back(i);
+                phi[i]=i-1;
+            }
+            for(int j=0;j<primes.size();j++){
+                if(primes[j]*i>n) break;
+                p[primes[j]*i]=1;
+                if(i%primes[j]==0){
+                    phi[i*primes[j]]=primes[j]*phi[i];
+                    break;
+                }else{
+                    phi[i*primes[j]]=(primes[j]-1)*phi[i];
+                }
+            }
+        }
+    }
+}
+\end{lstlisting}
+
+\entry{Euler\_sieve.cpp}{Ruiming, verbatim}{Linear (Euler) sieve of primes.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, math/Linearphi.cpp
+const int MAXN=106;
+ll n,q;
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n>>q;
+    for(ll i=2;i<=n;i++){
+        if(!p[i]){
+            primes.push_back(i);
+        }
+        for(ll j=0;j<primes.size();j++){
+            if(primes[j]*i>n) break;
+            p[primes[j]*i]=1;
+            if(i%primes[j]==0) break;
+        }
+    }
+    for(int i=1;i<=q;i++){
+        ll a;
+        cin>>a;
+        cout<<primes[a-1]<<'\n';
+    }
+}
+\end{lstlisting}
+
+\entry{Factorization.cpp}{Ruiming, verbatim}{Factorises every number below \code{MAXN} by trial division into \code{map}s.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp, math/exgcd.cpp
+const ll MAXN=36;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+map<ll,ll> fac[MAXN];
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+    for(int i=1;i<MAXN;i++){
+        ll temp=i;
+        for(int j=2;j<=sqrt(temp+0.5);j++){
+            while(temp%j==0){
+                fac[i][j]++;
+                temp/=j;
+            }
+        }
+        if(temp>1){
+            fac[i][temp]++;
+        }
+    }
+    for(int i=1;i<=n;i++){
+        cin>>a[i];
+    }
+}
+\end{lstlisting}
+
+\entry{Prime\_factorization.cpp}{Ruiming, verbatim}{Prime factorisation of one number, \code{factor(n)}.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp
+vector<ll> factor(ll n) {
+	vector<ll> ret;
+	for (ll i = 2; i * i <= n; i++) {
+		while (n % i == 0) {
+			ret.push_back(i);
+			n /= i;
+		}
+	}
+	if (n > 1) { ret.push_back(n); }
+	return ret;
+}
+const ll INF=1e18;
+const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,a[MAXN],ans;
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+    vector<ll> fac;
+    fac=factor(n);
+}
+\end{lstlisting}
+
+\entry{miller\_rabin.cpp}{Ruiming, verbatim}{Miller-Rabin primality test.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp
+typedef __int128 ll;
+typedef pair<int, int> pii;
+template<typename T> inline T read() {
+    T x = 0, f = 1; char ch = 0;
+    for(; !isdigit(ch); ch = getchar()) if(ch == '-') f = -1;
+    for(; isdigit(ch); ch = getchar()) x = (x << 3) + (x << 1) + (ch - '0');
+    return x * f;
+}
+template<typename T> inline void write(T x) {
+    if(x < 0) putchar('-'), x = -x;
+    if(x > 9) write(x / 10);
+    putchar(x % 10 + '0');
+}
+template<typename T> inline void print(T x, char ed = '\n') {
+    write(x), putchar(ed);
+}
+ll t, n;
+ll mul(ll a, ll b, ll m) { /* see math/Fastmod.cpp */ }
+ll fast(ll x,ll p,ll m){ /* see math/Fastmod.cpp */ }
+vector<ll> p = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37};
+bool miller_rabin(ll n) {
+    if(n < 3 || n % 2 == 0) return n == 2;
+    ll u = n - 1, t = 0;
+    while(u % 2 == 0) u /= 2, ++ t;
+    for(auto a : p) {
+        if(n == a) return 1;
+        if(n % a == 0) return 0;
+        ll v = fast(a, u, n);
+        if(v == 1) continue;
+        ll s = 1;
+        for(; s <= t; ++ s) {
+            if(v == n - 1) break;
+            v = v * v % n;
+        }
+        if(s > t) return 0; 
+    }
+    return 1;
+}
+int main() {
+    t = read<ll>();
+    while(t --) {
+        n = read<ll>();
+        if(miller_rabin(n)) puts("Yes");
+        else puts("No");
+    }
+    return 0;
+}
+\end{lstlisting}
+
+\entry{Pollard\_Rho.cpp}{Ruiming, verbatim}{Pollard rho factorisation for numbers up to $\sim 10^{18}$.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see geomtery/Half_Plane_Intersect.cpp, NewCodeforces.cpp
+#define LL long long 
+#define i128 __int128
+mt19937_64 rd(time(0));
+LL n;
+LL mul(LL a, LL b, LL m) { return (__int128)a * b % m; }
+LL fast(LL x,LL p,LL m){
+    x=(x%m+m)%m;
+    LL ans=1%m;
+    while(p>0){
+        if(p&1){
+            ans=mul(ans,x,m);
+        }
+        x=mul(x,x,m);
+        p>>=1;
+    }
+    return ans;
+}
+bool miller_rabin(LL n)
+{
+    if(n <= 1 || n > 2 && ~n & 1) return false;
+    LL m = n - 1, k = 0;
+    while(~m & 1) m >>= 1, k++;
+    vector<int> s = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37};
+    for(int a : s)
+    {
+        if(a >= n) break;
+        i128 x = fast(a, m, n), y;
+        for(int i = 1; i <= k; i++, x = y)
+        {
+            y = x * x % n;
+            if(y == 1 && x != 1 && x != n - 1) return false;
+        }
+        if(x != 1) return false;
+    }
+    return true;
+}
+vector<LL> p;
+void pollard_rho(LL n)
+{
+	if(n <= 1) return;
+    if(miller_rabin(n))
+    {
+        p.push_back(n);
+        return;
+    }
+    LL d = rd() % (n - 1) + 1;
+    auto f = [&](LL x)
+    {
+        return ((i128)x * x + d) % n; 
+    };
+    LL x = rd() % (n - 1) + 1, y = f(x), t = 1;
+    while(t == 1)
+    {
+        for(int i = 1; i <= 32; i++)
+        {
+            while(x == y)
+                d = rd() % (n - 1) + 1, x = rd() % (n - 1) + 1, y = f(x);
+            if((i128)t * abs(x - y) % n == 0) break;
+            t = (i128)t * abs(x - y) % n;
+            x = f(x), y = f(f(y));
+        }
+        t = __gcd(n, t);
+    }
+    pollard_rho(t), pollard_rho(n / t);
+}
+int main()
+{
+    int T;
+    cin >> T;
+    while(T--)
+    {
+        cin >> n;
+        if(miller_rabin(n))
+        {
+            puts("Prime");
+            continue;
+        }
+        p.clear();
+        pollard_rho(n);
+        LL ans = 0;
+        for(LL i : p) ans = max(ans, i);
+        cout << ans << endl;
+    }
+    return 0;
+}
+\end{lstlisting}
+
+\entry{Combinumber.cpp}{Ruiming, verbatim}{Pascal's triangle \code{c[i][j]} mod \code{M}.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+typedef vector<ll> vi;
+typedef vector<vi> matrix;
+#define rep(i, a, b) for(int i = a; i < b; i++)
+const ll M=1000000007;
+ll c[MAXN][106],t,n,m,k,lst[MAXN],ans;
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    c[0][0]=1;
+    for(int i=1;i<MAXN-1;i++){
+        c[i][0]=1;
+        if(i<106) c[i][i]=1;
+        for(int j=1;j<min(i,105);j++){
+            c[i][j]=c[i-1][j]+c[i-1][j-1];
+            c[i][j]%=M;
+        }
+    }
+}
+\end{lstlisting}
+
+\entry{Combinumber\_inv.cpp}{Ruiming, verbatim}{Binomial coefficients with modular inverses.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+const ll MOD=1e9+7;
+const ll MAXN=26;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll t,n,fac[MAXN],inv[MAXN],ans,k;
+ll mul(ll a, ll b, ll m) { /* see math/Fastmod.cpp */ }
+ll fast(ll x,ll p,ll m){ /* see math/Fastmod.cpp */ }
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n>>k;
+    ll temp=1;
+    for(int i=1;i<=n;i++){
+        temp*=i;
+        temp%=MOD;
+        inv[i]=fast(temp,MOD-2,MOD);
+        fac[i]=temp;
+    }
+    fac[0]=1;
+    inv[0]=1;
+    for(int i=0;i<=n;i++){
+        ll comb=((fac[n]*inv[i])%MOD*inv[n-i])%MOD;
+    }
+}
+\end{lstlisting}
+
+\entry{Linearinverse.cpp}{Ruiming, verbatim}{Inverses of $1..n$ modulo a prime in $O(n)$.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp
+const int MAXN=206;
+ll n,p,ans[MAXN],corr[MAXN],now,fac[MAXN],inv[MAXN];
+ll mul(ll a, ll b, ll m) { /* see math/Fastmod.cpp */ }
+ll fast(ll x,ll p,ll m){ /* see math/Fastmod.cpp */ }
+int main(){
+    cin>>n>>p;
+    fac[0]=1;
+    for(int i=1;i<=n;i++){
+        fac[i]=(fac[i-1]*i)%p;
+    }
+    inv[n]=fast(fac[n],p-2,p);//inv fac[i]
+    for(int i=n-1;i>=1;i--){
+        inv[i]=((i+1)*inv[i+1])%p;
+    }
+    for(int i=1;i<=n;i++){
+        cout<<(fac[i-1]*inv[i])%p<<'\n';
+    }
+}
+\end{lstlisting}
+
+\entry{Matrix.cpp}{Ruiming, verbatim}{Matrix multiplication and fast matrix power mod \code{MOD}.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, math/Combinumber_inv.cpp, geomtery/Line_and_Vectors.cpp
+const ll MAXN=106;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,ans,k;
+struct matrix{
+    ll row,col;
+    ll m[MAXN][MAXN];
+};
+matrix operator * (const matrix &a,const matrix &b){
+    //assuming they fits a.col==b.row
+    matrix c;
+    memset(c.m,0,sizeof(c.m));
+    c.row=a.row;
+    c.col=b.col;
+    for(int i=1;i<=c.row;i++){
+        for(int j=1;j<=c.col;j++){
+            for(int k=1;k<=a.col;k++){
+                c.m[i][j]+=(a.m[i][k]*b.m[k][j])%MOD;
+                c.m[i][j]%=MOD;
+            }
+        }
+    }
+    return c;
+}
+matrix pow_matrix(matrix a,ll n){
+    //assuming a is a square matrix
+    matrix res;
+    memset(res.m,0,sizeof(res.m));
+    res.row=res.col=a.col;
+    for(int i=1;i<MAXN;i++) res.m[i][i]=1;
+    while(n){
+        if(n&1) res=res*a;
+        a=a*a;
+        n/=2;
+    }
+    return res;
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n>>k;
+    matrix A;
+    A.row=A.col=n;
+    for(int i=1;i<=n;i++){
+        for(int j=1;j<=n;j++){
+            cin>>A.m[i][j];
+        }
+    }
+    matrix res=pow_matrix(A,k);
+    for(int i=1;i<=n;i++){
+        for(int j=1;j<=n;j++){
+            cout<<res.m[i][j]<<' ';
+        }
+        cout<<'\n';
+    }
+}
+\end{lstlisting}
+
+\entry{gaussjordanelimination.cpp}{Ruiming, verbatim}{Gauss-Jordan elimination over the reals.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, math/Combinumber_inv.cpp, geomtery/Line_and_Vectors.cpp, math/Matrix.cpp
+ld eps=1e-7;//MIGHT GET WA PGA EPS TOO SMALL!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
+struct matrix{
+    ld row,col;
+    ld m[MAXN][MAXN];
+};
+ld res[MAXN];
+//A merged matrix
+void gauss_elimination(matrix& A,ld *res){
+    memset(res,0,sizeof(res));
+    ll n=A.row;
+    if(A.col!=n+1){
+        for(int i=1;i<=n;i++){
+            res[i]=INF;
+        }
+        return;
+    }
+    for(int i=1;i<=n;i++){
+        ll maxi=i;
+        //find pivot row
+        for(int j=1;j<=n;j++){
+            if(j<i&&ldcmp(A.m[j][j],0)>0){
+                continue;
+            }
+            if(ldcmp(abs(A.m[j][i]),abs(A.m[maxi][i]))==1){
+                maxi=j;
+            }
+        }
+        swap(A.m[maxi],A.m[i]);
+        if(ldcmp(A.m[i][i],0)!=0){
+            ld tmp=A.m[i][i];
+            for(int j=i;j<=n+1;j++){
+                A.m[i][j]/=tmp;
+            }
+            for(int j=1;j<=n;j++){
+                if(i!=j){
+                    ld rate=A.m[j][i]/A.m[i][i];
+                    for(int k=i;k<=n+1;k++){
+                        A.m[j][k]-=A.m[i][k]*rate;
+                    }
+                }
+            }
+        }
+    }
+    return;
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+    matrix A;
+    A.row=n;
+    A.col=n+1;
+    for(int i=1;i<=n;i++){
+        for(int j=1;j<=n+1;j++){
+            cin>>A.m[i][j];
+        }
+    }
+    gauss_elimination(A,res);
+    ll sign=1;
+    for(int i=1;i<=n;i++){
+        if(ldcmp(abs(A.m[i][i]),0)==0&&ldcmp(abs(A.m[i][n+1]),0)!=0){
+            sign=-1;
+            break;
+        }
+        if(ldcmp(abs(A.m[i][i]),0)==0){
+            sign=0;
+        }
+    }
+    if(sign==1){
+        cout<<fixed<<setprecision(2);
+        for(int i=1;i<=n;i++){
+            cout<<"x"<<i<<"="<<A.m[i][n+1]<<'\n';
+        }
+    }else cout<<sign<<'\n';
+}
+\end{lstlisting}
+
+\entry{mod\_elimination.cpp}{Ruiming, verbatim}{Gaussian elimination modulo a prime.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+ll n,ans,k,MOD;
+struct matrix{ /* see math/Matrix.cpp */ };
+ll res[MAXN],inv[MAXN];
+void lin_inv(){
+    inv[1]=1;
+    for(int i=2;i<MOD;i++){
+        inv[i]=(MOD-inv[MOD%i]*(MOD/i)%MOD);
+    }
+}
+//A merged matrix
+void gauss_elimination(matrix& A,ll *res){
+    memset(res,0,sizeof(res));
+    ll n=A.row;
+    if(A.col!=n+1){
+        for(int i=1;i<=n;i++){
+            res[i]=INF;
+        }
+        return;
+    }
+    for(int i=1;i<=n;i++){
+        if(A.m[i][i]==0){
+            for(int j=1;j<=n;j++){
+                //even before not pivot row
+                if(j<i&&A.m[j][j]!=0) continue;
+                if(A.m[j][i]!=0){
+                    swap(A.m[i],A.m[j]);
+                    break;
+                }
+            }
+        }
+        if(A.m[i][i]!=0){
+            for(int j=1;j<=n;j++){
+                if(i!=j&&A.m[j][i]!=0){
+                    ll d=__gcd(A.m[i][i],A.m[j][i]);
+                    ll a=A.m[i][i]/d,b=A.m[j][i]/d;
+                    for(int k=1;k<=n+1;k++){
+                        A.m[i][k]*=b;
+                        A.m[i][k]%=MOD;
+                        A.m[j][k]*=a;
+                        A.m[j][k]%=MOD;
+                    }
+                    for(int k=i;k<=n+1;k++){
+                        A.m[j][k]-=A.m[i][k];
+                        A.m[j][k]=(A.m[j][k]+MOD)%MOD;
+                    }
+                }
+            }
+        }
+    }
+    lin_inv();
+    for(int i=1;i<=n;i++){
+        if(A.m[i][i]!=0){
+            bool flag=0;
+            for(int j=i+1;j<=n;j++){
+                if(A.m[i][j]!=0){
+                    flag=1;
+                    break;
+                }
+            }
+            if(!flag){
+                A.m[i][n+1]=(A.m[i][n+1]*inv[A.m[i][i]])%MOD;
+                A.m[i][i]=1;
+            }
+        }
+    }
+    return;
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n>>MOD;
+    matrix A;
+    A.row=n;
+    A.col=n+1;
+    for(int i=1;i<=n;i++){
+        for(int j=1;j<=n+1;j++){
+            cin>>A.m[i][j];
+        }
+    }
+    gauss_elimination(A,res);
+    for(int i=1;i<=n;i++){
+        for(int j=1;j<=n+1;j++) cout<<A.m[i][j]<<' ';
+        cout<<'\n';
+    }
+}
+\end{lstlisting}
+
+\entry{xor\_gauss.cpp}{Ruiming, verbatim}{Gaussian elimination over XOR (bitsets).}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, math/Combinumber_inv.cpp, geomtery/Line_and_Vectors.cpp
+const ll MAXN=2006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ll n,ans,k,m;
+struct matrix{
+    ll row,col;
+    bitset<MAXN> m[MAXN]={};
+};
+//A bit matrix 0/1
+void xor_gauss(matrix& A){
+    ll m=A.row;
+    ll n=A.col;
+    for(int i=1;i<=n-1;i++){
+        ll maxi=i;
+        //find pivot row
+        for(int j=1;j<=m;j++){
+            if(j<i&&A.m[j][j]>0){
+                continue;
+            }
+            if(A.m[j][i]==1){
+                swap(A.m[j],A.m[i]);
+                k=max(k,(ll)j);
+                break;
+            }
+        }
+        if(A.m[i][i]==1){
+            for(int j=1;j<=m;j++){
+                if(i!=j&&A.m[j][i]==1){
+                    A.m[j]^=A.m[i];
+                }
+            }
+        }else{
+            k=m+1;
+            return;
+        }
+    }
+    return;
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n>>m;
+    matrix A;
+    A.row=m;
+    A.col=n+1;
+    for(int i=1;i<=m;i++){
+        string s;
+        cin>>s;
+        for(int j=1;j<=n;j++){
+            if(s[j-1]=='1') A.m[i][j]=1;
+        }
+        ll x;
+        cin>>x;
+        if(x) A.m[i][n+1]=1;
+    }
+    xor_gauss(A);
+    if(k==m+1){
+        cout<<"Cannot Determine"<<'\n';
+    }else{
+        cout<<k<<'\n';
+        for(int i=1;i<=n;i++){
+            if(A.m[i][n+1]==1){
+                cout<<"?y7M#"<<'\n';
+            }else cout<<"Earth"<<'\n';
+        }
+    }
+}
+\end{lstlisting}
+
+\entry{xor\_basis.cpp}{Ruiming, verbatim}{XOR basis (linear basis); prints the maximum subset XOR.}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+ll n,a[MAXN],ans,len=1,bits=64;
+bool zero;
+void get_basis(){
+    for(int i=bits;i>=0;i--){
+        for(int j=len;j<=n;j++){
+            if(a[j]&(1LL<<(i-1))){
+                swap(a[len],a[j]);
+                break;
+            }
+        }
+        if(a[len]&(1LL<<(i-1))){
+            for(int j=1;j<=n;j++){
+                if(j==len) continue;
+                if(a[j]&(1LL<<(i-1))){
+                    a[j]^=a[len];
+                }
+            }
+            len++;
+        }
+    }
+    len--;
+    zero=(len!=n);
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    cin>>n;
+    for(int i=1;i<=n;i++) cin>>a[i];
+    get_basis();
+    sort(a+1,a+len+1);
+    for(int i=1;i<=len;i++) ans^=a[i];
+    cout<<ans<<'\n';
+}
+\end{lstlisting}
+
+\entry{zero\_one\_partition.cpp}{Ruiming, verbatim}{0/1 fractional programming (binary search on the ratio).}
+
+%NOCOMPILE
+%VERBATIM
+\begin{lstlisting}[breaklines=true]
+// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp, geomtery/min_cover_circle.cpp
+ll n,a[MAXN],b[MAXN],ans,k;
+ld eps=1e-6;
+bool check(ld x){
+    vector<ld> all;
+    ld res=0;
+    for(int i=1;i<=n;i++){
+        all.push_back(a[i]-x*b[i]);
+    }
+    sort(all.begin(),all.end(),greater<ld>());
+    for(int i=0;i<n-k;i++){
+        res+=all[i];
+    }
+    return res>=-eps;
+}
+ll zero_one_partition(){
+    ld start=0,end=n;
+    while(end-start>eps){
+        ld x=start+(end-start)/2;
+        //if f(x)>0
+        if(check(x)){
+            start=x+eps;
+        }else end=x-eps;
+    }
+    ll res = floor(100 * start + 0.5);
+    return res;
+}
+int main(){
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    while(true){
+        cin>>n>>k;
+        if(n==0&&k==0) break;
+        for(int i=1;i<=n;i++) cin>>a[i];
+        for(int i=1;i<=n;i++) cin>>b[i];
+        cout<<zero_one_partition()<<'\n';
+    }
+}
+\end{lstlisting}
+
