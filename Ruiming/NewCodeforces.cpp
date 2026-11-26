@@ -6,7 +6,10 @@ typedef long long ll;
 typedef long double ld;
 typedef __int128 i128;
 ld eps = 1e-9;
- 
+
+inline int nxt(int i, int m) { return i % m + 1; }        // m -> 1
+inline int prv(int i, int m) { return i == 1 ? m : i - 1; }
+
 const ll INF=1e18;
 const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll t,n,a[MAXN],ans;
