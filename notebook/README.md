@@ -20,9 +20,31 @@ tools/pages.sh    # rough page estimate without compiling (reads high: 19.4 when
 Edit `src/*.tex`, not `notebook.tex` — the latter is generated. Two ways to get a
 PDF: `tools/pdf.sh` locally (tectonic, self-contained, downloads its TeX bundle on
 first run), or paste `notebook.tex` into Overleaf and hit Recompile. Tectonic is
-XeTeX-based and Overleaf defaults to pdfLaTeX; both compile this file cleanly.
+XeTeX-based. **Overleaf must be switched to XeLaTeX** (Menu -> Compiler): Ruiming's code is printed verbatim and has Chinese comments, which pdfLaTeX cannot typeset.
 
-**Current output: 24 pages (front page + 23 of content), 0 overfull hboxes, 123 index lines** — built with tectonic 0.15.0 on 2026-11-26. One page of slack under the limit.
+**Current output: 25 pages (front page + 24 of content), 0 overfull hboxes, 112 index lines** — exactly at the limit, no slack.
+
+## Ruiming's code
+
+`src/11-geometry.tex`, `src/09a-ruiming-math.tex` and `src/01b-ruiming-setup.tex` are
+**generated** by `python tools/ruiming.py` from `Ruiming/` — edit his files, then rerun it.
+His code is printed as he wrote it. The only differences, all checked by the script:
+
+1. empty lines are dropped;
+2. a block with one simple statement loses its braces and goes on one line
+   (`if(x){ a; }` -> `if(x) a;`). Checked by compiling each original file and the
+   re-laid-out one to assembly: identical. (`Convex_Hull`, `Lattic_points` and
+   `gaussjordanelimination` do not compile on their own, so for those the check is that
+   only `{`/`}` were removed);
+3. a function/struct already printed in an earlier file becomes
+   `<its first line> /* see <file> */ }`;
+4. header lines (includes, typedefs, `INF`, `MAXN`, ...) already printed in an earlier
+   file are dropped, with a `// header lines: see ...` comment;
+5. usage-only `main`/`solve`/`init` (read input, print) are left out — list in `DROP`;
+   what they showed is in the entry text. A `main` that holds the algorithm is kept.
+
+`Big_Integer.cpp` and `NewCodeforces.cpp` are not printed. Each entry's text (how to
+call it, 1-indexing, return codes, pitfalls) lives in `PARTS` in the script.
 
 Team name, university, members and contest are macros at the top of
 `src/00-preamble.tex` (`\team`, `\uni`/`\unishort`, `\members`, `\contest`); the front
@@ -34,12 +56,13 @@ and the contest name and date at the bottom.
 
 | Rule | How |
 | --- | --- |
-| max **25 pages** | **24** incl. the front page, measured from the compiled PDF — 1 page of slack |
+| max **25 pages** | **25** incl. the front page, measured from the compiled PDF — no slack |
 | single-sided, A4 | A4 landscape (still "A4 size"); print one-sided |
-| university name **upper left** | `\lhead{\uni}` = "KTH Royal Institute of Technology" |
-| page number **upper right** | `\rhead{\thepage}` |
-| front page | KTH logo, university, team name, members, "NWERC 2026" + date; unnumbered and with no running header |
-| readable at 0.5 m | 8pt code — *exactly* KACTL's size (see below) |
+| university name **upper left** | `\lhead{\uni}` = "KTH Royal Institute of Technology", on **every** page incl. the front page |
+| page number **upper right** | `\rhead{\thepage}` on every page; the front page is page 1, so the last page shows 25 |
+| front page | KTH logo, university, team name, members, "NWERC 2026" + date, plus the normal header |
+| readable at 0.5 m | 8pt code — *exactly* KACTL's size (see below); nothing smaller than `\footnotesize` (7pt) |
+| hand-written notes | fronts only — the pages are single-sided anyway |
 | institution on the folder cover | do this when you print |
 
 **Print page 1 and read it at half a metre before trusting it.** The size knob is

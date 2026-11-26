@@ -1,11 +1,15 @@
 \section{Geometry (Ruiming)}
 
-\entry{Line\_and\_Vectors.cpp}{Ruiming, verbatim}{Points, vectors, lines and segments: dot, cross, angles, rotation, point-line relations, projection, reflection, intersections. \code{ldcmp} compares with \code{eps}.}
+\entry{Line\_and\_Vectors.cpp}{Ruiming}{The base every geometry file below shares (later files only point back here). \code{ld} everywhere, compared with \code{ldcmp(x,y)} $\in\{-1,0,1\}$ using \code{eps}; for big coordinates use a relative one: \code{eps = max(1e-6, 1e-6*max(|x|,|y|))}. \code{Vector} = \code{Point}.\\[0.3ex]\begin{ctab}{0.44}{0.51}\code{Line(p1,p2)}, \code{Line(P,angle)}, \code{Line(a,b,c)} & directed line, or $ax+by+c=0$\\\code{Point\_line\_relation(P,v)} & 1 left, 2 right, 0 on\\\code{Line\_relation(v1,v2)} & 0 parallel, 1 same line, 2 cross\\\code{Cross\_point(a,b,c,d)} & lines $ab$, $cd$; not parallel\\\code{Cross\_Segment(a,b,c,d)} & segments touch (ends count)\\\code{Point\_line\_proj}, \code{\_symmetry} & foot of perpendicular, mirror\\\code{Dis\_point\_line}, \code{Dis\_point\_seg} & distances\\\code{DirectedAngle(A,B)} & signed angle $A \to B$, \code{Rotate} ccw\\\end{ctab}}
 
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see NewCodeforces.cpp
+//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#include <bits/stdc++.h>
+using namespace std;
+typedef long long ll;
+typedef long double ld;
 const ll INF=1e18;
 const ll MAXN=206;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll t,n,a[MAXN],ans;
@@ -56,11 +60,8 @@ struct Line{
     Line(Point p1,Point p2): p1(p1),p2(p2){}
     Line(Point P,ld angle){
         p1=P;
-        if(ldcmp(angle-pi/2,0)==0){
-            p2=p1+Point(0,1);
-        }else{
-            p2=p1+Point(1,tan(angle));
-        }
+        if(ldcmp(angle-pi/2,0)==0) p2=p1+Point(0,1);
+        else p2=p1+Point(1,tan(angle));
     }
     Line(ld a,ld b,ld c){
         if(ldcmp(a,0)==0){
@@ -97,9 +98,7 @@ Point Point_line_symmetry(Point P, Line v){
     return Point(2*q.x-P.x,2*q.y-P.y);
 }
 ld Dis_point_seg(Point P, Line v){
-    if(ldcmp(Dot(P-v.p1,v.p2-v.p1),0)<0||ldcmp(Dot(P-v.p2,v.p1-v.p2),0)<0){
-        return min(Dist(P,v.p1),Dist(P,v.p2));
-    }
+    if(ldcmp(Dot(P-v.p1,v.p2-v.p1),0)<0||ldcmp(Dot(P-v.p2,v.p1-v.p2),0)<0) return min(Dist(P,v.p1),Dist(P,v.p2));
     return Dis_point_line(P,v);
 }
 //Directed lines
@@ -127,24 +126,14 @@ bool Cross_Segment(Point a,Point b,Point c,Point d){
     if(Point_on_seg(P,Line(a,b))&&Point_on_seg(P,Line(c,d))) return 1;
     else return 0;
 }
-void init(){ /* see NewCodeforces.cpp */ }
-void solve(){
-    Point p1,p2;
-    cin>>p1.x>>p1.y>>p2.x>>p2.y;
-    //relative error
-    eps=1e-6;
-    eps = max(eps,1e-6* (ld)max(abs(p1.x),abs(p1.y)));
-    Line l1=Line(p1,p2);
-}
-int main(){ /* see NewCodeforces.cpp */ }
 \end{lstlisting}
 
-\entry{Polygon.cpp}{Ruiming, verbatim}{Polygon area, point in polygon, angle sort (\code{cmp}).}
+\entry{Polygon.cpp}{Ruiming \quad $O(n)$}{Polygons are arrays \code{p[1..n]} (\textbf{1-indexed}), vertices in order. \code{Polygon\_area(p,n)} is the absolute area. \code{Point\_in\_polygon(pt,p,n)}: 3 on a vertex, 2 on an edge, 1 inside, 0 outside. \code{cmp} sorts points by angle around the origin (\code{atan2l}), for ordering a convex polygon's vertices.}
 
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp
 const ll MAXN=1006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
@@ -190,38 +179,21 @@ ll Point_in_polygon(Point pt, Point *p,ll n){//list of points p representing pol
 }
 ld Polygon_area(Point *p,ll n){
     ld area=0;
-    for(int i=1;i<=n;i++){
-        area+=Cross(p[i],p[i%n+1]);
-    }
+    for(int i=1;i<=n;i++) area+=Cross(p[i],p[i%n+1]);
     return abs(area/2.0);
 }
 bool cmp(Point x,Point y){//sort in anti clockwise
     return atan2l(x.y,x.x)<atan2l(y.y,y.x);
 }
-void init(){ /* see NewCodeforces.cpp */ }
 Point poly[MAXN];
-void solve(){
-    cin>>n;
-    eps=1e-6;
-    for(int i=1;i<=n;i++){
-        cin>>poly[i].x>>poly[i].y;
-        //eps = max(eps,1e-6* (ld)max(abs(poly[i].x),abs(poly[i].y)));
-    }
-    cout<<abs(Polygon_area(poly,n))<<'\n';
-}
-int main(){
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-    solve();
-}
 \end{lstlisting}
 
-\entry{Convex\_Hull.cpp}{Ruiming, verbatim}{Convex hull (\code{Convex\_Hull}), with point in polygon and polygon area.}
+\entry{Convex\_Hull.cpp}{Ruiming \quad $O(n \log n)$}{\code{v = Convex\_Hull(p, n, ch)}: \code{p[1..n]} in (gets sorted and deduplicated), hull in \code{ch[1..v]}. Points on the hull edges are \textbf{kept} (it pops only on a strict right turn). Note the last \code{sort}: \code{ch} comes back sorted by $(x, y)$, \textbf{not} in counter-clockwise order --- sort with \code{cmp} around an inside point, or drop that line, before walking the hull.}
 
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp
 const ll MAXN=200006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll t,n;
 ld ans;
@@ -276,17 +248,13 @@ ll Convex_Hull(Point *p, ll n,Point *ch){
     if (n == 2) { ch[1] = p[1]; ch[2] = p[2]; return 2; }
     ll v=0;
     for(int i=1;i<=n;i++){
-        while(v>1&&ldcmp(Cross(ch[v]-ch[v-1],p[i]-ch[v]),0)<0){
-            v--;
-        }
+        while(v>1&&ldcmp(Cross(ch[v]-ch[v-1],p[i]-ch[v]),0)<0) v--;
         ch[++v]=p[i];
     }
     ll j=v;
     for(int i=n-1;i>=1;i--){
         //<=0 do not count points on the side of convex hull
-        while(v>j&&ldcmp(Cross(ch[v]-ch[v-1],p[i]-ch[v]),0)<0){
-            v--;
-        }
+        while(v>j&&ldcmp(Cross(ch[v]-ch[v-1],p[i]-ch[v]),0)<0) v--;
         ch[++v]=p[i];
     }
     sort(ch+1,ch+v+1);
@@ -295,25 +263,18 @@ ll Convex_Hull(Point *p, ll n,Point *ch){
     return v;
 }
 Point poly[MAXN],ch[MAXN];
-void solve(){
-    cin>>n;
-    cout<<fixed<<setprecision(1);
-    for(int i=1;i<=n;i++) cin>>poly[i].x>>poly[i].y;
-    if(Convex_Hull(poly,n,ch)!=n) cout<<0<<'\n';
-    else cout<<1<<'\n';
-}
-int main(){ /* see geomtery/Polygon.cpp */ }
 \end{lstlisting}
 
-\entry{Lattic\_points.cpp}{Ruiming, verbatim}{Exact integer geometry on \code{PointLL}: dot, cross, squared distance, area, lattice points.}
+\entry{Lattic\_points.cpp}{Ruiming \quad exact}{Integer coordinates with \code{ll} only: no \code{eps}, no wrong answers. \code{Point\_in\_polygon(pt,p,n)} (1-indexed, 3 vertex / 2 edge / 1 inside / 0 outside) and \code{Polygon\_area2} = \textbf{twice} the signed area. Pick: interior lattice points $I = (A_2 - B + 2)/2$, with $B = \sum \gcd(|dx|,|dy|)$ over the edges. Distances and projections come back as \code{ld} \code{Point}s. Coordinates up to $10^9$ keep the cross products inside \code{ll}.}
 
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see NewCodeforces.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp
 const ll INF = 1e18;
 const ll MAXN = 1006; // UPDATERA ARRAY STORLEKEN!!!!!!!!!!
 const ld pi = acos(-1.0L);
+ld eps = 1e-9;
 // 浮点比较
 ll ldcmp(ld x, ld y) {
     if (fabs(x - y) < eps) return 0;
@@ -452,9 +413,7 @@ ld Dis_point_line(const PointLL& P, const LineLL& v) {
 }
 // 点到线段距离
 ld Dis_point_seg(const PointLL& P, const LineLL& v) {
-    if (Dot(P - v.p1, v.p2 - v.p1) < 0 || Dot(P - v.p2, v.p1 - v.p2) < 0) {
-        return min(Dist(P, v.p1), Dist(P, v.p2));
-    }
+    if (Dot(P - v.p1, v.p2 - v.p1) < 0 || Dot(P - v.p2, v.p1 - v.p2) < 0) return min(Dist(P, v.p1), Dist(P, v.p2));
     return Dis_point_line(P, v);
 }
 // 点在直线上的投影（返回浮点点）
@@ -485,36 +444,14 @@ Point Rotate(const PointLL& A, ld rad) {
 // 全局数组和读入示例
 PointLL poly[MAXN];
 ll n,m;
-void solve() {
-    cin>>n>>m;
-    eps = 1e-6;
-    for (int i = 1; i <= n; i++) {
-        cin >> poly[i].x >> poly[i].y;
-    }
-    for(int i=1;i<=m;i++){
-        PointLL P;
-        cin>>P.x>>P.y;
-        ll x=Point_in_polygon(P,poly,n);
-        if(x>=2) cout<<"BOUNDARY"<<'\n';
-        else if(x==1){
-            cout<<"INSIDE"<<'\n';
-        }else cout<<"OUTSIDE"<<'\n';
-    }
-}
-int main() {
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-    solve();
-    return 0;
-}
 \end{lstlisting}
 
-\entry{Closest\_pair.cpp}{Ruiming, verbatim}{Closest pair of points, divide and conquer, $O(n \log n)$.}
+\entry{Closest\_pair.cpp}{Ruiming \quad $O(n \log^2 n)$}{Smallest distance between two of the points \code{p[1..n]}. \textbf{Sort first}: \code{sort(p+1, p+n+1, cmpx); closest\_pair(1, n)} returns the distance. Divide and conquer on $x$, then check the strip sorted by $y$.}
 
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp
 const ll MAXN=10006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
@@ -545,7 +482,6 @@ bool cmpx(Point A,Point B){
 bool cmpy(Point A,Point B){
     return ldcmp(A.y-B.y,0)<0;
 }
-void init(){ /* see NewCodeforces.cpp */ }
 Point p[MAXN],tmp[MAXN];
 ld closest_pair(ll left,ll right){
     ld dis=INF;
@@ -557,9 +493,7 @@ ld closest_pair(ll left,ll right){
     dis=min(cand1,cand2);
     ll k=0;
     for(int i=left;i<=right;i++){
-        if(fabs(p[mid].x-p[i].x)<=dis){
-            tmp[++k]=p[i];
-        }
+        if(fabs(p[mid].x-p[i].x)<=dis) tmp[++k]=p[i];
     }
     sort(tmp+1,tmp+k+1,cmpy);
     for(int i=1;i<=k;i++){
@@ -570,24 +504,14 @@ ld closest_pair(ll left,ll right){
     }
     return dis;
 }
-void solve(){
-    cin>>n;
-    for(int i=1;i<=n;i++){
-        cin>>p[i].x>>p[i].y;
-    }
-    sort(p+1,p+n+1,cmpx);
-    cout<<fixed<<setprecision(4);
-    cout<<closest_pair(1,n)<<'\n';
-}
-int main(){ /* see geomtery/Polygon.cpp */ }
 \end{lstlisting}
 
-\entry{Half\_Plane\_Intersect.cpp}{Ruiming, verbatim}{Half-plane intersection: area of the intersection of convex polygons.}
+\entry{Half\_Plane\_Intersect.cpp}{Ruiming \quad $O(n \log n)$}{\code{HPI(L)}: every \code{Line(p1,p2)} keeps the half-plane on its \textbf{left}; returns the vertices of the intersection (empty if it is empty). Intersection of convex polygons: add every edge \code{Line(poly[j], poly[j+1])} with the polygons counter-clockwise, then the area is $\frac12|\sum$ \code{Cross(q[i], q[i+1])}$|$. Add a big bounding box if the result may be unbounded.}
 
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp
 #include<bits/stdc++.h>
 ll t,n,ans;
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
@@ -688,9 +612,7 @@ vector<Point> HPI(vector<Line> L) {
             last--;
             if (OnLeft(q[last], lines[i].p1)) q[last] = lines[i];
         }
-        if (first < last) {
-            p[last-1] = Cross_point(q[last-1], q[last]);
-        }
+        if (first < last) p[last-1] = Cross_point(q[last-1], q[last]);
     }
     while (first < last && !OnLeft(q[first], p[last-1])) last--;
     if (last - first <= 1) return {};
@@ -699,46 +621,14 @@ vector<Point> HPI(vector<Line> L) {
     for (int i = first; i <= last; i++) ans.push_back(p[i]);
     return ans;
 }
-void solve() {
-    int numPoly;
-    cin >> numPoly;          // 多边形数量
-    vector<Line> L;
-    for (int i = 0; i < numPoly; i++) {
-        int m;
-        cin >> m;            // 当前多边形的点数
-        vector<Point> poly(m);
-        for (int j = 0; j < m; j++) {
-            cin >> poly[j].x >> poly[j].y;
-        }
-        // 将多边形的每条边转换为有向直线（逆时针，左侧为内部）
-        for (int j = 0; j < m; j++) {
-            L.push_back(Line(poly[j], poly[(j+1)%m]));
-        }
-    }
-    vector<Point> poly = HPI(L);
-    if (poly.empty()) {
-        cout << "0.000\n";
-        return;
-    }
-    ld area = 0;
-    int m = poly.size();
-    for (int i = 0; i < m; i++) {
-        area += Cross(poly[i], poly[(i+1)%m]);
-    }
-    area = fabs(area) / 2.0;
-    cout << fixed << setprecision(3) << area << '\n';
-}
-int main(){
-    solve();
-}
 \end{lstlisting}
 
-\entry{Circle.cpp}{Ruiming, verbatim}{Circles: point / line / segment vs circle, line-circle intersection points, circumcentre.}
+\entry{Circle.cpp}{Ruiming}{\code{Circle(c, r)}. \code{Point\_circle\_relation}, \code{Line\_Circle\_relation}, \code{Seg\_circle\_relation}: 0 inside / crossing, 1 touching, 2 outside / missing. \code{Line\_Cross\_Circle(v, C, pa, pb)} returns how many intersection points (0--2) and writes them to \code{pa}, \code{pb}. \code{Circumcenter(A,B,C)}: centre of the circle through three non-collinear points; radius \code{Dist(center, A)}.}
 
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
 Point POF=Point(INF,INF);
@@ -812,25 +702,14 @@ Point Circumcenter(Point A,Point B,Point C){
     center.y=A.y+(a1*c2-a2*c1)/d;
     return center;
 }
-void init(){ /* see NewCodeforces.cpp */ }
-void solve(){
-    Point p1,p2,p3;
-    cin>>p1.x>>p1.y;
-    cin>>p2.x>>p2.y;
-    cin>>p3.x>>p3.y;
-    Point center=Circumcenter(p1,p2,p3);
-    cout<<fixed<<setprecision(10);
-    cout<<center.x<<' '<<center.y<<' '<<Dist(center,p1)<<'\n';
-}
-int main(){ /* see geomtery/Polygon.cpp */ }
 \end{lstlisting}
 
-\entry{min\_cover\_circle.cpp}{Ruiming, verbatim}{Minimum enclosing circle, randomised, expected $O(n)$.}
+\entry{min\_cover\_circle.cpp}{Ruiming \quad expected $O(n)$}{\code{min\_center\_circle(p, n, c, r)}: smallest circle containing \code{p[1..n]}; centre into \code{c}, radius into \code{r}. Shuffles \code{p} (randomised incremental, Welzl). \code{random\_shuffle} is deprecated but g++ still has it; if it ever fails to compile, use \code{shuffle(p+1, p+n+1, mt19937(7))}.}
 
 %NOCOMPILE
 %VERBATIM
 \begin{lstlisting}[breaklines=true]
-// header lines: see NewCodeforces.cpp, geomtery/Line_and_Vectors.cpp
+// header lines: see geomtery/Line_and_Vectors.cpp
 const ll MAXN=100006;//UPDATERA ARRAY STORLEKEN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ll ldcmp(ld x,ld y){ /* see geomtery/Line_and_Vectors.cpp */ }
 struct Point{ /* see geomtery/Line_and_Vectors.cpp */ };
@@ -887,18 +766,6 @@ void min_center_circle(Point *p,ll n,Point &c,ld &r){
     }
 }
 Point p[MAXN];
-void solve(){
-    cin>>n;
-    Point c;
-    ld r;
-    for(int i=1;i<=n;i++){
-        cin>>p[i].x>>p[i].y;
-    }
-    min_center_circle(p,n,c,r);
-    cout<<fixed<<setprecision(10);
-    cout<<r<<' '<<c.x<<' '<<c.y<<'\n';
-}
-int main(){ /* see geomtery/Polygon.cpp */ }
 \end{lstlisting}
 
 % ---- other geometry (not Ruiming) ----

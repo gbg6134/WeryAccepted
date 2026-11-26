@@ -147,7 +147,9 @@
 % Same layout as KACTL's team page: logo, university, team, members, and the
 % contest at the bottom. The logo is kth.pdf next to this file (upload it to
 % Overleaf too); if it is missing the cover simply has no logo.
-\pagestyle{empty}
+% NWERC rules: EVERY page, the cover included, needs the university upper left
+% and the page number upper right, so the cover keeps the fancy header and is
+% page 1 (the last page then shows 25 = the page count).
 \begin{center}
 \strut\vspace{2.6cm}\\
 \IfFileExists{kth.pdf}{\includegraphics[width=3cm]{kth.pdf}\\[0.4cm]}{}
@@ -159,11 +161,6 @@
 {\huge \today}\\[1cm]
 \end{center}
 \newpage
-\setcounter{page}{1}
-% The cover uses \pagestyle{empty}; switch back here. \thispagestyle does NOT
-% work for this -- its effect lands on the index page instead of the cover and
-% page 1 of the index loses its header.
-\pagestyle{fancy}
 
 % ------------------------------ index + body -------------------------------
 {\large\bfseries Index}\hfill{\footnotesize\members}
