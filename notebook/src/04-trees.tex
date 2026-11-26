@@ -8,6 +8,7 @@ range operation, so pair it with \code{BIT} / \code{Seg} / \code{LazySeg}. Edge 
 go on the \emph{lower} endpoint of the edge.\\[0.3ex]
 Iterative, so depth never matters.}
 
+%LABEL euler
 \begin{lstlisting}
 void euler(const vector<vector<int>>& g, int root,
            vector<int>& tin, vector<int>& tout) {
@@ -36,6 +37,7 @@ weight of the edge to the parent, \code{mx[0][root] = ID},
 \code{mx[k][v] = op(mx[k-1][v], mx[k-1][up[k-1][v]])}, and merge \code{mx[i][v]} into
 the answer at every jump taken in \code{kth} and \code{lca}.}
 
+%LABEL LCA
 \begin{lstlisting}
 struct LCA {
     int LG; vector<vector<int>> up; vector<int> dep;
@@ -194,6 +196,91 @@ vector<int> centroids(const vector<vector<int>>& g) {
         if (mx <= n / 2) res.push_back(u);
     }
     return res;
+}
+\end{lstlisting}
+
+\entry{Centroid decomposition}{build $O(n \log n)$ \quad mem $n$}{%
+Take the centroid \code{c} of the tree, remove it, and recurse on every piece; the
+centroids of the pieces become children of \code{c}. The result is a new tree
+(\code{cpar[v]} = parent, \code{-1} at the top) of depth $\le \log_2 n$.\\[0.3ex]
+The one fact to remember: \textbf{the path between any $u$ and $v$ goes through their
+lowest common ancestor in the centroid tree}. So ``something about all paths'' becomes
+``for each centroid, something about paths through it'', and every vertex lies in only
+$\log n$ pieces.\\[0.3ex]
+Classic use, ``nearest red vertex'' with updates: keep \code{best[c]} = smallest
+\code{dist(c, red)} over red vertices in \code{c}'s piece. Paint \code{v}: for each
+ancestor \code{c} of \code{v} (walk \code{cpar}), \code{best[c] = min(best[c],
+dist(c, v))}. Query \code{v}: min over ancestors \code{c} of
+\code{best[c] + dist(c, v)}. \code{dist} from \code{LCA} on the \emph{original} tree;
+$O(\log^2 n)$ per operation. Counting paths of length $k$: at each centroid, count
+depths of each piece with an array, combine, then subtract pairs from the same piece.
+Iterative; b5xu's \code{CD\_tree}, rewritten.}
+
+%LABEL centroidTree
+\begin{lstlisting}
+vector<int> centroidTree(const vector<vector<int>>& g) {
+    int n = (int)g.size();
+    vector<int> cpar(n, -1), sz(n), pr(n);
+    vector<char> del(n, 0);
+    vector<pair<int,int>> todo{{0, -1}};  // (vertex, parent)
+    while (!todo.empty()) {
+        auto [s, up] = todo.back(); todo.pop_back();
+        vector<int> ord{s}; pr[s] = -1;     // bfs the piece
+        for (int i = 0; i < (int)ord.size(); i++)
+            for (int v : g[ord[i]])
+                if (!del[v] && v != pr[ord[i]])
+                    pr[v] = ord[i], ord.push_back(v);
+        for (int i = (int)ord.size() - 1; i >= 0; i--) {
+            int u = ord[i]; sz[u] = 1;
+            for (int v : g[u])
+                if (!del[v] && v != pr[u]) sz[u] += sz[v];
+        }
+        int tot = (int)ord.size(), c = s;
+        for (bool moved = true; moved;) {   // go heavy
+            moved = false;
+            for (int v : g[c])
+                if (!del[v] && v != pr[c] && 2*sz[v] > tot) {
+                    c = v; moved = true; break;
+                }
+        }
+        cpar[c] = up; del[c] = 1;
+        for (int v : g[c])
+            if (!del[v]) todo.push_back({v, c});
+    }
+    return cpar;
+}
+\end{lstlisting}
+
+\entry{Virtual tree (compress tree)}{$O(k \log k)$ per query}{%
+Needs \code{LCA} and \code{euler} (same root). A query names $k$ important vertices of a
+huge tree, and the sum of all $k$ is small. Build a small tree containing just those
+vertices plus the LCAs needed to keep the shape (at most $k-1$ extra), then run the
+normal tree DP on it. Edge lengths are \code{dep[b] - dep[a]} from the \code{LCA} struct
+(or weighted depth).\\[0.3ex]
+Returns pairs \code{(parent index, vertex)}; index 0 is the root and points to itself,
+and parents always come earlier in the list, so a loop from the back is a bottom-up DP.
+Sorting by \code{tin} is the whole trick: neighbours in that order have all the LCAs you
+need. From KACTL.}
+
+%DEP LCA euler
+%LABEL vtree
+\begin{lstlisting}
+vector<pair<int,int>> virtualTree(LCA& L,
+        const vector<int>& tin, vector<int> li) {
+    static vector<int> rev; rev.resize(tin.size());
+    auto cmp = [&](int a, int b) { return tin[a] < tin[b]; };
+    sort(all(li), cmp);
+    int m = (int)li.size() - 1;
+    rep(i, 0, m) li.push_back(L.lca(li[i], li[i+1]));
+    sort(all(li), cmp);
+    li.erase(unique(all(li)), li.end());
+    rep(i, 0, (ll)li.size()) rev[li[i]] = (int)i;
+    vector<pair<int,int>> ret = {{0, li[0]}};
+    rep(i, 0, (ll)li.size() - 1) {
+        int a = li[i], b = li[i+1];
+        ret.push_back({rev[L.lca(a, b)], b});
+    }
+    return ret;
 }
 \end{lstlisting}
 

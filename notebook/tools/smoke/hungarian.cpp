@@ -5,7 +5,7 @@ int main(){
         int n = 1 + rng() % 6, m = n + rng() % 3;
         matrix a(n, vi(m));
         rep(i, 0, n) rep(j, 0, m) a[i][j] = (ll)(rng() % 201) - 100;
-        auto [cost, asg] = hungarian(a);
+        Hungarian h(a); auto cost = h.cost; auto asg = h.job;
         vector<int> cols(m); iota(all(cols), 0);
         ll best = INF;
         do {

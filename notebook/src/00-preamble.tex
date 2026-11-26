@@ -1,5 +1,5 @@
 % ===========================================================================
-%  KTH -- Team Reference Document  (NCPC / NWERC)
+%  KTH -- Team Reference Document  (NWERC)
 %  GENERATED FILE: edit src/*.tex, then run tools/build.sh
 %  Paste notebook.tex into Overleaf and hit Recompile -- plain pdfLaTeX.
 %
@@ -17,6 +17,7 @@
 \newcommand{\unishort}{KTH}
 \newcommand{\team}{Wery Accepted}
 \newcommand{\members}{Ruben \quad Ruiming \quad Teo}
+\newcommand{\contest}{NWERC 2026}
 
 % Code size. 8pt is exactly KACTL's, which is printed for NWERC every year.
 % DO NOT go below it -- raise both numbers if the print looks tight.
@@ -33,6 +34,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{graphicx}
 \usepackage{titlesec}
 \usepackage{fancyhdr}
 \usepackage{amsmath,amssymb}
@@ -130,19 +132,19 @@
 \begin{document}
 
 % ------------------------------- front page --------------------------------
+% Same layout as KACTL's team page: logo, university, team, members, and the
+% contest at the bottom. The logo is kth.pdf next to this file (upload it to
+% Overleaf too); if it is missing the cover simply has no logo.
 \pagestyle{empty}
 \begin{center}
-\vspace*{2.2cm}
-{\fontsize{46}{50}\selectfont\bfseries Notebook}\\[0.5cm]
-{\Large Team Reference Document \quad\textbullet\quad NCPC / NWERC}\\[1.6cm]
-\textcolor{rule}{\rule{0.55\textwidth}{0.8pt}}\\[1.2cm]
-{\fontsize{30}{34}\selectfont\bfseries \team}\\[1.4cm]
-{\LARGE \uni}\\[0.9cm]
-{\Large \members}
+\strut\vspace{2.6cm}\\
+\IfFileExists{kth.pdf}{\includegraphics[width=3cm]{kth.pdf}\\[0.4cm]}{}
+{\fontsize{25}{30}\selectfont \uni\\[0.5cm]}
+{\fontsize{60}{60}\selectfont \team\\[0.9cm]}
+{\huge \members\\}
 \vfill
-{\footnotesize 25-page limit: this document is 16 pages including this cover.
-Single-sided, A4.\par}
-\vspace{0.8cm}
+{\fontsize{21}{25}\selectfont \contest}\\[0.5cm]
+{\huge \today}\\[1cm]
 \end{center}
 \newpage
 \setcounter{page}{1}

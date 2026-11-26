@@ -265,3 +265,231 @@ vector<Pd> circleCircle(Pd c1, ld r1, Pd c2, ld r2) {
     return {m - per, m + per};
 }
 \end{lstlisting}
+
+\entry{Projection, reflection, angle sort}{}{%
+\code{lineProj(a, b, p)} is the point on line \code{ab} closest to \code{p} (the foot
+of the perpendicular); with \code{refl = true} it is \code{p} mirrored across the line.
+Use \code{Pd}; with \code{Pl} the division truncates.\\[0.3ex]
+\code{angleLess} sorts vectors by angle around the origin, counter-clockwise starting
+from the positive $x$-axis, \textbf{exactly} on \code{Pl} (no \code{atan2}). Ruiming's
+\code{cmp} with \code{atan2l} does the same in floating point; fine for small
+coordinates, but two nearly equal angles can swap. To sort around a point \code{c},
+sort \code{p - c}. The origin itself must not be in the list. Vectors at the same angle
+compare equal; break ties by \code{dist2()} if needed.}
+
+%DEP point
+%LABEL lineproj
+\begin{lstlisting}
+template<class T>
+P<T> lineProj(P<T> a, P<T> b, P<T> p, bool refl = false) {
+    P<T> v = b - a;
+    return p - v.perp() * (1 + refl) * v.cross(p - a)
+             / v.dist2();
+}
+bool upperHalf(Pl p) {
+    return p.y > 0 || (p.y == 0 && p.x > 0);
+}
+bool angleLess(Pl a, Pl b) {         // ccw from +x axis
+    bool ha = upperHalf(a), hb = upperHalf(b);
+    if (ha != hb) return ha;
+    return a.cross(b) > 0;
+}
+\end{lstlisting}
+
+\entry{Circumcircle, minimum enclosing circle}{\code{mec} expected $O(n)$}{%
+\code{ccCenter(A, B, C)} is the centre of the circle through three points (they must
+not be collinear) and \code{ccRadius} its radius.\\[0.3ex]
+\code{mec(ps)} is the smallest circle containing every point: returns
+\code{\{centre, radius\}}. Randomised (Welzl): the points are shuffled, and whenever a
+point lies outside the current circle it must be on the boundary of the new one, which
+is rebuilt from 1, 2 or 3 boundary points. Expected linear time --- $10^6$ points is
+fine. Also answers ``place one tower to cover all houses with the smallest range''.
+Ruiming's \code{min\_center\_circle} and KACTL's \code{mec} are the same algorithm; this
+is it on \code{Pd}.}
+
+%DEP point
+%LABEL mec
+\begin{lstlisting}
+ld ccRadius(Pd A, Pd B, Pd C) {
+    return (B - A).dist() * (C - B).dist() * (A - C).dist()
+         / fabsl((B - A).cross(C - A)) / 2;
+}
+Pd ccCenter(Pd A, Pd B, Pd C) {
+    Pd b = C - A, c = B - A;
+    return A + (b * c.dist2() - c * b.dist2()).perp()
+                 / b.cross(c) / 2;
+}
+pair<Pd, ld> mec(vector<Pd> ps) {
+    shuffle(all(ps), mt19937(1234));
+    Pd o = ps[0]; ld r = 0, EPS = 1 + 1e-10;
+    rep(i, 0, (ll)ps.size()) if ((o - ps[i]).dist() > r*EPS) {
+        o = ps[i], r = 0;
+        rep(j, 0, i) if ((o - ps[j]).dist() > r * EPS) {
+            o = (ps[i] + ps[j]) / 2;
+            r = (o - ps[i]).dist();
+            rep(k, 0, j) if ((o - ps[k]).dist() > r * EPS) {
+                o = ccCenter(ps[i], ps[j], ps[k]);
+                r = (o - ps[i]).dist();
+            }
+        }
+    }
+    return {o, r};
+}
+\end{lstlisting}
+
+\entry{Circle tangents}{}{%
+\code{tangents(c1, r1, c2, r2)} gives the lines that touch both circles, each as a pair
+of touching points (on circle 1, on circle 2). These are the \emph{outer} tangents; pass
+\code{-r2} for the \emph{inner} ones (the ones that cross between the circles). 0, 1 or
+2 results: 0 if one circle is inside the other (or they are equal), 1 if they touch.\\[0.3ex]
+Tangents from a point \code{p} to a circle: \code{tangents(c, r, p, 0)}; the touching
+points are the \code{.first}s. Shortest path around a round obstacle goes along a
+tangent, then the arc, then a tangent --- this is the building block. From KACTL.}
+
+%DEP point
+%LABEL tangents
+\begin{lstlisting}
+vector<pair<Pd,Pd>> tangents(Pd c1, ld r1, Pd c2, ld r2) {
+    Pd d = c2 - c1;
+    ld dr = r1 - r2, d2 = d.dist2(), h2 = d2 - dr * dr;
+    if (d2 == 0 || h2 < 0) return {};
+    vector<pair<Pd,Pd>> out;
+    for (ld sg : {-1, 1}) {
+        Pd v = (d * dr + d.perp() * sqrtl(h2) * sg) / d2;
+        out.push_back({c1 + v * r1, c2 + v * r2});
+    }
+    if (h2 == 0) out.pop_back();
+    return out;
+}
+\end{lstlisting}
+
+\entry{Circle-polygon intersection area}{$O(n)$}{%
+Area of the part of a polygon (counter-clockwise, need not be convex) that lies inside
+the circle \code{(c, r)}. Works by adding up signed pieces for each edge as seen from
+the centre, so it handles every case without special code. A clockwise polygon gives the
+negative answer. From KACTL.}
+
+%DEP point
+%LABEL circlePoly
+\begin{lstlisting}
+ld circlePoly(Pd c, ld r, vector<Pd> ps) {
+    auto arg = [](Pd p, Pd q) {
+        return atan2l(p.cross(q), p.dot(q)); };
+    auto tri = [&](Pd p, Pd q) {
+        ld r2 = r * r / 2;
+        Pd d = q - p;
+        ld a = d.dot(p) / d.dist2();
+        ld b = (p.dist2() - r * r) / d.dist2();
+        ld det = a * a - b;
+        if (det <= 0) return arg(p, q) * r2;
+        ld s = max((ld)0, -a - sqrtl(det));
+        ld t = min((ld)1, -a + sqrtl(det));
+        if (t < 0 || 1 <= s) return arg(p, q) * r2;
+        Pd u = p + d * s, v = q + d * (t - 1);
+        return arg(p, u) * r2 + u.cross(v) / 2
+             + arg(v, q) * r2;
+    };
+    ld sum = 0;
+    rep(i, 0, (ll)ps.size())
+        sum += tri(ps[i] - c, ps[(i + 1) % ps.size()] - c);
+    return sum;
+}
+\end{lstlisting}
+
+\entry{Polygon cut, centroid}{$O(n)$}{%
+\code{polygonCut(poly, s, e)} keeps the part of the polygon to the \textbf{right} of the
+directed line \code{s -> e} (everything on the left is cut away). The polygon should be
+convex; for a non-convex one the result can contain zero-width bridges.\\[0.3ex]
+\textbf{Half-plane intersection for small inputs}: start from a huge square and cut
+once per half-plane --- $O(n^2)$, simple, and enough for $n \le 5000$. Keep the
+\emph{left} side of \code{s -> e} by cutting with \code{(e, s)}.\\[0.3ex]
+\code{polygonCenter} is the centre of mass of the filled polygon (not the average of
+the vertices). Both from KACTL.}
+
+%DEP point
+%LABEL polyCut
+\begin{lstlisting}
+vector<Pd> polygonCut(const vector<Pd>& poly, Pd s, Pd e) {
+    vector<Pd> res;
+    rep(i, 0, (ll)poly.size()) {
+        Pd cur = poly[i], prev = i ? poly[i-1] : poly.back();
+        ld a = s.cross(e, cur), b = s.cross(e, prev);
+        if ((a < 0) != (b < 0))
+            res.push_back(cur + (prev - cur) * (a / (a - b)));
+        if (a < 0) res.push_back(cur);
+    }
+    return res;
+}
+Pd polygonCenter(const vector<Pd>& v) {
+    Pd res(0, 0); ld A = 0;
+    for (int i = 0, j = (int)v.size() - 1; i < (int)v.size();
+         j = i++) {
+        res = res + (v[i] + v[j]) * v[j].cross(v[i]);
+        A += v[j].cross(v[i]);
+    }
+    return res / A / 3;
+}
+\end{lstlisting}
+
+\entry{Hull diameter (rotating calipers)}{$O(n)$}{%
+The two points of a convex polygon that are farthest apart. Input is what \code{hull}
+returns (counter-clockwise, no collinear points); for a point set call \code{hull}
+first. Returns the pair; \code{(a - b).dist2()} is the squared diameter, exact.\\[0.3ex]
+How: walk \code{i} around the hull and keep a second pointer \code{j} at the vertex
+farthest from edge \code{i}; \code{j} only ever moves forward, so the total is
+linear. The same two-pointer walk gives minimum width (smallest edge-to-farthest-vertex
+distance) and the smallest enclosing rectangle. From KACTL.}
+
+%DEP point
+%LABEL hullDiam
+\begin{lstlisting}
+array<Pl,2> hullDiameter(const vector<Pl>& S) {
+    int n = (int)S.size(), j = n < 2 ? 0 : 1;
+    pair<ll, array<Pl,2>> res({0, {S[0], S[0]}});
+    rep(i, 0, j)
+        for (;; j = (j + 1) % n) {
+            res = max(res, {(S[i] - S[j]).dist2(),
+                            {S[i], S[j]}});
+            if ((S[(j+1)%n] - S[j]).cross(S[i+1] - S[i]) >= 0)
+                break;
+        }
+    return res.second;
+}
+\end{lstlisting}
+
+\entry{Manhattan MST}{$O(n \log n)$}{%
+Minimum spanning tree where the cost of joining two points is
+$|x_1 - x_2| + |y_1 - y_2|$. The complete graph has $n^2$ edges, too many; this returns
+at most $4n$ candidate edges \code{\{w, a, b\}} that are guaranteed to contain an MST.
+Feed them straight to \code{kruskal}. (For each point it only keeps the nearest point
+in each of 8 directions, found by a sweep.)\\[0.3ex]
+Chebyshev distance $\max(|dx|, |dy|)$ instead: map every point to $(x + y, x - y)$.
+Manhattan distance between the new points is exactly \emph{twice} the Chebyshev
+distance between the old ones, so the same tree works; halve the total. From KACTL.}
+
+%DEP point
+%LABEL manhattan
+\begin{lstlisting}
+vector<array<ll,3>> manhattanMST(vector<Pl> ps) {
+    vector<int> id(ps.size()); iota(all(id), 0);
+    vector<array<ll,3>> edges;
+    rep(k, 0, 4) {
+        sort(all(id), [&](int i, int j) {
+            return (ps[i] - ps[j]).x < (ps[j] - ps[i]).y; });
+        map<ll, int> sweep;
+        for (int i : id) {
+            for (auto it = sweep.lower_bound(-ps[i].y);
+                 it != sweep.end(); sweep.erase(it++)) {
+                int j = it->second;
+                Pl d = ps[i] - ps[j];
+                if (d.y > d.x) break;
+                edges.push_back({d.y + d.x, i, j});
+            }
+            sweep[-ps[i].y] = i;
+        }
+        for (Pl& p : ps)
+            if (k & 1) p.x = -p.x; else swap(p.x, p.y);
+    }
+    return edges;
+}
+\end{lstlisting}

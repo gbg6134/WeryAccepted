@@ -80,3 +80,59 @@ int id(const vi& c, ll v) {
     return (int)(lower_bound(all(c), v) - c.begin());
 }
 \end{lstlisting}
+
+\entry{Interval cover}{$O(n \log n)$}{%
+Fewest intervals from \code{I} that together cover the target \code{G}; returns their
+indices, or empty if impossible. Intervals are \textbf{half-open} \code{[a, b)}; for
+closed ones on integers use \code{[a, b+1)}. Greedy: from the current point, among the
+intervals starting at or before it, take the one that reaches furthest. Same idea for
+``fewest jumps'' and ``fewest refuelling stops'' problems. From KACTL.}
+
+%LABEL cover
+\begin{lstlisting}
+template<class T>
+vector<int> cover(pair<T,T> G, vector<pair<T,T>> I) {
+    vector<int> S(I.size()), R;
+    iota(all(S), 0);
+    sort(all(S), [&](int a, int b) { return I[a] < I[b]; });
+    T cur = G.first;
+    int at = 0;
+    while (cur < G.second) {
+        pair<T, int> mx = make_pair(cur, -1);
+        while (at < (int)I.size() && I[S[at]].first <= cur) {
+            mx = max(mx, make_pair(I[S[at]].second, S[at]));
+            at++;
+        }
+        if (mx.second == -1) return {};
+        cur = mx.first;
+        R.push_back(mx.second);
+    }
+    return R;
+}
+\end{lstlisting}
+
+\entry{Fast input}{$\sim$5x faster than \code{cin}}{%
+For inputs of $10^7$ numbers, where even \code{sync\_with\_stdio(false)} is too slow.
+Reads from \code{stdin} in blocks; do not mix with \code{cin}. \code{readInt} skips
+spaces and newlines and handles a minus sign; for \code{ll} change the types. From
+KACTL.}
+
+%LABEL fastin
+\begin{lstlisting}
+inline char gc() {                 // like getchar()
+    static char buf[1 << 16];
+    static size_t bc, be;
+    if (bc >= be) {
+        buf[0] = 0, bc = 0;
+        be = fread(buf, 1, sizeof(buf), stdin);
+    }
+    return buf[bc++];              // 0 on end of file
+}
+int readInt() {
+    int a, c;
+    while ((a = gc()) < 40);
+    if (a == '-') return -readInt();
+    while ((c = gc()) >= 48) a = a * 10 + c - 480;
+    return a - 48;
+}
+\end{lstlisting}

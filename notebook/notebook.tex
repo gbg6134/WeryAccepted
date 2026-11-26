@@ -1,5 +1,5 @@
 % ===========================================================================
-%  KTH -- Team Reference Document  (NCPC / NWERC)
+%  KTH -- Team Reference Document  (NWERC)
 %  GENERATED FILE: edit src/*.tex, then run tools/build.sh
 %  Paste notebook.tex into Overleaf and hit Recompile -- plain pdfLaTeX.
 %
@@ -17,6 +17,7 @@
 \newcommand{\unishort}{KTH}
 \newcommand{\team}{Wery Accepted}
 \newcommand{\members}{Ruben \quad Ruiming \quad Teo}
+\newcommand{\contest}{NWERC 2026}
 
 % Code size. 8pt is exactly KACTL's, which is printed for NWERC every year.
 % DO NOT go below it -- raise both numbers if the print looks tight.
@@ -33,6 +34,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{graphicx}
 \usepackage{titlesec}
 \usepackage{fancyhdr}
 \usepackage{amsmath,amssymb}
@@ -130,19 +132,19 @@
 \begin{document}
 
 % ------------------------------- front page --------------------------------
+% Same layout as KACTL's team page: logo, university, team, members, and the
+% contest at the bottom. The logo is kth.pdf next to this file (upload it to
+% Overleaf too); if it is missing the cover simply has no logo.
 \pagestyle{empty}
 \begin{center}
-\vspace*{2.2cm}
-{\fontsize{46}{50}\selectfont\bfseries Notebook}\\[0.5cm]
-{\Large Team Reference Document \quad\textbullet\quad NCPC / NWERC}\\[1.6cm]
-\textcolor{rule}{\rule{0.55\textwidth}{0.8pt}}\\[1.2cm]
-{\fontsize{30}{34}\selectfont\bfseries \team}\\[1.4cm]
-{\LARGE \uni}\\[0.9cm]
-{\Large \members}
+\strut\vspace{2.6cm}\\
+\IfFileExists{kth.pdf}{\includegraphics[width=3cm]{kth.pdf}\\[0.4cm]}{}
+{\fontsize{25}{30}\selectfont \uni\\[0.5cm]}
+{\fontsize{60}{60}\selectfont \team\\[0.9cm]}
+{\huge \members\\}
 \vfill
-{\footnotesize 25-page limit: this document is 16 pages including this cover.
-Single-sided, A4.\par}
-\vspace{0.8cm}
+{\fontsize{21}{25}\selectfont \contest}\\[0.5cm]
+{\huge \today}\\[1cm]
 \end{center}
 \newpage
 \setcounter{page}{1}
@@ -249,6 +251,7 @@ Range add + point get: \code{add(l, x)}, \code{add(r, -x)}; then \code{sum(i+1)}
 every \code{+=} becomes \code{\textasciicircum=}, and drop the \code{-} in
 \code{sum(l, r)}.}
 
+%LABEL BIT
 \begin{lstlisting}
 struct BIT {
     int n; vector<ll> t;
@@ -685,11 +688,114 @@ struct LineContainer : multiset<Line, less<>> {
 };
 \end{lstlisting}
 
+\entry{Mo's algorithm}{$O((n + q)\sqrt n)$ moves}{%
+Offline range queries where no segment tree works, but you \emph{can} cheaply add or
+remove one element at an end of the current range: number of distinct values, most
+frequent value count, number of pairs of equal values in \code{[l, r)}, ...\\[0.3ex]
+You write three functions: \code{add(i, end)} puts \code{a[i]} into the current range,
+\code{del(i, end)} takes it out (\code{end} is 0 for the left end, 1 for the right, in
+case it matters), \code{calc()} gives the answer for the current range. \code{mo}
+sorts the queries so that the two ends move only $O(n\sqrt q)$ steps in total, and
+returns the answers in the original order.\\[0.3ex]
+Queries are \textbf{half-open} \code{[l, r)}. Set \code{blk} $\approx n / \sqrt q$.
+Removal hard but adding easy? sort the same way and, inside each block, restart the
+left end every time (``Mo with rollback''). Tree paths: KACTL's \code{moTree} (not
+here) or flatten with an Euler tour. Shown with ``count distinct''. From KACTL.}
+
+%LABEL mo
+\begin{lstlisting}
+vector<int> a, cnt(1 << 20);   // example: distinct values
+ll distinct = 0;
+void add(int i, int end) { if (cnt[a[i]]++ == 0) distinct++; }
+void del(int i, int end) { if (--cnt[a[i]] == 0) distinct--; }
+ll calc() { return distinct; }
+
+vi mo(const vector<pii>& Q) {           // Q[i] = [l, r)
+    int L = 0, R = 0, blk = 350;          // ~ n / sqrt(q)
+    vector<int> s(Q.size()); vi res(Q.size());
+    iota(all(s), 0);
+    auto K = [&](pii x) {
+        return pii(x.first / blk,
+                   x.second ^ -(x.first / blk & 1));
+    };
+    sort(all(s), [&](int x, int y) {
+        return K(Q[x]) < K(Q[y]); });
+    for (int qi : s) {
+        pii q = Q[qi];
+        while (L > q.first) add(--L, 0);
+        while (R < q.second) add(R++, 1);
+        while (L < q.first) del(L++, 0);
+        while (R > q.second) del(--R, 1);
+        res[qi] = calc();
+    }
+    return res;
+}
+\end{lstlisting}
+
+\entry{Set of disjoint intervals}{$O(\log n)$ amortised}{%
+Keeps a \code{set} of non-overlapping \textbf{half-open} intervals \code{[L, R)}.
+\code{addInterval} merges the new interval with everything it overlaps or touches and
+returns an iterator to the merged piece; \code{removeInterval} cuts a range out,
+splitting an interval in two if needed. Total covered length, ``is \code{x} covered''
+(\code{upper\_bound(\{x, LLONG\_MAX\})} then step back), painting a line, merging
+bookings --- all one line each on top of this. From KACTL.}
+
+%LABEL intervals
+\begin{lstlisting}
+set<pii>::iterator addInterval(set<pii>& is, ll L, ll R) {
+    if (L == R) return is.end();
+    auto it = is.lower_bound({L, R}), before = it;
+    while (it != is.end() && it->first <= R) {
+        R = max(R, it->second);
+        before = it = is.erase(it);
+    }
+    if (it != is.begin() && (--it)->second >= L) {
+        L = min(L, it->first);
+        R = max(R, it->second);
+        is.erase(it);
+    }
+    return is.insert(before, {L, R});
+}
+void removeInterval(set<pii>& is, ll L, ll R) {
+    if (L == R) return;
+    auto it = addInterval(is, L, R);
+    ll r2 = it->second;
+    if (it->first == L) is.erase(it);
+    else const_cast<ll&>(it->second) = L;
+    if (R != r2) is.emplace(R, r2);
+}
+\end{lstlisting}
+
+\entry{Fast hash map}{$\sim$3x faster than \code{unordered\_map}}{%
+\code{gp\_hash\_table} has the same \code{h[key]}, \code{h.find}, \code{h.count}
+interface as \code{unordered\_map}. The custom hash spreads the bits, so keys that are
+all multiples of 1024 (or a test built to break \code{std::hash}) do not pile into one
+bucket. The last constructor argument is the starting capacity, a power of two. Reach
+for it when a \code{map} of $10^6$+ operations is the bottleneck; for keys up to
+$\sim 10^7$ a plain \code{vector} is faster still. From KACTL.}
+
+%LABEL hashmap
+\begin{lstlisting}
+#include <ext/pb_ds/assoc_container.hpp>
+struct chash {                 // large odd constant
+    const uint64_t C = ll(4e18 * acos(0)) | 71;
+    ll operator()(ll x) const {
+        return __builtin_bswap64(x * C); }
+};
+__gnu_pbds::gp_hash_table<ll, int, chash>
+    h({}, {}, {}, {}, {1 << 16});
+\end{lstlisting}
+
 \section{Union-find and MST}
 
 \entry{DSU}{$O(\alpha(n))$ amortised \quad mem $n$}{%
 \code{p[a] < 0} marks a root and then \code{-p[a]} is its component size, otherwise
-\code{p[a]} is the parent. Union by size plus path compression.}
+\code{p[a]} is the parent. Union by size plus path compression.\\[0.3ex]
+\textbf{Moving} one element \code{x} to another set (b5xu's \code{UF\_MV}): never move
+the node itself, it may be some other element's parent. Keep \code{id[x]}, the node that
+currently stands for \code{x}; to move it, make a fresh node (\code{DSU(n + moves)}),
+set \code{id[x]} to it and \code{join} it into the target. The old node stays behind as
+a ghost, so keep your own per-set counts (or subtract ghosts from \code{size}).}
 
 %LABEL DSU
 \begin{lstlisting}
@@ -718,6 +824,7 @@ the way back up: offline dynamic connectivity (segment tree over time, see
 \code{Trees}), or a batch of MST/connectivity queries that each add a different set of
 edges on top of a common prefix.}
 
+%LABEL RDSU
 \begin{lstlisting}
 struct RDSU {
     vector<int> p;
@@ -795,6 +902,7 @@ carrying a max table, not with a new search. For ``is this edge in some MST'' an
 the second-best MST, process all edges of equal weight as one block.}
 
 %DEP DSU
+%LABEL kruskal
 \begin{lstlisting}
 // e = {w, a, b}. returns {total cost, chosen edges}
 pair<ll, vector<array<ll,3>>>
@@ -808,6 +916,83 @@ kruskal(int n, vector<array<ll,3>> e) {
     return {cost, mst};
 }
 \end{lstlisting}
+\entry{Directed MST (min arborescence)}{$O(m \log n)$}{%
+Needs \code{RDSU}. The directed version of an MST: choose the cheapest set of edges
+such that every vertex can be reached from the root \code{r} along chosen edges. Every
+vertex except \code{r} gets exactly one incoming edge. Kruskal is \textbf{wrong} here
+(direction matters). Returns \code{\{cost, par\}} with \code{par[v]} the start of
+\code{v}'s chosen incoming edge (\code{par[r] = -1}), or \code{\{-1, \{\}\}} if some
+vertex cannot be reached at all.\\[0.3ex]
+Idea (Edmonds / Chu-Liu): every vertex grabs its cheapest incoming edge; if that makes a
+cycle, shrink the cycle to one vertex, lower the other incoming edges by what the cycle
+already paid, and repeat. Heaps that can be merged and an undoable DSU make it fast.
+No root given (``any root'')? add a new vertex with edges of a huge cost $M$ to every
+vertex, root there, and subtract $M$; if the cost is $\ge 2M$ there is no answer.
+Weights may be negative. From KACTL.}
+
+%DEP RDSU
+%LABEL dmst
+\begin{lstlisting}
+struct DEdge { int a, b; ll w; };
+struct SkewNode {                      // lazy skew heap
+    DEdge key; SkewNode *l, *r; ll delta;
+    void prop() {
+        key.w += delta;
+        if (l) l->delta += delta;
+        if (r) r->delta += delta;
+        delta = 0;
+    }
+    DEdge top() { prop(); return key; }
+};
+SkewNode* merge(SkewNode* a, SkewNode* b) {
+    if (!a || !b) return a ? a : b;
+    a->prop(), b->prop();
+    if (a->key.w > b->key.w) swap(a, b);
+    swap(a->l, (a->r = merge(b, a->r)));
+    return a;
+}
+void pop(SkewNode*& a) { a->prop(); a = merge(a->l, a->r); }
+
+pair<ll, vector<int>> dmst(int n, int r, vector<DEdge>& g) {
+    RDSU uf(n);
+    vector<SkewNode*> heap(n);
+    for (DEdge e : g)
+        heap[e.b] = merge(heap[e.b], new SkewNode{e});
+    ll res = 0;
+    vector<int> seen(n, -1), path(n), par(n);
+    seen[r] = r;
+    vector<DEdge> Q(n), in(n, {-1, -1});
+    deque<tuple<int, int, vector<DEdge>>> cycs;
+    rep(s, 0, n) {
+        int u = s, qi = 0, w;
+        while (seen[u] < 0) {
+            if (!heap[u]) return {-1, {}};
+            DEdge e = heap[u]->top();
+            heap[u]->delta -= e.w, pop(heap[u]);
+            Q[qi] = e, path[qi++] = u, seen[u] = s;
+            res += e.w, u = uf.find(e.a);
+            if (seen[u] == s) {          // cycle: contract
+                SkewNode* cyc = 0;
+                int end = qi, t = uf.snap();
+                do cyc = merge(cyc, heap[w = path[--qi]]);
+                while (uf.join(u, w));
+                u = uf.find(u), heap[u] = cyc, seen[u] = -1;
+                cycs.push_front({u, t, {&Q[qi], &Q[end]}});
+            }
+        }
+        rep(i, 0, qi) in[uf.find(Q[i].b)] = Q[i];
+    }
+    for (auto& [u, t, comp] : cycs) {     // rebuild the tree
+        uf.undo(t);
+        DEdge inEdge = in[u];
+        for (auto& e : comp) in[uf.find(e.b)] = e;
+        in[uf.find(inEdge.b)] = inEdge;
+    }
+    rep(i, 0, n) par[i] = in[i].a;
+    return {res, par};
+}
+\end{lstlisting}
+
 
 \section{Trees}
 
@@ -819,6 +1004,7 @@ range operation, so pair it with \code{BIT} / \code{Seg} / \code{LazySeg}. Edge 
 go on the \emph{lower} endpoint of the edge.\\[0.3ex]
 Iterative, so depth never matters.}
 
+%LABEL euler
 \begin{lstlisting}
 void euler(const vector<vector<int>>& g, int root,
            vector<int>& tin, vector<int>& tout) {
@@ -847,6 +1033,7 @@ weight of the edge to the parent, \code{mx[0][root] = ID},
 \code{mx[k][v] = op(mx[k-1][v], mx[k-1][up[k-1][v]])}, and merge \code{mx[i][v]} into
 the answer at every jump taken in \code{kth} and \code{lca}.}
 
+%LABEL LCA
 \begin{lstlisting}
 struct LCA {
     int LG; vector<vector<int>> up; vector<int> dep;
@@ -1008,6 +1195,91 @@ vector<int> centroids(const vector<vector<int>>& g) {
 }
 \end{lstlisting}
 
+\entry{Centroid decomposition}{build $O(n \log n)$ \quad mem $n$}{%
+Take the centroid \code{c} of the tree, remove it, and recurse on every piece; the
+centroids of the pieces become children of \code{c}. The result is a new tree
+(\code{cpar[v]} = parent, \code{-1} at the top) of depth $\le \log_2 n$.\\[0.3ex]
+The one fact to remember: \textbf{the path between any $u$ and $v$ goes through their
+lowest common ancestor in the centroid tree}. So ``something about all paths'' becomes
+``for each centroid, something about paths through it'', and every vertex lies in only
+$\log n$ pieces.\\[0.3ex]
+Classic use, ``nearest red vertex'' with updates: keep \code{best[c]} = smallest
+\code{dist(c, red)} over red vertices in \code{c}'s piece. Paint \code{v}: for each
+ancestor \code{c} of \code{v} (walk \code{cpar}), \code{best[c] = min(best[c],
+dist(c, v))}. Query \code{v}: min over ancestors \code{c} of
+\code{best[c] + dist(c, v)}. \code{dist} from \code{LCA} on the \emph{original} tree;
+$O(\log^2 n)$ per operation. Counting paths of length $k$: at each centroid, count
+depths of each piece with an array, combine, then subtract pairs from the same piece.
+Iterative; b5xu's \code{CD\_tree}, rewritten.}
+
+%LABEL centroidTree
+\begin{lstlisting}
+vector<int> centroidTree(const vector<vector<int>>& g) {
+    int n = (int)g.size();
+    vector<int> cpar(n, -1), sz(n), pr(n);
+    vector<char> del(n, 0);
+    vector<pair<int,int>> todo{{0, -1}};  // (vertex, parent)
+    while (!todo.empty()) {
+        auto [s, up] = todo.back(); todo.pop_back();
+        vector<int> ord{s}; pr[s] = -1;     // bfs the piece
+        for (int i = 0; i < (int)ord.size(); i++)
+            for (int v : g[ord[i]])
+                if (!del[v] && v != pr[ord[i]])
+                    pr[v] = ord[i], ord.push_back(v);
+        for (int i = (int)ord.size() - 1; i >= 0; i--) {
+            int u = ord[i]; sz[u] = 1;
+            for (int v : g[u])
+                if (!del[v] && v != pr[u]) sz[u] += sz[v];
+        }
+        int tot = (int)ord.size(), c = s;
+        for (bool moved = true; moved;) {   // go heavy
+            moved = false;
+            for (int v : g[c])
+                if (!del[v] && v != pr[c] && 2*sz[v] > tot) {
+                    c = v; moved = true; break;
+                }
+        }
+        cpar[c] = up; del[c] = 1;
+        for (int v : g[c])
+            if (!del[v]) todo.push_back({v, c});
+    }
+    return cpar;
+}
+\end{lstlisting}
+
+\entry{Virtual tree (compress tree)}{$O(k \log k)$ per query}{%
+Needs \code{LCA} and \code{euler} (same root). A query names $k$ important vertices of a
+huge tree, and the sum of all $k$ is small. Build a small tree containing just those
+vertices plus the LCAs needed to keep the shape (at most $k-1$ extra), then run the
+normal tree DP on it. Edge lengths are \code{dep[b] - dep[a]} from the \code{LCA} struct
+(or weighted depth).\\[0.3ex]
+Returns pairs \code{(parent index, vertex)}; index 0 is the root and points to itself,
+and parents always come earlier in the list, so a loop from the back is a bottom-up DP.
+Sorting by \code{tin} is the whole trick: neighbours in that order have all the LCAs you
+need. From KACTL.}
+
+%DEP LCA euler
+%LABEL vtree
+\begin{lstlisting}
+vector<pair<int,int>> virtualTree(LCA& L,
+        const vector<int>& tin, vector<int> li) {
+    static vector<int> rev; rev.resize(tin.size());
+    auto cmp = [&](int a, int b) { return tin[a] < tin[b]; };
+    sort(all(li), cmp);
+    int m = (int)li.size() - 1;
+    rep(i, 0, m) li.push_back(L.lca(li[i], li[i+1]));
+    sort(all(li), cmp);
+    li.erase(unique(all(li)), li.end());
+    rep(i, 0, (ll)li.size()) rev[li[i]] = (int)i;
+    vector<pair<int,int>> ret = {{0, li[0]}};
+    rep(i, 0, (ll)li.size() - 1) {
+        int a = li[i], b = li[i+1];
+        ret.push_back({rev[L.lca(a, b)], b});
+    }
+    return ret;
+}
+\end{lstlisting}
+
 \entry{Rerooting DP}{$O(n)$ \quad mem $n$}{%
 Answers a subtree DP for \emph{every} root at once, in two passes: up to collect each
 subtree, then down to hand each child what the rest of the tree contributes. Shown for
@@ -1158,6 +1430,63 @@ struct SCC {
             a.erase(unique(all(a)), a.end());
         }
         return d;
+    }
+};
+\end{lstlisting}
+
+\entry{2-SAT}{$O(n + \text{clauses})$ \quad mem same}{%
+Needs \code{SCC}. You have $n$ yes/no choices and rules that each talk about at most
+\textbf{two} choices: ``$a$ or $b$'', ``not both $a$ and $b$'', ``$a$ forces $b$'',
+``$a$ equals $b$''. Find any assignment that obeys every rule, or say none exists.
+Three choices in one rule (``$a$ or $b$ or $c$'') is NP-hard --- not this.\\[0.3ex]
+A literal is \code{x} for ``choice $x$ is true'' and \code{\~{}x} for ``false''.
+\code{solve()} returns \code{false} if impossible, else \code{val[x]} is the answer.\\[0.3ex]
+\begin{ctab}{0.35}{0.60}
+\code{either(a, b)} & $a \lor b$ (at least one)\\
+\code{either(\~{}a, \~{}b)} & not both\\
+\code{implies(a, b)} & if $a$ then $b$\\
+\code{implies} both ways & $a = b$; with \code{\~{}b}: $a \ne b$\\
+\code{setValue(a)} & force $a$ true (\code{\~{}a}: false)\\
+\code{atMostOne(\{a,b,..\})} & at most one true, $O(k)$ clauses via helper
+variables; ``exactly one'' adds \code{either} over all of them\\
+\end{ctab}\\[0.3ex]
+Typical disguises: every item goes left or right / up or down / gets one of two
+colours, and some pairs of items cannot both take a certain option. Iterative (no deep
+recursion), because \code{SCC} is.}
+
+%DEP SCC
+%LABEL twosat
+\begin{lstlisting}
+struct TwoSat {             // literal x = true, ~x = false
+    int n; vector<vector<int>> g; vector<char> val;
+    TwoSat(int n = 0) : n(n), g(2 * n) {}
+    int node(int x) { return x >= 0 ? 2*x + 1 : 2*~x; }
+    int addVar() {
+        g.emplace_back(); g.emplace_back(); return n++;
+    }
+    void either(int a, int b) {                // a or b
+        g[node(a) ^ 1].push_back(node(b));
+        g[node(b) ^ 1].push_back(node(a));
+    }
+    void implies(int a, int b) { either(~a, b); }
+    void setValue(int a) { either(a, a); }
+    void atMostOne(const vector<int>& li) {
+        if (li.size() <= 1) return;
+        int cur = ~li[0];
+        for (int i = 2; i < (int)li.size(); i++) {
+            int nx = addVar();
+            either(cur, ~li[i]); either(cur, nx);
+            either(~li[i], nx); cur = ~nx;
+        }
+        either(cur, ~li[1]);
+    }
+    bool solve() {
+        SCC s(g); val.assign(n, 0);
+        for (int i = 0; i < n; i++) {
+            if (s.comp[2*i] == s.comp[2*i+1]) return false;
+            val[i] = s.comp[2*i+1] > s.comp[2*i];
+        }
+        return true;
     }
 };
 \end{lstlisting}
@@ -1395,6 +1724,61 @@ vi kShortest(const vector<vector<pii>>& g, int s, int t,
 
 \section{Flow and matching}
 
+\entry{Flow: how to spot it}{read this first}{%
+Think of every edge as a pipe that carries at most \code{c} units. \textbf{Max flow} is
+how much can go from \code{s} to \code{t} at once. A \textbf{cut} is a set of edges
+whose removal makes \code{t} unreachable from \code{s}; the cheapest cut always weighs
+exactly the max flow, so ``cheapest way to separate'' is a flow problem too.\\[0.3ex]
+\textbf{Bipartite} means the things split into two groups (people / jobs, rows /
+columns, black / white squares of a chessboard, odd / even numbers) and every allowed
+pair has one thing from each group. Test: colour with BFS in two colours; it works iff
+no edge joins two same-coloured things (no odd cycle).\\[0.3ex]
+\textbf{Build it.} One source \code{S}, one sink \code{T}. \code{S -> x} with how many
+times \code{x} may be used, \code{x -> y} for every allowed pair, \code{y -> T} with how
+many times \code{y} may be used. Several sources or sinks: one super source / super sink
+in front of them.\\[0.3ex]
+{\footnotesize
+\begin{ctab}{0.47}{0.48}
+\textbf{The problem says...} & \textbf{Use}\\
+pair as many as possible, two groups, each used once & \code{Matching} (Hopcroft-Karp)\\
+same, but things may be used $k$ times & \code{Dinic}, capacity $k$ on \code{S->x}\\
+everyone must be paired and each pair has a cost; min (or max) total & \code{Hungarian},
+dense $n \le 1000$\\
+pairs have costs but not everyone must be paired, or the graph is sparse & \code{MCMF};
+\code{run(s,t,m.INFF,1)} stops when pairing more only costs\\
+send exactly $k$ units as cheaply as possible & \code{MCMF} \code{run(s, t, k)}\\
+fewest things to remove so that no allowed pair is left / every edge is touched & min
+vertex cover = matching size, \code{cover()} lists them\\
+most things you can pick with no two of them forming an allowed pair & independent set
+$= n - $ matching (complement of \code{cover()})\\
+pairs inside \emph{one} group (people pair with people) & not bipartite:
+\code{generalMatching}\\
+cheapest way to disconnect \code{s} from \code{t} by deleting edges & \code{Dinic}, then
+\code{cut()}\\
+delete \emph{vertices} instead of edges / a vertex may be used $k$ times & split
+\code{v} into \code{v\_in -> v\_out} with capacity = its cost or $k$\\
+$k$ paths from \code{s} to \code{t} that share no edge (no vertex) & capacity 1 on edges
+(and split vertices); max flow is the number of paths\\
+fewest paths covering every vertex of a DAG & $n -$ matching, left copy \code{u} to
+right copy \code{v} per edge; if paths may share vertices, add all reachable pairs
+first\\
+choose projects with profit; each needs tools that cost money & project selection: see
+\code{Dinic}\\
+cut the graph in two, no \code{s}/\code{t} given & \code{globalMinCut}\\
+min cut between \emph{every} pair of vertices & \code{gomoryHu}: $n-1$ flows\\
+``smallest time / budget so that everything fits'' & binary search the answer, run a
+flow inside the check\\
+\end{ctab}}\\[0.3ex]
+\textbf{Edges must carry at least $l$} (lower bounds): give the edge capacity $c - l$,
+add $l$ to \code{need[v]} and subtract $l$ from \code{need[u]}. Add \code{T -> S} with
+capacity \code{INF}, a new source \code{S'} to every \code{v} with \code{need[v] > 0}
+(capacity \code{need[v]}), and every \code{u} with \code{need[u] < 0} to a new sink
+\code{T'}. A valid flow exists iff max flow \code{S' -> T'} fills all of those
+edges.\\[0.3ex]
+\textbf{Do not fear the size}: Dinic is far faster than its bound; $10^5$ edges is
+routine. If it feels too slow, the graph is usually too big --- look for a smaller
+graph (merge equal vertices, only keep useful edges), not a faster flow.}
+
 \entry{Dinic (max flow, iterative)}{$O(n^2 m)$, unit caps $O(m\sqrt n)$ \quad mem $n + m$}{%
 Directed, 0-indexed. No recursion, so path length never matters; multi-edges,
 self-loops and 0-capacity edges are fine. \code{add(u, v, c)} returns an \textbf{even}
@@ -1517,7 +1901,7 @@ with cost: two separate \code{add} calls. Paths go cheapest first, so after $k$ 
 the cost is the minimum for exactly $k$. \code{run} is incremental like \code{Dinic}.\\[0.3ex]
 One Dijkstra per augmenting path ($\le$ total flow), fine up to $\sim10^4$--$10^5$ of
 them. Measured: $10^4$ vertices $10^5$ edges 0.4\,s; a $300\times300$ assignment
-0.42\,s, while \code{hungarian} does $1000\times1000$ in 0.08\,s --- use that for a
+0.42\,s, while \code{Hungarian} does $1000\times1000$ in 0.08\,s --- use that for a
 dense square cost matrix.}
 
 %LABEL MCMF
@@ -1604,8 +1988,8 @@ cover, \code{|L| + |R| == k}. Its complement --- left \emph{not} in \code{L} plu
 \emph{not} in \code{R} --- is a maximum independent set, size \code{nl + nr - k}.\\[0.3ex]
 \code{run} is incremental: add edges and call it again, old pairs are kept. You may also
 pre-fill \code{ml}/\code{mr} with a valid greedy matching.\\[0.3ex]
-Weighted: \code{hungarian} or \code{MCMF}. General (non-bipartite) graphs need blossom,
-not this. Measured: $10^5 + 10^5$ vertices, $10^6$ edges 0.15\,s, 15\,MB.}
+Weighted: \code{Hungarian} or \code{MCMF}. General (non-bipartite) graphs need
+\code{generalMatching}, not this. Measured: $10^5 + 10^5$ vertices, $10^6$ edges 0.15\,s, 15\,MB.}
 
 %LABEL Matching
 \begin{lstlisting}
@@ -1679,56 +2063,232 @@ struct Matching {
 \end{lstlisting}
 
 \entry{Hungarian (assignment)}{$O(n^2 m)$ \quad mem $nm$}{%
-Minimum-cost \textbf{perfect} matching on a cost matrix, rows $\le$ columns: every row
-gets its own column, cheapest in total. Returns \code{\{cost, asg\}} with
-\code{asg[row] = column}. Input is 0-indexed; the internals are 1-indexed, which is why
-the matrix is read as \code{a[i0-1][j-1]}.\\[0.3ex]
-\textbf{Maximise} instead: negate every cost, then negate the answer. Forbidden pairs:
-a large finite cost, not \code{INF} (\code{INF} arithmetic overflows here) --- something
-like $10^{12}$ with real costs below $10^6$.\\[0.3ex]
+\code{n} rows (workers), \code{m >= n} columns (jobs), \code{a[i][j]} = cost of giving
+job \code{j} to worker \code{i}. Every worker gets exactly one job, no job is used
+twice, and the total is as small as possible. The constructor does all the work:
+\code{Hungarian h(a);} then \code{h.cost} and \code{h.job[i]} (the column row \code{i}
+got). Costs may be negative; \code{C = double} works.\\[0.3ex]
+\begin{ctab}{0.30}{0.65}
+maximise & pass \code{-a}, negate \code{cost}.\\
+more rows than columns & transpose: jobs choose workers.\\
+forbidden pair & cost \code{BIG}, with \code{n*BIG} far below \code{INF} and
+\code{BIG} above any real total; \code{h.cost >= BIG} means one had to be used.\\
+a row may stay idle & add one 0-cost dummy column per such row.\\
+a worker takes up to $k$ jobs & repeat its row $k$ times.\\
+\end{ctab}\\[0.3ex]
 Not the same thing as \code{Matching}: that one maximises the \emph{number} of pairs,
-this one fixes the number and minimises the \emph{cost}. Costs may be negative.}
+this one fixes the number and minimises the \emph{cost}. Measured at -O2:
+$n = m = 500$ 0.02\,s, $1000$ 0.08\,s. Internally 1-indexed, column 0 is a virtual
+helper --- that is why the matrix is read as \code{a[i0-1][j-1]}.}
 
 %LABEL hungarian
 \begin{lstlisting}
-// a = cost matrix, a.size() <= a[0].size()
-pair<ll, vector<int>> hungarian(const matrix& a) {
-    int n = (int)a.size(), m = (int)a[0].size();
-    // 1-indexed inside; column 0 is virtual, p[j]==0 => free
-    vi u(n + 1, 0), v(m + 1, 0), minv(m + 1);
-    vector<int> p(m + 1, 0), way(m + 1, 0);
-    for (int i = 1; i <= n; i++) {
-        p[0] = i; int j0 = 0;
-        fill(all(minv), INF);
-        vector<char> used(m + 1, 0);
-        do {
-            used[j0] = 1;
-            int i0 = p[j0], j1 = 0; ll delta = INF;
-            for (int j = 1; j <= m; j++) if (!used[j]) {
-                ll cur = a[i0-1][j-1] - u[i0] - v[j];
-                if (cur < minv[j]) {
-                    minv[j] = cur; way[j] = j0;
+struct Hungarian {
+    using C = ll;
+    static constexpr C INF = numeric_limits<C>::max() / 4;
+    C cost; vector<int> job;
+
+    template<class M>                  // vector<vector<C>>
+    Hungarian(const M& a) {
+        int n = a.size(), m = n ? a[0].size() : 0;
+        vector<C> u(n + 1), v(m + 1);  // potentials, 1-idx
+        vector<int> p(m + 1), way(m + 1); // p[j]: row of j
+        for (int i = 1; i <= n; i++) {
+            p[0] = i; int j0 = 0;
+            vector<C> mn(m + 1, INF);
+            vector<char> used(m + 1, 0);
+            do {
+                used[j0] = 1;
+                int i0 = p[j0], j1 = 0; C dl = INF;
+                for (int j = 1; j <= m; j++) if (!used[j]) {
+                    C cur = a[i0-1][j-1] - u[i0] - v[j];
+                    if (cur < mn[j]) mn[j] = cur, way[j] = j0;
+                    if (mn[j] < dl) dl = mn[j], j1 = j;
                 }
-                if (minv[j] < delta) {
-                    delta = minv[j]; j1 = j;
-                }
-            }
-            for (int j = 0; j <= m; j++) {
-                if (used[j]) {
-                    u[p[j]] += delta; v[j] -= delta;
-                } else minv[j] -= delta;
-            }
-            j0 = j1;
-        } while (p[j0] != 0);
-        do {                          // flip the path back
-            int j1 = way[j0]; p[j0] = p[j1]; j0 = j1;
-        } while (j0);
+                for (int j = 0; j <= m; j++)
+                    if (used[j]) u[p[j]] += dl, v[j] -= dl;
+                    else mn[j] -= dl;
+                j0 = j1;
+            } while (p[j0]);
+            do {                        // flip the path back
+                int j1 = way[j0]; p[j0] = p[j1]; j0 = j1;
+            } while (j0);
+        }
+        job.assign(n, -1); cost = 0;
+        for (int j = 1; j <= m; j++)
+            if (p[j]) job[p[j] - 1] = j - 1;
+        for (int i = 0; i < n; i++) cost += a[i][job[i]];
     }
-    vector<int> asg(n);
-    for (int j = 1; j <= m; j++) if (p[j]) asg[p[j]-1] = j-1;
-    ll cost = 0;
-    for (int i = 0; i < n; i++) cost += a[i][asg[i]];
-    return {cost, asg};
+};
+\end{lstlisting}
+
+\entry{Global min cut (Stoer-Wagner)}{$O(n^3)$ \quad mem $n^2$}{%
+Cheapest set of edges whose removal splits an \textbf{undirected} graph into two
+non-empty parts, when nobody tells you which two vertices must end up apart. With
+\code{Dinic} you would need $n-1$ flows; this does it in one go from an adjacency
+\emph{matrix} of edge weights (add parallel edges together, keep the diagonal 0).
+Returns \code{\{weight, the vertices of one side\}}.\\[0.3ex]
+How it works, roughly: repeatedly grow a set by always adding the vertex most strongly
+connected to it. The last vertex added, cut away from everything else, is a candidate;
+then it is merged with the second-to-last and the process repeats. Weights must be
+$\ge 0$. ``Is the graph $k$-edge-connected'' is \code{globalMinCut(..).first >= k}.
+From KACTL.}
+
+%LABEL globalMinCut
+\begin{lstlisting}
+pair<ll, vector<int>> globalMinCut(vector<vi> mat) {
+    pair<ll, vector<int>> best = {LLONG_MAX, {}};
+    int n = (int)mat.size();
+    vector<vector<int>> co(n);
+    rep(i, 0, n) co[i] = {(int)i};
+    rep(ph, 1, n) {
+        vi w = mat[0];
+        size_t s = 0, t = 0;
+        rep(it, 0, n - ph) {     // O(n^2); heap -> O(m log n)
+            w[t] = LLONG_MIN;
+            s = t, t = max_element(all(w)) - w.begin();
+            rep(i, 0, n) w[i] += mat[t][i];
+        }
+        best = min(best, {w[t] - mat[t][t], co[t]});
+        co[s].insert(co[s].end(), all(co[t]));
+        rep(i, 0, n) mat[s][i] += mat[t][i];
+        rep(i, 0, n) mat[i][s] = mat[s][i];
+        mat[0][t] = LLONG_MIN;
+    }
+    return best;
+}
+\end{lstlisting}
+
+\entry{Gomory-Hu tree (all-pairs min cut)}{$n - 1$ calls to \code{Dinic}}{%
+Needs \code{Dinic}. For an \textbf{undirected} graph, builds a tree on the same vertices
+such that the min cut (= max flow) between \emph{any} two vertices \code{u, v} equals
+the \textbf{smallest edge weight on the tree path} from \code{u} to \code{v}. So $n^2$
+flow questions become $n-1$ flows plus tree queries.\\[0.3ex]
+Input edges are \code{\{u, v, cap\}}; output tree edges are \code{\{i, parent, flow\}}.
+For many queries, build \code{LCA} on the tree with a min table (see \code{LCA}), or for
+$n \le 3000$ just run a DFS from every vertex. The smallest tree edge overall is also
+the global min cut. Gusfield's version, from KACTL.}
+
+%DEP Dinic
+%LABEL gomoryHu
+\begin{lstlisting}
+vector<array<ll,3>> gomoryHu(int n, vector<array<ll,3>> ed) {
+    vector<array<ll,3>> tree;
+    vector<int> par(n, 0);
+    for (int i = 1; i < n; i++) {
+        Dinic d(n);
+        for (auto [u, v, c] : ed) d.add(u, v, c, c);
+        tree.push_back({i, par[i], d.maxflow(i, par[i])});
+        for (int j = i + 1; j < n; j++)
+            if (par[j] == par[i] && d.inS(j)) par[j] = i;
+    }
+    return tree;
+}
+\end{lstlisting}
+
+\entry{Matrix inverse mod p}{$O(n^3)$ \quad mem $n^2$}{%
+Needs \code{power} (Modular basics). Inverts \code{A} modulo a prime \code{md} in place
+and returns the rank; if the rank is below $n$ the matrix has no inverse and \code{A} is
+garbage. Used by \code{generalMatching} below, but on its own it also solves
+$Ax = b \pmod p$ for many different \code{b} at once ($x = A^{-1}b$).\\[0.3ex]
+\code{md} must be below $2^{31}$ (because of \code{power}). For a real-valued inverse,
+use \code{gauss} on each unit vector instead.}
+
+%DEP modbasics
+%LABEL matInv
+\begin{lstlisting}
+int matInv(vector<vi>& A, ll md) {
+    int n = (int)A.size(); vector<int> col(n);
+    vector<vi> tmp(n, vi(n));
+    rep(i, 0, n) tmp[i][i] = 1, col[i] = i;
+    rep(i, 0, n) {
+        int r = i, c = i;
+        rep(j, i, n) rep(k, i, n) if (A[j][k]) {
+            r = j; c = k; goto found;
+        }
+        return i;
+found:
+        A[i].swap(A[r]); tmp[i].swap(tmp[r]);
+        rep(j, 0, n) swap(A[j][i], A[j][c]),
+                     swap(tmp[j][i], tmp[j][c]);
+        swap(col[i], col[c]);
+        ll v = power(A[i][i], md - 2, md);
+        rep(j, i + 1, n) {
+            ll f = A[j][i] * v % md;
+            A[j][i] = 0;
+            rep(k, i + 1, n)
+                A[j][k] = (A[j][k] - f * A[i][k]) % md;
+            rep(k, 0, n)
+                tmp[j][k] = (tmp[j][k] - f * tmp[i][k]) % md;
+        }
+        rep(j, i + 1, n) A[i][j] = A[i][j] * v % md;
+        rep(j, 0, n) tmp[i][j] = tmp[i][j] * v % md;
+        A[i][i] = 1;
+    }
+    for (int i = n - 1; i > 0; --i) rep(j, 0, i) {
+        ll v = A[j][i];
+        rep(k, 0, n) tmp[j][k] = (tmp[j][k]-v*tmp[i][k]) % md;
+    }
+    rep(i, 0, n) rep(j, 0, n)
+        A[col[i]][col[j]] = (tmp[i][j] % md + md) % md;
+    return n;
+}
+\end{lstlisting}
+
+\entry{General matching}{$O(n^3)$ \quad mem $n^2$}{%
+Needs \code{matInv}. Maximum matching in a graph that is \textbf{not} bipartite ---
+pairing people with people, where triangles and other odd cycles exist and
+\code{Matching} gives wrong answers. Returns the matched pairs. Edges are undirected,
+0-indexed.\\[0.3ex]
+It is randomised (puts random numbers in a skew-symmetric matrix and uses its rank, the
+Tutte matrix trick): wrong with probability about $n / 10^9$, i.e. never in practice.
+$n \le 500$ is comfortable. For a \emph{weighted} general matching there is nothing
+here; for small $n$ ($\le 20$) use bitmask DP over the set of unmatched vertices.
+From KACTL.}
+
+%DEP modbasics matInv
+%LABEL generalMatching
+\begin{lstlisting}
+vector<pii> generalMatching(int N, const vector<pii>& ed) {
+    const ll md = 1e9 + 7;
+    mt19937 rng(2024);
+    vector<vi> mat(N, vi(N)), A;
+    for (auto [a, b] : ed) {
+        ll r = rng() % md;
+        mat[a][b] = r, mat[b][a] = (md - r) % md;
+    }
+    int r = matInv(A = mat, md), M = 2 * N - r, fi, fj;
+    assert(r % 2 == 0);
+    if (M != N) do {
+        mat.resize(M, vi(M));
+        rep(i, 0, N) {
+            mat[i].resize(M);
+            rep(j, N, M) {
+                ll x = rng() % md;
+                mat[i][j] = x, mat[j][i] = (md - x) % md;
+            }
+        }
+    } while (matInv(A = mat, md) != M);
+    vector<int> has(M, 1); vector<pii> ret;
+    rep(it, 0, M / 2) {
+        rep(i, 0, M) if (has[i])
+            rep(j, i + 1, M) if (A[i][j] && mat[i][j]) {
+                fi = i; fj = j; goto done;
+            }
+        assert(0); done:
+        if (fj < N) ret.emplace_back(fi, fj);
+        has[fi] = has[fj] = 0;
+        rep(sw, 0, 2) {
+            ll a = power(A[fi][fj], md - 2, md);
+            rep(i, 0, M) if (has[i] && A[i][fj]) {
+                ll b = A[i][fj] * a % md;
+                rep(j, 0, M)
+                    A[i][j] = (A[i][j] - A[fi][j] * b) % md;
+            }
+            swap(fi, fj);
+        }
+    }
+    return ret;
 }
 \end{lstlisting}
 
@@ -2018,6 +2578,495 @@ rep(len, 2, n + 1)
   }
 \end{lstlisting}
 
+\entry{Divide and conquer DP}{$O(k \cdot n \log n)$}{%
+For ``split the array into $k$ groups, the cost of a group is \code{C(l, r)}, minimise
+the total'': $dp_j[i] = \min_{k < i} dp_{j-1}[k] + C(k, i)$. Normally $O(k n^2)$. If the
+best split point never moves left as $i$ grows (true when \code{C} satisfies
+$C(a,c) + C(b,d) \le C(a,d) + C(b,c)$ for $a \le b \le c \le d$, e.g. ``sum squared'' or
+``number of equal pairs'' in a group), solve the middle $i$ first, and its best $k$
+splits the search range for both halves.\\[0.3ex]
+Run one layer at a time: \code{prv} is layer $j-1$ (layer 0 is \code{0} at index 0 and
+\code{INF} elsewhere), call \code{dnc(1, n+1, 0, n, prv, cur, C)}, then
+\code{prv = cur}. Answer is \code{prv[n]} after $k$ layers. \code{C(k, i)} is the cost
+of elements \code{[k, i)}, usually $O(1)$ from prefix sums. Not sure the condition
+holds? test against the $O(n^2)$ version on random input.}
+
+%LABEL dnc
+\begin{lstlisting}
+template<class F>   // cur[i] = min_{k<i} prv[k] + C(k, i)
+void dnc(int l, int r, int optl, int optr,
+         const vi& prv, vi& cur, F& C) {
+    if (l >= r) return;
+    int m = (l + r) / 2, best = optl;
+    ll bv = INF;
+    for (int k = optl; k <= min(m - 1, optr); k++) {
+        if (prv[k] >= INF) continue;
+        ll v = prv[k] + C(k, m);
+        if (v < bv) bv = v, best = k;
+    }
+    cur[m] = bv;
+    dnc(l, m, optl, best, prv, cur, C);
+    dnc(m + 1, r, best, optr, prv, cur, C);
+}
+\end{lstlisting}
+
+\entry{Knuth optimisation}{$O(n^2)$ instead of $O(n^3)$}{%
+Interval DP of the form $dp[i][j] = \min_{i<k<j} dp[i][k] + dp[k][j] + w(i, j)$, like
+``cut a stick at given points, each cut costs the current length'' or ``merge adjacent
+piles, a merge costs the total size''. If the best $k$ satisfies
+$opt[i][j{-}1] \le opt[i][j] \le opt[i{+}1][j]$ (true when $w$ satisfies the condition
+from D\&C DP above and $w(b,c) \le w(a,d)$ for $a \le b \le c \le d$), searching only
+between those makes the whole table $O(n^2)$.\\[0.3ex]
+Points are $0..n$, \code{dp[i][i+1] = 0}, answer \code{dp[0][n]}. \code{w(i, j)} is the
+cost of combining the block from point $i$ to point $j$.}
+
+%LABEL knuth
+\begin{lstlisting}
+template<class F> vector<vi> knuth(int n, F w) {
+    vector<vi> dp(n + 1, vi(n + 1, 0));
+    vector<vector<int>> opt(n + 1, vector<int>(n + 1));
+    rep(i, 0, n) opt[i][i + 1] = (int)i + 1;
+    for (int len = 2; len <= n; len++)
+        for (int i = 0; i + len <= n; i++) {
+            int j = i + len; dp[i][j] = INF;
+            int lo = max(i + 1, opt[i][j-1]);
+            int hi = min(j - 1, opt[i+1][j]);
+            for (int k = lo; k <= hi; k++) {
+                ll v = dp[i][k] + dp[k][j] + w(i, j);
+                if (v < dp[i][j]) dp[i][j] = v, opt[i][j] = k;
+            }
+        }
+    return dp;
+}
+\end{lstlisting}
+
+\section{Linear algebra and numerics}
+
+\entry{Gauss mod p}{$O(n^2 m)$ \quad mem $nm$}{%
+Needs \code{power}. Solves $Ax \equiv b \pmod p$, $p$ prime, $A$ is $n \times m$ ($n$
+equations, $m$ unknowns). Returns \code{-1} if there is no solution, else the rank, and
+\code{x} is one solution with free variables 0. Rank $< m$ means $p^{m - \text{rank}}$
+solutions in total --- that is how ``count the solutions'' questions are answered.
+Exact, so no \code{eps}. Ruiming's \code{mod\_elimination}, rewritten 0-indexed with
+the inverse taken by \code{power}.}
+
+%DEP modbasics
+%LABEL gaussMod
+\begin{lstlisting}
+int gaussMod(vector<vi> a, vi b, vi& x, ll p) {
+    int n = (int)a.size(), m = (int)a[0].size(), rank = 0;
+    for (auto& r : a) for (ll& v : r) v = (v % p + p) % p;
+    for (ll& v : b) v = (v % p + p) % p;
+    vector<int> where(m, -1);
+    for (int col = 0; col < m && rank < n; col++) {
+        int sel = -1;
+        for (int i = rank; i < n; i++)
+            if (a[i][col]) { sel = i; break; }
+        if (sel < 0) continue;
+        swap(a[sel], a[rank]); swap(b[sel], b[rank]);
+        where[col] = rank;
+        ll iv = power(a[rank][col], p - 2, p);
+        for (int j = col; j < m; j++)
+            a[rank][j] = a[rank][j] * iv % p;
+        b[rank] = b[rank] * iv % p;
+        for (int i = 0; i < n; i++)
+            if (i != rank && a[i][col]) {
+                ll c = a[i][col];
+                for (int j = col; j < m; j++)
+                    a[i][j] = ((a[i][j] - c * a[rank][j]) % p
+                               + p) % p;
+                b[i] = ((b[i] - c * b[rank]) % p + p) % p;
+            }
+        rank++;
+    }
+    for (int i = rank; i < n; i++) if (b[i]) return -1;
+    x.assign(m, 0);
+    for (int j = 0; j < m; j++)
+        if (where[j] >= 0) x[j] = b[where[j]];
+    return rank;
+}
+\end{lstlisting}
+
+\entry{Gauss mod 2 (XOR equations)}{$O(n^2 m / 64)$}{%
+The same thing over bits: each equation is ``the XOR of some variables equals 0 or 1''.
+Rows are \code{bitset}s, so $n = m = 2000$ is instant. Lights-out puzzles, ``flip
+switches so every lamp is off'', parity constraints. Fill \code{A[i][j] = 1} when
+variable \code{j} appears in equation \code{i}, and \code{b[i]} is the right side.
+Returns \code{-1} if impossible, else the rank; $2^{m - \text{rank}}$ solutions exist.
+Destroys \code{A} and \code{b}. Bits at columns $\ge m$ must be 0. KACTL's, replacing
+Ruiming's \code{xor\_gauss} (same algorithm, general interface).}
+
+%LABEL gaussXor
+\begin{lstlisting}
+typedef bitset<2048> bs;
+int gaussXor(vector<bs>& A, vector<int>& b, bs& x, int m) {
+    int n = (int)A.size(), rank = 0, br;
+    vector<int> col(m); iota(all(col), 0);
+    rep(i, 0, n) {
+        for (br = i; br < n; ++br) if (A[br].any()) break;
+        if (br == n) {
+            rep(j, i, n) if (b[j]) return -1;
+            break;
+        }
+        int bc = (int)A[br]._Find_next(i - 1);
+        swap(A[i], A[br]); swap(b[i], b[br]);
+        swap(col[i], col[bc]);
+        rep(j, 0, n) if (A[j][i] != A[j][bc]) {
+            A[j].flip(i); A[j].flip(bc);
+        }
+        rep(j, i + 1, n) if (A[j][i]) {
+            b[j] ^= b[i]; A[j] ^= A[i];
+        }
+        rank++;
+    }
+    x = bs();
+    for (int i = rank; i--;) {
+        if (!b[i]) continue;
+        x[col[i]] = 1;
+        rep(j, 0, i) b[j] ^= A[j][i];
+    }
+    return rank;
+}
+\end{lstlisting}
+
+\entry{XOR basis}{add $O(\log C)$ \quad mem 63 words}{%
+Keeps a small set of numbers (at most 63) whose XOR combinations are exactly the XORs
+of all subsets of everything added so far. Answers: ``can $x$ be made as a XOR of some
+of the numbers?'' (\code{can}), ``largest XOR of a subset'' (\code{maxXor()}), ``largest
+\code{x \^{} subset}'' (\code{maxXor(x)}), ``$k$-th smallest reachable value''
+(\code{kth}, counting 0 as the 0-th).\\[0.3ex]
+\code{add} returns \code{false} when the number was already reachable: then the empty
+subset is not the only way to get 0, which matters if the problem forbids empty subsets
+(if \emph{every} add returned \code{true}, 0 is not reachable by a non-empty subset, so
+shift \code{k} by one). Count of distinct reachable values: $2^{\text{rank}}$. Works
+for numbers $< 2^{63}$; combine with a DFS for ``max XOR path in a graph'' (add every
+cycle's XOR). Ruiming's \code{xor\_basis}, as a struct.}
+
+%LABEL xorbasis
+\begin{lstlisting}
+struct XorBasis {
+    static const int B = 63;
+    ll b[B] = {}; int rank = 0;
+    bool add(ll x) {
+        for (int i = B - 1; i >= 0; i--) if (x >> i & 1) {
+            if (!b[i]) { b[i] = x; rank++; return true; }
+            x ^= b[i];
+        }
+        return false;                    // already reachable
+    }
+    bool can(ll x) {
+        for (int i = B - 1; i >= 0; i--) if (x >> i & 1) {
+            if (!b[i]) return false;
+            x ^= b[i];
+        }
+        return true;
+    }
+    ll maxXor(ll x = 0) {
+        for (int i = B - 1; i >= 0; i--) x = max(x, x ^ b[i]);
+        return x;
+    }
+    ll kth(ll k) {                // 0-th = 0; -1 if too big
+        vector<ll> v;
+        for (int i = 0; i < B; i++) if (b[i]) {
+            for (int j = i - 1; j >= 0; j--)  // reduce
+                if (b[i] >> j & 1) b[i] ^= b[j];
+            v.push_back(b[i]);
+        }
+        if (v.size() < 63 && (k >> v.size())) return -1;
+        ll r = 0;
+        rep(i, 0, (ll)v.size()) if (k >> i & 1) r ^= v[i];
+        return r;
+    }
+};
+\end{lstlisting}
+
+\entry{Determinant}{$O(n^3)$}{%
+\code{det} for real matrices (partial pivoting); \code{detMod} is exact modulo
+\emph{any} \code{md}, prime or not, because it only uses Euclid-style row subtraction
+(no division). Reduce the input mod \code{md} first.\\[0.3ex]
+\textbf{Count spanning trees} (Kirchhoff): build the Laplacian $L$ ($L_{ii}$ = degree,
+$L_{ij} = -$(number of edges $i$--$j$)), delete row 0 and column 0, take the
+determinant. Directed, trees pointing into root $r$: $L_{ii}$ = out-degree, delete row
+and column $r$. Also: $\det = 0$ iff the rows are dependent. From KACTL.}
+
+%LABEL det
+\begin{lstlisting}
+ld det(vector<vector<ld>> a) {
+    int n = (int)a.size(); ld res = 1;
+    rep(i, 0, n) {
+        int b = i;
+        rep(j, i + 1, n)
+            if (fabsl(a[j][i]) > fabsl(a[b][i])) b = j;
+        if (i != b) swap(a[i], a[b]), res *= -1;
+        res *= a[i][i];
+        if (res == 0) return 0;
+        rep(j, i + 1, n) {
+            ld v = a[j][i] / a[i][i];
+            if (v != 0) rep(k, i + 1, n) a[j][k] -= v*a[i][k];
+        }
+    }
+    return res;
+}
+ll detMod(vector<vi> a, ll md) {
+    int n = (int)a.size(); ll ans = 1;
+    rep(i, 0, n) {
+        rep(j, i + 1, n) while (a[j][i] != 0) {   // gcd step
+            ll t = a[i][i] / a[j][i];
+            if (t) rep(k, i, n)
+                a[i][k] = (a[i][k] - a[j][k] * t) % md;
+            swap(a[i], a[j]);
+            ans *= -1;
+        }
+        ans = ans * a[i][i] % md;
+        if (!ans) return 0;
+    }
+    return (ans + md) % md;
+}
+\end{lstlisting}
+
+\entry{Berlekamp-Massey + linear recurrence}{$O(n^2)$, then $O(n^2 \log k)$}{%
+Needs \code{power}. \textbf{The ``guess the formula'' tool.} If the answer for $n$
+follows \emph{some} linear recurrence $a_i = c_1 a_{i-1} + \dots + c_d a_{i-d}$ (mod a
+prime) --- which is true for every ``count paths / tilings / strings with a fixed
+small automaton'' problem and anything a matrix power could solve --- then:\\[0.3ex]
+1. Brute force the first $2d + 10$ terms (more is safer), mod the prime.\\
+2. \code{tr = berlekampMassey(terms, md)} returns $c_1, \dots, c_d$.\\
+3. \code{linearRec(terms, tr, k, md)} gives term $k$ (0-indexed), $k$ up to $10^{18}$.\\[0.3ex]
+Much faster and simpler than building the matrix by hand: you never have to find the
+recurrence yourself. If \code{tr} comes out as long as half your input, you did not
+give enough terms or there is no linear recurrence. Example:
+\code{berlekampMassey(\{0,1,1,3,5,11\}, md)} is \code{\{1, 2\}}. From KACTL.}
+
+%DEP modbasics
+%LABEL bm
+\begin{lstlisting}
+vi berlekampMassey(vi s, ll md) {
+    int n = (int)s.size(), L = 0, m = 0;
+    vi C(n), B(n), T;
+    C[0] = B[0] = 1;
+    ll b = 1;
+    rep(i, 0, n) { ++m;
+        ll d = s[i] % md;
+        rep(j, 1, L + 1) d = (d + C[j] * s[i - j]) % md;
+        if (!d) continue;
+        T = C; ll coef = d * power(b, md - 2, md) % md;
+        rep(j, m, n) C[j] = (C[j] - coef * B[j - m]) % md;
+        if (2 * L > i) continue;
+        L = i + 1 - L; B = T; b = d; m = 0;
+    }
+    C.resize(L + 1); C.erase(C.begin());
+    for (ll& x : C) x = (md - x) % md;
+    return C;
+}
+ll linearRec(vi S, vi tr, ll k, ll md) {   // S[k]
+    int n = (int)tr.size();
+    auto combine = [&](vi a, vi b) {
+        vi res(n * 2 + 1);
+        rep(i, 0, n + 1) rep(j, 0, n + 1)
+            res[i + j] = (res[i + j] + a[i] * b[j]) % md;
+        for (int i = 2 * n; i > n; --i) rep(j, 0, n)
+            res[i-1-j] = (res[i-1-j] + res[i] * tr[j]) % md;
+        res.resize(n + 1);
+        return res;
+    };
+    vi pol(n + 1), e(pol);
+    pol[0] = e[1] = 1;
+    for (++k; k; k /= 2) {
+        if (k % 2) pol = combine(pol, e);
+        e = combine(e, e);
+    }
+    ll res = 0;
+    rep(i, 0, n) res = (res + pol[i + 1] * S[i]) % md;
+    return res;
+}
+\end{lstlisting}
+
+\entry{Linear programming (simplex)}{fast in practice}{%
+Maximise $c^T x$ subject to $Ax \le b$ and $x \ge 0$. Returns the best value, or
+\code{-inf} if the rules contradict each other, or \code{inf} if it can grow forever;
+\code{x} gets an optimal point.\\[0.3ex]
+Turning a problem into this form: $\ge$ constraints are $\le$ with both sides negated;
+an equality is one $\le$ and one $\ge$; minimise $f$ = maximise $-f$; a variable that
+may be negative is $x = x^+ - x^-$ with two non-negative variables. Use it when the
+problem is ``choose real amounts, every rule is a linear inequality, optimise a linear
+total'' --- e.g. diet / mixing / scheduling with fractional amounts. Answers are
+\code{double}: print with enough digits. Integer answers are a different (hard)
+problem. From KACTL.\\[0.3ex]
+\code{LPSolver::vd b = \{1, 1, -4\}, c = \{-1, -1\}, x;}\\
+\code{LPSolver(A, b, c).solve(x);} with \code{A = \{\{1,-1\},\{-1,1\},\{-1,-2\}\}}.}
+
+%LABEL simplex
+\begin{lstlisting}
+#define MP make_pair
+#define ltj(X) if (s==-1 || MP(X[j],N[j]) < MP(X[s],N[s])) s=j
+struct LPSolver {
+    using T = double; using vd = vector<T>;
+    static constexpr T eps = 1e-8;
+    static constexpr T inf = numeric_limits<T>::infinity();
+    int m, n; vector<int> N, B; vector<vd> D;
+    LPSolver(const vector<vd>& A, const vd& b, const vd& c)
+        : m((int)b.size()), n((int)c.size()), N(n + 1),
+          B(m), D(m + 2, vd(n + 2)) {
+        rep(i, 0, m) rep(j, 0, n) D[i][j] = A[i][j];
+        rep(i, 0, m) {
+            B[i] = n + i; D[i][n] = -1; D[i][n+1] = b[i];
+        }
+        rep(j, 0, n) { N[j] = j; D[m][j] = -c[j]; }
+        N[n] = -1; D[m+1][n] = 1;
+    }
+    void pivot(int r, int s) {
+        T *a = D[r].data(), inv = 1 / a[s];
+        rep(i, 0, m + 2) if (i != r && abs(D[i][s]) > eps) {
+            T *b = D[i].data(), inv2 = b[s] * inv;
+            rep(j, 0, n + 2) b[j] -= a[j] * inv2;
+            b[s] = a[s] * inv2;
+        }
+        rep(j, 0, n + 2) if (j != s) D[r][j] *= inv;
+        rep(i, 0, m + 2) if (i != r) D[i][s] *= -inv;
+        D[r][s] = inv;
+        swap(B[r], N[s]);
+    }
+    bool simplex(int phase) {
+        int x = m + phase - 1;
+        for (;;) {
+            int s = -1;
+            rep(j, 0, n + 1) if (N[j] != -phase) ltj(D[x]);
+            if (D[x][s] >= -eps) return true;
+            int r = -1;
+            rep(i, 0, m) {
+                if (D[i][s] <= eps) continue;
+                if (r == -1 || MP(D[i][n+1] / D[i][s], B[i])
+                             < MP(D[r][n+1] / D[r][s], B[r]))
+                    r = i;
+            }
+            if (r == -1) return false;
+            pivot(r, s);
+        }
+    }
+    T solve(vd& x) {
+        int r = 0;
+        rep(i, 1, m) if (D[i][n+1] < D[r][n+1]) r = i;
+        if (D[r][n+1] < -eps) {
+            pivot(r, n);
+            if (!simplex(2) || D[m+1][n+1] < -eps)
+                return -inf;
+            rep(i, 0, m) if (B[i] == -1) {
+                int s = 0;
+                rep(j, 1, n + 1) ltj(D[i]);
+                pivot(i, s);
+            }
+        }
+        bool ok = simplex(1); x = vd(n);
+        rep(i, 0, m) if (B[i] < n) x[B[i]] = D[i][n+1];
+        return ok ? D[m][n+1] : inf;
+    }
+};
+\end{lstlisting}
+
+\entry{AND / OR / XOR convolution}{$O(n \log n)$, $n = 2^k$}{%
+\code{c[z]} = sum of \code{a[x]*b[y]} over all pairs with \code{x OP y == z}, where OP
+is AND (\code{mode 0}), OR (\code{1}) or XOR (\code{2}). The same job as \code{conv} for
+$+$, but on bit masks. Pad both arrays with zeros to the same power of two.\\[0.3ex]
+Uses: ``number of pairs whose XOR is $z$'' for all $z$ at once; combining two
+distributions over subsets; Nim-like games (XOR of piles) summed over choices.
+\code{FST} on its own: OR forward = sum over subsets (same as \code{sos}), AND forward
+= sum over supersets. Values grow like $n \cdot \max^2$; to work mod a prime, add
+\code{\% md} to every line and replace the final \code{/ n} by multiplying with
+\code{power(n, md-2, md)}. b5xu's \code{bitwise-xor-convolution}, fixed (the original
+does not compile) and extended with KACTL's AND/OR.}
+
+%LABEL fst
+\begin{lstlisting}
+void FST(vi& a, bool inv, int mode) {    // 0 AND 1 OR 2 XOR
+    int n = (int)a.size();
+    for (int s = 1; s < n; s *= 2)
+        for (int i = 0; i < n; i += 2 * s) rep(j, i, i + s) {
+            ll &u = a[j], &v = a[j + s];
+            if (mode == 0) u += inv ? -v : v;
+            else if (mode == 1) v += inv ? -u : u;
+            else tie(u, v) = pii(u + v, u - v);
+        }
+    if (inv && mode == 2) for (ll& x : a) x /= n;
+}
+vi bitConv(vi a, vi b, int mode) {     // same size, 2^k
+    FST(a, 0, mode); FST(b, 0, mode);
+    rep(i, 0, (ll)a.size()) a[i] *= b[i];
+    FST(a, 1, mode);
+    return a;
+}
+\end{lstlisting}
+
+\entry{Polynomial interpolation}{$O(n^2)$ / $O(n \log p)$}{%
+Any $n$ points with different $x$ lie on exactly one polynomial of degree $< n$.
+\code{interpolate} returns its coefficients (\code{double}; inaccurate for large $n$).
+\code{lagrange} is the exact, more useful one: given $y_i = p(i)$ for
+$i = 0..n-1$ mod a prime $\ge n$, it returns $p(X)$ for a huge $X$.\\[0.3ex]
+Typical use: ``the answer is a polynomial in $n$ of degree $d$'' --- e.g.
+$\sum_{i \le n} i^k$ has degree $k+1$, and many counting answers over a growing box are
+polynomials. Brute force $d+1$ (or a few more) small values, then \code{lagrange} at
+the real $n$. Linear recurrence instead of polynomial? use Berlekamp-Massey.}
+
+%DEP modbasics
+%LABEL interp
+\begin{lstlisting}
+vector<ld> interpolate(vector<ld> x, vector<ld> y) {
+    int n = (int)x.size();
+    vector<ld> res(n), temp(n);
+    rep(k, 0, n - 1) rep(i, k + 1, n)
+        y[i] = (y[i] - y[k]) / (x[i] - x[k]);
+    ld last = 0; temp[0] = 1;
+    rep(k, 0, n) rep(i, 0, n) {
+        res[i] += y[k] * temp[i];
+        swap(last, temp[i]);
+        temp[i] -= last * x[k];
+    }
+    return res;                      // res[i] * x^i
+}
+ll lagrange(const vi& y, ll X, ll md) {  // y[i] = p(i)
+    int n = (int)y.size(); X %= md;
+    vi pre(n + 1, 1), suf(n + 1, 1), f(n, 1);
+    rep(i, 0, n) pre[i+1] = pre[i] * ((X - i + md) % md) % md;
+    down(i, n, 0) suf[i] = suf[i+1] * ((X - i + md) % md)%md;
+    rep(i, 1, n) f[i] = f[i-1] * i % md;
+    ll res = 0;
+    rep(i, 0, n) {
+        ll t = y[i] % md * (pre[i] * suf[i+1] % md) % md
+             * power(f[i] * f[n-1-i] % md, md - 2, md) % md;
+        res = ((n - 1 - i) & 1) ? (res - t + md) % md
+                                : (res + t) % md;
+    }
+    return res;
+}
+\end{lstlisting}
+
+\entry{Numerical integration}{adaptive Simpson}{%
+\code{quad(a, b, f)} integrates \code{f} from \code{a} to \code{b}. It splits the
+interval in halves only where the function is hard, so it is fast for smooth functions
+and still fine for ones with a kink. Area of a weird shape: integrate its height
+(e.g. the length of a vertical cut through a union of circles) over $x$. Volume:
+nest it, \code{quad(.., [\&](ld x)\{ return quad(.., [\&](ld y)\{ ... \}); \})}.\\[0.3ex]
+Trouble with jumps (a function that is 0 almost everywhere): split at the known jump
+points yourself and call it per piece. From KACTL.}
+
+%LABEL quad
+\begin{lstlisting}
+template<class F> ld simp(F& f, ld a, ld b) {
+    return (f(a) + 4 * f((a + b) / 2) + f(b)) * (b - a) / 6;
+}
+template<class F>
+ld simpRec(F& f, ld a, ld b, ld eps, ld S) {
+    ld c = (a + b) / 2;
+    ld S1 = simp(f, a, c), S2 = simp(f, c, b), T = S1 + S2;
+    if (fabsl(T - S) <= 15 * eps || b - a < 1e-10)
+        return T + (T - S) / 15;
+    return simpRec(f, a, c, eps / 2, S1)
+         + simpRec(f, c, b, eps / 2, S2);
+}
+template<class F> ld quad(ld a, ld b, F f, ld eps = 1e-8) {
+    return simpRec(f, a, b, eps, simp(f, a, b));
+}
+\end{lstlisting}
+
 \section{Number theory}
 
 \entry{Modular basics}{$O(\log)$ each}{%
@@ -2177,6 +3226,92 @@ void factor(ll n, vi& out) {
     if (isPrime(n)) { out.push_back(n); return; }
     ll d = pollard(n);
     factor(d, out); factor(n / d, out);
+}
+\end{lstlisting}
+
+\entry{Discrete log (baby-step giant-step)}{$O(\sqrt m)$}{%
+Smallest $x > 0$ with $a^x \equiv b \pmod m$, or \code{-1}. Works even when
+$\gcd(a, m) \ne 1$. Check $x = 0$ (i.e. $b = 1$) yourself if it is allowed.
+\code{modLog(a, 1, m)} is the \emph{order} of $a$: the length of the cycle of powers.\\[0.3ex]
+Idea: write $x = n i - j$ with $n \approx \sqrt m$. Store $b a^j$ for all small $j$ in a
+hash map (baby steps), then try $a^{n i}$ for $i = 1, 2, \dots$ (giant steps) until one
+is in the map. $m$ up to $\sim 3\cdot10^9$ (products must fit in \code{ll}; above that
+use \code{i128}). From KACTL.}
+
+%LABEL modLog
+\begin{lstlisting}
+ll modLog(ll a, ll b, ll m) {
+    a %= m; b %= m;
+    ll n = (ll)sqrtl(m) + 1, e = 1, f = 1, j = 1;
+    unordered_map<ll, ll> A;
+    while (j <= n && (e = f = e * a % m) != b)
+        A[e * b % m] = j++;
+    if (e == b) return j;
+    if (__gcd(m, e) == __gcd(m, b))
+        rep(i, 2, n + 2) if (A.count(e = e * f % m))
+            return n * i - A[e];
+    return -1;
+}
+\end{lstlisting}
+
+\entry{Modular square root (Tonelli-Shanks)}{$O(\log^2 p)$}{%
+Needs \code{power}. For a \textbf{prime} $p$, finds $x$ with $x^2 \equiv a \pmod p$; the
+other root is $p - x$. A root exists iff $a \equiv 0$ or
+\code{power(a, (p-1)/2, p) == 1} (Euler's criterion) --- test that first, the code
+asserts it. Used for solving $x^2 + bx + c \equiv 0$ (complete the square) and in some
+NTT tricks. From KACTL.}
+
+%DEP modbasics
+%LABEL modSqrt
+\begin{lstlisting}
+ll modSqrt(ll a, ll p) {
+    a %= p; if (a < 0) a += p;
+    if (a == 0) return 0;
+    assert(power(a, (p - 1) / 2, p) == 1);   // no root
+    if (p % 4 == 3) return power(a, (p + 1) / 4, p);
+    ll s = p - 1, n = 2;
+    int r = 0, m;
+    while (s % 2 == 0) ++r, s /= 2;
+    while (power(n, (p - 1) / 2, p) != p - 1) ++n;
+    ll x = power(a, (s + 1) / 2, p);
+    ll b = power(a, s, p), g = power(n, s, p);
+    for (;; r = m) {
+        ll t = b;
+        for (m = 0; m < r && t != 1; ++m) t = t * t % p;
+        if (m == 0) return x;
+        ll gs = power(g, 1LL << (r - m - 1), p);
+        g = gs * gs % p;
+        x = x * gs % p;
+        b = b * g % p;
+    }
+}
+\end{lstlisting}
+
+\entry{Floor sums}{$O(\log m)$}{%
+\code{divsum(to, c, k, m)} $= \sum_{i=0}^{to-1} \lfloor (k i + c) / m \rfloor$ and
+\code{modsum(to, c, k, m)} $= \sum_{i=0}^{to-1} (k i + c) \bmod m$, for huge
+\code{to} (like $10^{18}$). It works like Euclid's gcd: swap the roles of $k$ and $m$ and
+recurse.\\[0.3ex]
+Where it shows up: counting lattice points under a line segment (that is exactly
+\code{divsum}), ``how many $i \le n$ have $(ai+b) \bmod m < c$'' (difference of two
+floor sums), and sums of \code{x \% m} over an arithmetic progression. All arguments
+non-negative for \code{divsum}; \code{modsum} accepts negative \code{c}, \code{k}.
+Overflow is handled with \code{ull} as long as the true answer fits. From KACTL.}
+
+%LABEL floorsum
+\begin{lstlisting}
+ull sumsq(ull to) { return to / 2 * ((to - 1) | 1); }
+ull divsum(ull to, ull c, ull k, ull m) {
+    ull res = k / m * sumsq(to) + c / m * to;
+    k %= m; c %= m;
+    if (!k) return res;
+    ull to2 = (to * k + c) / m;
+    return res + (to - 1) * to2 - divsum(to2, m-1-c, m, k);
+}
+ll modsum(ull to, ll c, ll k, ll m) {
+    c = ((c % m) + m) % m;
+    k = ((k % m) + m) % m;
+    return to * c + k * sumsq(to) - m * divsum(to, c, k, m);
 }
 \end{lstlisting}
 
@@ -2647,6 +3782,28 @@ struct XorTrie {
 };
 \end{lstlisting}
 
+\entry{Minimum rotation}{$O(n)$}{%
+Index where the lexicographically smallest rotation of \code{s} starts:
+\code{rotate(s.begin(), s.begin() + minRotation(s), s.end())}. Two strings (or
+necklaces, or cyclic sequences of numbers) are rotations of each other iff their
+minimum rotations are equal --- the standard way to put a cycle into one canonical form
+before hashing or comparing. Works on \code{vector<int>} too if you change the type.
+From KACTL.}
+
+%LABEL minrot
+\begin{lstlisting}
+int minRotation(string s) {
+    int a = 0, N = (int)s.size(); s += s;
+    rep(b, 0, N) rep(k, 0, N) {
+        if (a + k == b || s[a+k] < s[b+k]) {
+            b += max(0, (int)k - 1); break;
+        }
+        if (s[a+k] > s[b+k]) { a = (int)b; break; }
+    }
+    return a;
+}
+\end{lstlisting}
+
 \section{Geometry}
 
 \entry{Point / vector}{}{%
@@ -2915,6 +4072,234 @@ vector<Pd> circleCircle(Pd c1, ld r1, Pd c2, ld r2) {
 }
 \end{lstlisting}
 
+\entry{Projection, reflection, angle sort}{}{%
+\code{lineProj(a, b, p)} is the point on line \code{ab} closest to \code{p} (the foot
+of the perpendicular); with \code{refl = true} it is \code{p} mirrored across the line.
+Use \code{Pd}; with \code{Pl} the division truncates.\\[0.3ex]
+\code{angleLess} sorts vectors by angle around the origin, counter-clockwise starting
+from the positive $x$-axis, \textbf{exactly} on \code{Pl} (no \code{atan2}). Ruiming's
+\code{cmp} with \code{atan2l} does the same in floating point; fine for small
+coordinates, but two nearly equal angles can swap. To sort around a point \code{c},
+sort \code{p - c}. The origin itself must not be in the list. Vectors at the same angle
+compare equal; break ties by \code{dist2()} if needed.}
+
+%DEP point
+%LABEL lineproj
+\begin{lstlisting}
+template<class T>
+P<T> lineProj(P<T> a, P<T> b, P<T> p, bool refl = false) {
+    P<T> v = b - a;
+    return p - v.perp() * (1 + refl) * v.cross(p - a)
+             / v.dist2();
+}
+bool upperHalf(Pl p) {
+    return p.y > 0 || (p.y == 0 && p.x > 0);
+}
+bool angleLess(Pl a, Pl b) {         // ccw from +x axis
+    bool ha = upperHalf(a), hb = upperHalf(b);
+    if (ha != hb) return ha;
+    return a.cross(b) > 0;
+}
+\end{lstlisting}
+
+\entry{Circumcircle, minimum enclosing circle}{\code{mec} expected $O(n)$}{%
+\code{ccCenter(A, B, C)} is the centre of the circle through three points (they must
+not be collinear) and \code{ccRadius} its radius.\\[0.3ex]
+\code{mec(ps)} is the smallest circle containing every point: returns
+\code{\{centre, radius\}}. Randomised (Welzl): the points are shuffled, and whenever a
+point lies outside the current circle it must be on the boundary of the new one, which
+is rebuilt from 1, 2 or 3 boundary points. Expected linear time --- $10^6$ points is
+fine. Also answers ``place one tower to cover all houses with the smallest range''.
+Ruiming's \code{min\_center\_circle} and KACTL's \code{mec} are the same algorithm; this
+is it on \code{Pd}.}
+
+%DEP point
+%LABEL mec
+\begin{lstlisting}
+ld ccRadius(Pd A, Pd B, Pd C) {
+    return (B - A).dist() * (C - B).dist() * (A - C).dist()
+         / fabsl((B - A).cross(C - A)) / 2;
+}
+Pd ccCenter(Pd A, Pd B, Pd C) {
+    Pd b = C - A, c = B - A;
+    return A + (b * c.dist2() - c * b.dist2()).perp()
+                 / b.cross(c) / 2;
+}
+pair<Pd, ld> mec(vector<Pd> ps) {
+    shuffle(all(ps), mt19937(1234));
+    Pd o = ps[0]; ld r = 0, EPS = 1 + 1e-10;
+    rep(i, 0, (ll)ps.size()) if ((o - ps[i]).dist() > r*EPS) {
+        o = ps[i], r = 0;
+        rep(j, 0, i) if ((o - ps[j]).dist() > r * EPS) {
+            o = (ps[i] + ps[j]) / 2;
+            r = (o - ps[i]).dist();
+            rep(k, 0, j) if ((o - ps[k]).dist() > r * EPS) {
+                o = ccCenter(ps[i], ps[j], ps[k]);
+                r = (o - ps[i]).dist();
+            }
+        }
+    }
+    return {o, r};
+}
+\end{lstlisting}
+
+\entry{Circle tangents}{}{%
+\code{tangents(c1, r1, c2, r2)} gives the lines that touch both circles, each as a pair
+of touching points (on circle 1, on circle 2). These are the \emph{outer} tangents; pass
+\code{-r2} for the \emph{inner} ones (the ones that cross between the circles). 0, 1 or
+2 results: 0 if one circle is inside the other (or they are equal), 1 if they touch.\\[0.3ex]
+Tangents from a point \code{p} to a circle: \code{tangents(c, r, p, 0)}; the touching
+points are the \code{.first}s. Shortest path around a round obstacle goes along a
+tangent, then the arc, then a tangent --- this is the building block. From KACTL.}
+
+%DEP point
+%LABEL tangents
+\begin{lstlisting}
+vector<pair<Pd,Pd>> tangents(Pd c1, ld r1, Pd c2, ld r2) {
+    Pd d = c2 - c1;
+    ld dr = r1 - r2, d2 = d.dist2(), h2 = d2 - dr * dr;
+    if (d2 == 0 || h2 < 0) return {};
+    vector<pair<Pd,Pd>> out;
+    for (ld sg : {-1, 1}) {
+        Pd v = (d * dr + d.perp() * sqrtl(h2) * sg) / d2;
+        out.push_back({c1 + v * r1, c2 + v * r2});
+    }
+    if (h2 == 0) out.pop_back();
+    return out;
+}
+\end{lstlisting}
+
+\entry{Circle-polygon intersection area}{$O(n)$}{%
+Area of the part of a polygon (counter-clockwise, need not be convex) that lies inside
+the circle \code{(c, r)}. Works by adding up signed pieces for each edge as seen from
+the centre, so it handles every case without special code. A clockwise polygon gives the
+negative answer. From KACTL.}
+
+%DEP point
+%LABEL circlePoly
+\begin{lstlisting}
+ld circlePoly(Pd c, ld r, vector<Pd> ps) {
+    auto arg = [](Pd p, Pd q) {
+        return atan2l(p.cross(q), p.dot(q)); };
+    auto tri = [&](Pd p, Pd q) {
+        ld r2 = r * r / 2;
+        Pd d = q - p;
+        ld a = d.dot(p) / d.dist2();
+        ld b = (p.dist2() - r * r) / d.dist2();
+        ld det = a * a - b;
+        if (det <= 0) return arg(p, q) * r2;
+        ld s = max((ld)0, -a - sqrtl(det));
+        ld t = min((ld)1, -a + sqrtl(det));
+        if (t < 0 || 1 <= s) return arg(p, q) * r2;
+        Pd u = p + d * s, v = q + d * (t - 1);
+        return arg(p, u) * r2 + u.cross(v) / 2
+             + arg(v, q) * r2;
+    };
+    ld sum = 0;
+    rep(i, 0, (ll)ps.size())
+        sum += tri(ps[i] - c, ps[(i + 1) % ps.size()] - c);
+    return sum;
+}
+\end{lstlisting}
+
+\entry{Polygon cut, centroid}{$O(n)$}{%
+\code{polygonCut(poly, s, e)} keeps the part of the polygon to the \textbf{right} of the
+directed line \code{s -> e} (everything on the left is cut away). The polygon should be
+convex; for a non-convex one the result can contain zero-width bridges.\\[0.3ex]
+\textbf{Half-plane intersection for small inputs}: start from a huge square and cut
+once per half-plane --- $O(n^2)$, simple, and enough for $n \le 5000$. Keep the
+\emph{left} side of \code{s -> e} by cutting with \code{(e, s)}.\\[0.3ex]
+\code{polygonCenter} is the centre of mass of the filled polygon (not the average of
+the vertices). Both from KACTL.}
+
+%DEP point
+%LABEL polyCut
+\begin{lstlisting}
+vector<Pd> polygonCut(const vector<Pd>& poly, Pd s, Pd e) {
+    vector<Pd> res;
+    rep(i, 0, (ll)poly.size()) {
+        Pd cur = poly[i], prev = i ? poly[i-1] : poly.back();
+        ld a = s.cross(e, cur), b = s.cross(e, prev);
+        if ((a < 0) != (b < 0))
+            res.push_back(cur + (prev - cur) * (a / (a - b)));
+        if (a < 0) res.push_back(cur);
+    }
+    return res;
+}
+Pd polygonCenter(const vector<Pd>& v) {
+    Pd res(0, 0); ld A = 0;
+    for (int i = 0, j = (int)v.size() - 1; i < (int)v.size();
+         j = i++) {
+        res = res + (v[i] + v[j]) * v[j].cross(v[i]);
+        A += v[j].cross(v[i]);
+    }
+    return res / A / 3;
+}
+\end{lstlisting}
+
+\entry{Hull diameter (rotating calipers)}{$O(n)$}{%
+The two points of a convex polygon that are farthest apart. Input is what \code{hull}
+returns (counter-clockwise, no collinear points); for a point set call \code{hull}
+first. Returns the pair; \code{(a - b).dist2()} is the squared diameter, exact.\\[0.3ex]
+How: walk \code{i} around the hull and keep a second pointer \code{j} at the vertex
+farthest from edge \code{i}; \code{j} only ever moves forward, so the total is
+linear. The same two-pointer walk gives minimum width (smallest edge-to-farthest-vertex
+distance) and the smallest enclosing rectangle. From KACTL.}
+
+%DEP point
+%LABEL hullDiam
+\begin{lstlisting}
+array<Pl,2> hullDiameter(const vector<Pl>& S) {
+    int n = (int)S.size(), j = n < 2 ? 0 : 1;
+    pair<ll, array<Pl,2>> res({0, {S[0], S[0]}});
+    rep(i, 0, j)
+        for (;; j = (j + 1) % n) {
+            res = max(res, {(S[i] - S[j]).dist2(),
+                            {S[i], S[j]}});
+            if ((S[(j+1)%n] - S[j]).cross(S[i+1] - S[i]) >= 0)
+                break;
+        }
+    return res.second;
+}
+\end{lstlisting}
+
+\entry{Manhattan MST}{$O(n \log n)$}{%
+Minimum spanning tree where the cost of joining two points is
+$|x_1 - x_2| + |y_1 - y_2|$. The complete graph has $n^2$ edges, too many; this returns
+at most $4n$ candidate edges \code{\{w, a, b\}} that are guaranteed to contain an MST.
+Feed them straight to \code{kruskal}. (For each point it only keeps the nearest point
+in each of 8 directions, found by a sweep.)\\[0.3ex]
+Chebyshev distance $\max(|dx|, |dy|)$ instead: map every point to $(x + y, x - y)$.
+Manhattan distance between the new points is exactly \emph{twice} the Chebyshev
+distance between the old ones, so the same tree works; halve the total. From KACTL.}
+
+%DEP point
+%LABEL manhattan
+\begin{lstlisting}
+vector<array<ll,3>> manhattanMST(vector<Pl> ps) {
+    vector<int> id(ps.size()); iota(all(id), 0);
+    vector<array<ll,3>> edges;
+    rep(k, 0, 4) {
+        sort(all(id), [&](int i, int j) {
+            return (ps[i] - ps[j]).x < (ps[j] - ps[i]).y; });
+        map<ll, int> sweep;
+        for (int i : id) {
+            for (auto it = sweep.lower_bound(-ps[i].y);
+                 it != sweep.end(); sweep.erase(it++)) {
+                int j = it->second;
+                Pl d = ps[i] - ps[j];
+                if (d.y > d.x) break;
+                edges.push_back({d.y + d.x, i, j});
+            }
+            sweep[-ps[i].y] = i;
+        }
+        for (Pl& p : ps)
+            if (k & 1) p.x = -p.x; else swap(p.x, p.y);
+    }
+    return edges;
+}
+\end{lstlisting}
+
 \section{Searching}
 
 \entry{Binary search on a predicate}{$O(\log)$}{%
@@ -2998,6 +4383,62 @@ int id(const vi& c, ll v) {
 }
 \end{lstlisting}
 
+\entry{Interval cover}{$O(n \log n)$}{%
+Fewest intervals from \code{I} that together cover the target \code{G}; returns their
+indices, or empty if impossible. Intervals are \textbf{half-open} \code{[a, b)}; for
+closed ones on integers use \code{[a, b+1)}. Greedy: from the current point, among the
+intervals starting at or before it, take the one that reaches furthest. Same idea for
+``fewest jumps'' and ``fewest refuelling stops'' problems. From KACTL.}
+
+%LABEL cover
+\begin{lstlisting}
+template<class T>
+vector<int> cover(pair<T,T> G, vector<pair<T,T>> I) {
+    vector<int> S(I.size()), R;
+    iota(all(S), 0);
+    sort(all(S), [&](int a, int b) { return I[a] < I[b]; });
+    T cur = G.first;
+    int at = 0;
+    while (cur < G.second) {
+        pair<T, int> mx = make_pair(cur, -1);
+        while (at < (int)I.size() && I[S[at]].first <= cur) {
+            mx = max(mx, make_pair(I[S[at]].second, S[at]));
+            at++;
+        }
+        if (mx.second == -1) return {};
+        cur = mx.first;
+        R.push_back(mx.second);
+    }
+    return R;
+}
+\end{lstlisting}
+
+\entry{Fast input}{$\sim$5x faster than \code{cin}}{%
+For inputs of $10^7$ numbers, where even \code{sync\_with\_stdio(false)} is too slow.
+Reads from \code{stdin} in blocks; do not mix with \code{cin}. \code{readInt} skips
+spaces and newlines and handles a minus sign; for \code{ll} change the types. From
+KACTL.}
+
+%LABEL fastin
+\begin{lstlisting}
+inline char gc() {                 // like getchar()
+    static char buf[1 << 16];
+    static size_t bc, be;
+    if (bc >= be) {
+        buf[0] = 0, bc = 0;
+        be = fread(buf, 1, sizeof(buf), stdin);
+    }
+    return buf[bc++];              // 0 on end of file
+}
+int readInt() {
+    int a, c;
+    while ((a = gc()) < 40);
+    if (a == '-') return -readInt();
+    while ((c = gc()) >= 48) a = a * 10 + c - 480;
+    return a - 48;
+}
+\end{lstlisting}
+
 \section{Reference}
 
 \entry{What fits in the time limit}{$\sim10^8$ simple ops/s at \code{-O2}}{%
@@ -3036,8 +4477,8 @@ digits, \code{long double} 18--19 on x86.}
 \code{cnt}/\code{timer}. The most common repeat-offender bug there is.\\[0.3ex]
 \textbf{Recursion depth:} a DFS on a path of $2\cdot10^5$ vertices can blow the stack.
 The iterative \code{euler}, \code{SCC}, \code{Bridges}, \code{centroids},
-\code{eulerPath}, \code{Dinic}, \code{MCMF} and \code{Matching} here are safe;
-\code{HLD} is not.\\[0.3ex]
+\code{eulerPath}, \code{Dinic}, \code{MCMF}, \code{Matching}, \code{TwoSat} and
+\code{centroidTree} here are safe; \code{HLD} is not.\\[0.3ex]
 \textbf{Output:} \code{'\textbackslash n'} not \code{endl} (\code{endl} flushes).
 Keep \code{sync\_with\_stdio(false)}, and then never mix \code{printf} with
 \code{cout}.\\[0.3ex]
@@ -3108,6 +4549,82 @@ general graph it is any cofactor of the Laplacian (Matrix-Tree), i.e. one
 \textbf{Pick:} a lattice polygon has $A = I + B/2 - 1$, with
 $B = \sum \gcd(|dx|,|dy|)$ over the edges.}
 
+\entry{Games (Sprague-Grundy)}{}{%
+Two players alternate, the one who cannot move loses, both play perfectly, nothing is
+hidden and there is no luck. Every position gets a number, its \textbf{Grundy value}:
+$g(x) = \mathrm{mex}\{g(y) : y \text{ reachable from } x\}$, where mex is the smallest
+non-negative integer \emph{not} in the set. A position with no moves has $g = 0$. The
+player to move \textbf{loses iff $g = 0$}.\\[0.3ex]
+\textbf{Several independent games at once} (move in exactly one of them per turn): the
+Grundy value of the whole thing is the \textbf{XOR} of the parts. Nim: piles of sizes
+$a_i$, take any amount from one pile; $g = a_1 \oplus a_2 \oplus \dots$. A move that
+splits one game into two gives the XOR of the two halves as one option.\\[0.3ex]
+In practice: compute $g$ for small sizes by brute force with memo, print them, look for
+the pattern (periodic, $n \bmod k$, \dots), then prove or trust it. Mis\`ere Nim (last
+to move loses): same as Nim unless every pile is $\le 1$; then the player to move wins
+iff the number of piles is even.
+Staircase Nim: only piles on odd steps matter. ``Take $1..k$ from one pile'':
+$g = a \bmod (k+1)$.}
+
+\entry{More counting}{}{%
+\textbf{Stirling 2nd kind} $S(n,k)$: ways to split $n$ labelled items into $k$
+non-empty unlabelled groups. $S(n,k) = k\,S(n{-}1,k) + S(n{-}1,k{-}1)$. Onto functions
+$n \to k$: $k!\,S(n,k)$.\\[0.3ex]
+\textbf{Bell} $B_n = \sum_k S(n,k)$: all ways to split $n$ items into groups.
+$1, 1, 2, 5, 15, 52, 203, 877, 4140$.\\[0.3ex]
+\textbf{Stirling 1st kind} $c(n,k)$: permutations of $n$ with exactly $k$ cycles.
+$c(n,k) = (n{-}1)\,c(n{-}1,k) + c(n{-}1,k{-}1)$.\\[0.3ex]
+\textbf{Partitions} $p(n)$ of $n$ into a sum of positive integers (order does not
+matter): dp \code{p[0] = 1; for each part k: for i >= k: p[i] += p[i-k]}. $p(100) \approx
+1.9\cdot10^8$.\\[0.3ex]
+\textbf{Multinomial} $\binom{n}{k_1, \dots, k_m} = \frac{n!}{k_1! \cdots k_m!}$:
+arrangements of a word with repeated letters.\\[0.3ex]
+\textbf{Expected value} is linear even for dependent events: expected number of X =
+sum over all candidates of P(candidate is X). Expected tries until a success of
+probability $p$: $1/p$. Collect all $n$ coupons: $n H_n \approx n \ln n$.\\[0.3ex]
+\textbf{Grid paths} from $(0,0)$ to $(a,b)$: $\binom{a+b}{a}$. Those that never touch
+the line $y = x + 1$ ($a \ge b$, reflection trick): $\binom{a+b}{a} - \binom{a+b}{a+1}$.}
+
+\entry{Geometry formulas}{}{%
+Triangle with sides $a, b, c$, $s = (a+b+c)/2$: area
+$\sqrt{s(s-a)(s-b)(s-c)}$ (Heron); $c^2 = a^2 + b^2 - 2ab\cos\gamma$;
+$\frac{a}{\sin\alpha} = 2R$; circumradius $R = \frac{abc}{4A}$; inradius $r = A / s$.\\[0.3ex]
+Angle between vectors $u, v$: \code{atan2(cross, dot)} --- signed and stable, better than
+\code{acos}. Distance from point $p$ to line $ab$: $|(b-a)\times(p-a)| / |b-a|$.\\[0.3ex]
+Circle sector area $\frac12 r^2\theta$, segment area $\frac12 r^2(\theta - \sin\theta)$,
+chord length $2r\sin(\theta/2)$.\\[0.3ex]
+Sphere: $V = \frac43\pi r^3$, $A = 4\pi r^2$; cap of height $h$: $V = \frac{\pi h^2
+(3r - h)}{3}$, $A = 2\pi r h$. Cone / pyramid: $V = \frac13 \cdot$ base $\cdot$ height.\\[0.3ex]
+Great-circle distance, latitude $\varphi$, longitude $\lambda$:
+$d = r \arccos(\sin\varphi_1\sin\varphi_2 + \cos\varphi_1\cos\varphi_2\cos\Delta\lambda)$.\\[0.3ex]
+Polygon on lattice points: Pick, see \code{Polygons}. Volume of a polyhedron with
+outward faces: $\frac16\sum_{\text{faces}} (a \times b)\cdot c$ over triangulated
+faces.}
+
+\entry{Technique by symptom}{}{%
+\begin{ctab}{0.43}{0.52}
+\textbf{You see} & \textbf{Try}\\
+answer is ``smallest $x$ such that \dots works'' & binary search on $x$\\
+min of a max / max of a min & binary search, or sort + DSU\\
+queries offline, any order & sort queries; Mo; DFS + rollback\\
+``for every pair'' and $n \le 10^5$ & sort, two pointers, sweep, FFT\\
+sum over all subarrays & contribution of each element\\
+subsets and $n \le 20$ & bitmask DP, SOS\\
+$n \le 40$ & meet in the middle\\
+shortest path, few weights & 0-1 BFS (deque), Dijkstra\\
+``number of ways'' mod $p$ & DP, combinatorics, Berlekamp-Massey\\
+$k$ up to $10^{18}$ steps & matrix power, cycle finding, doubling\\
+grid, ``each cell one of two'' & bipartite / flow / 2-SAT\\
+intervals & sort by end (greedy), sweep with events\\
+tree, all paths & centroid decomposition, rerooting\\
+tree, path queries & HLD, LCA + prefix sums\\
+DAG / game & DP in topological order, Grundy\\
+strings, many patterns & Aho-Corasick, suffix array, hashing\\
+XOR of subsets & XOR basis, trie\\
+points, ``nearest / enclosing'' & hull, closest pair, \code{mec}\\
+exact formula unknown & brute force small cases, find the pattern\\
+\end{ctab}}
+
 \entry{When stuck}{}{%
 Re-read the statement and the constraints. The bound on $n$ usually names the intended
 complexity outright --- check the table above before designing anything.\\[0.3ex]
@@ -3120,10 +4637,10 @@ Check the samples \emph{by hand}. If the sample passes but the judge does not, t
 almost always an edge case from the Pitfalls list --- most often multiple test cases, or
 an overflow.\\[0.3ex]
 \footnotesize
-\emph{Team Wery Accepted: Ruben, Ruiming, Teo. Sources: templates by Ruben, Ruiming
-and Martin (earlier teammate), consolidated;
-\code{LineContainer} is adapted from KACTL (KTH, CC0). Provenance and the per-entry diff
-against the original files are in \code{notebook/README.md}.}}
+\emph{Team Wery Accepted: Ruben, Ruiming, Teo. Sources: templates by Ruben, Ruiming,
+b5xu and Martin (earlier teammate), consolidated. Entries marked ``From KACTL'' and
+\code{LineContainer} are adapted from KACTL (KTH, CC0). Provenance and the per-entry
+diff against the original files are in \code{notebook/README.md}.}}
 
 
 \end{multicols*}

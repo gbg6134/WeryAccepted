@@ -85,6 +85,63 @@ struct SCC {
 };
 \end{lstlisting}
 
+\entry{2-SAT}{$O(n + \text{clauses})$ \quad mem same}{%
+Needs \code{SCC}. You have $n$ yes/no choices and rules that each talk about at most
+\textbf{two} choices: ``$a$ or $b$'', ``not both $a$ and $b$'', ``$a$ forces $b$'',
+``$a$ equals $b$''. Find any assignment that obeys every rule, or say none exists.
+Three choices in one rule (``$a$ or $b$ or $c$'') is NP-hard --- not this.\\[0.3ex]
+A literal is \code{x} for ``choice $x$ is true'' and \code{\~{}x} for ``false''.
+\code{solve()} returns \code{false} if impossible, else \code{val[x]} is the answer.\\[0.3ex]
+\begin{ctab}{0.35}{0.60}
+\code{either(a, b)} & $a \lor b$ (at least one)\\
+\code{either(\~{}a, \~{}b)} & not both\\
+\code{implies(a, b)} & if $a$ then $b$\\
+\code{implies} both ways & $a = b$; with \code{\~{}b}: $a \ne b$\\
+\code{setValue(a)} & force $a$ true (\code{\~{}a}: false)\\
+\code{atMostOne(\{a,b,..\})} & at most one true, $O(k)$ clauses via helper
+variables; ``exactly one'' adds \code{either} over all of them\\
+\end{ctab}\\[0.3ex]
+Typical disguises: every item goes left or right / up or down / gets one of two
+colours, and some pairs of items cannot both take a certain option. Iterative (no deep
+recursion), because \code{SCC} is.}
+
+%DEP SCC
+%LABEL twosat
+\begin{lstlisting}
+struct TwoSat {             // literal x = true, ~x = false
+    int n; vector<vector<int>> g; vector<char> val;
+    TwoSat(int n = 0) : n(n), g(2 * n) {}
+    int node(int x) { return x >= 0 ? 2*x + 1 : 2*~x; }
+    int addVar() {
+        g.emplace_back(); g.emplace_back(); return n++;
+    }
+    void either(int a, int b) {                // a or b
+        g[node(a) ^ 1].push_back(node(b));
+        g[node(b) ^ 1].push_back(node(a));
+    }
+    void implies(int a, int b) { either(~a, b); }
+    void setValue(int a) { either(a, a); }
+    void atMostOne(const vector<int>& li) {
+        if (li.size() <= 1) return;
+        int cur = ~li[0];
+        for (int i = 2; i < (int)li.size(); i++) {
+            int nx = addVar();
+            either(cur, ~li[i]); either(cur, nx);
+            either(~li[i], nx); cur = ~nx;
+        }
+        either(cur, ~li[1]);
+    }
+    bool solve() {
+        SCC s(g); val.assign(n, 0);
+        for (int i = 0; i < n; i++) {
+            if (s.comp[2*i] == s.comp[2*i+1]) return false;
+            val[i] = s.comp[2*i+1] > s.comp[2*i];
+        }
+        return true;
+    }
+};
+\end{lstlisting}
+
 \entry{Bridges, cut vertices, 2ECC}{$O(n + m)$ \quad mem $n + m$}{%
 Undirected, given as an \textbf{edge list} (pairs, 2-element arrays or tuples of any
 integer type), so \code{bri[i]} indexes your own input. Multi-edges and self-loops are

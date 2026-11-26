@@ -1,7 +1,9 @@
-# Team Reference Document — NCPC / NWERC
+# Team Reference Document — NWERC
 
-`notebook.tex` is the single file to paste into Overleaf. Nothing under `Ruben/`,
-`Ruiming/` or `martin/` was modified.
+`notebook.tex` is the single file to paste into Overleaf, **together with `kth.pdf`**
+(the logo on the cover; copied from KACTL). Without the logo file the cover still
+compiles, it just has no logo. Nothing under `Ruben/`, `Ruiming/`, `b5xu/` or `martin/`
+was modified.
 
 ## Build
 
@@ -9,9 +11,10 @@
 tools/build.sh    # src/*.tex  ->  notebook.tex   (run after any edit)
 tools/pdf.sh      # notebook.tex -> build/pdf/notebook.pdf  (tectonic)
 tools/lint.sh     # unescaped % _ # &, unbalanced $   -> 0 issues
-tools/check.sh    # every listing compiled, gnu++17 + gnu++20 -> 116 ok, 0 failed
-tools/smoke.sh    # templates vs brute force            -> 16 tests, 0 failed
-tools/pages.sh    # rough page estimate without compiling (reads high: 18.5 vs 15 content pages)
+tools/width.sh    # every code line <= 62 chars             -> 0 over
+tools/check.sh    # every listing compiled, gnu++17 + gnu++20
+tools/smoke.sh    # templates vs brute force            -> 21 test files, 0 failed
+tools/pages.sh    # rough page estimate without compiling (reads high: 19.4 when the PDF was 16)
 ```
 
 Edit `src/*.tex`, not `notebook.tex` — the latter is generated. Two ways to get a
@@ -19,26 +22,25 @@ PDF: `tools/pdf.sh` locally (tectonic, self-contained, downloads its TeX bundle 
 first run), or paste `notebook.tex` into Overleaf and hit Recompile. Tectonic is
 XeTeX-based and Overleaf defaults to pdfLaTeX; both compile this file cleanly.
 
-**Current output: 16 pages (front page + 15 of content), 0 overfull hboxes,
-82 index entries.**
+**Current output: 24 pages (front page + 23 of content), 0 overfull hboxes, 123 index lines** — built with tectonic 0.15.0 on 2026-11-26. One page of slack under the limit.
 
-Team name, university and members are three macros at the top of
-`src/00-preamble.tex` (`\team`, `\uni`/`\unishort`, `\members`); the front page and
-the running header both read from them, so change them in one place.
+Team name, university, members and contest are macros at the top of
+`src/00-preamble.tex` (`\team`, `\uni`/`\unishort`, `\members`, `\contest`); the front
+page and the running header both read from them, so change them in one place. The
+front page copies KACTL's team-page layout: KTH logo, university, team name, members,
+and the contest name and date at the bottom.
 
 ## Rules compliance (NWERC 2025, <https://2025.nwerc.eu/rules>)
 
 | Rule | How |
 | --- | --- |
-| max **25 pages** | **16** incl. the front page, measured from the compiled PDF — 9 pages of slack |
+| max **25 pages** | **24** incl. the front page, measured from the compiled PDF — 1 page of slack |
 | single-sided, A4 | A4 landscape (still "A4 size"); print one-sided |
 | university name **upper left** | `\lhead{\uni}` = "KTH Royal Institute of Technology" |
 | page number **upper right** | `\rhead{\thepage}` |
-| front page | carries team name, university and members; unnumbered and with no running header |
+| front page | KTH logo, university, team name, members, "NWERC 2026" + date; unnumbered and with no running header |
 | readable at 0.5 m | 8pt code — *exactly* KACTL's size (see below) |
 | institution on the folder cover | do this when you print |
-
-NCPC allows unlimited printed material, so this one document covers both contests.
 
 **Print page 1 and read it at half a metre before trusting it.** The size knob is
 one line in the preamble:
@@ -81,8 +83,8 @@ depends on it.
 | Tool | What it actually proves |
 | --- | --- |
 | `lint.sh` | no unescaped specials, inline math balanced, `tabular`/`ctab`/`begingroup` balanced |
-| `check.sh` | all 116 listings compile under **both** gnu++17 and gnu++20 |
-| `smoke.sh` | 16 randomised tests, each against an independent oracle |
+| `check.sh` | all listings compile (186 checks) under **both** gnu++17 and gnu++20 |
+| `smoke.sh` | 21 randomised test files, each against an independent oracle |
 
 `%HEADER`, `%NOCOMPILE`, `%LABEL <name>` and `%DEP <a> <b>` markers in `src/*.tex`
 drive the extraction. `%NOCOMPILE` is Ruben's existing convention for fragments.
@@ -216,6 +218,44 @@ assignment), `ntt`/`conv` (FFT), `closest` (closest pair), `circleLine`,
 `circleCircle`, `inConvex`, `sos` (subset sums), `compress`, and the whole
 *Reference* section.
 
+### Added in the November 2026 update
+
+**From the repo (new templates since the last notebook build):**
+
+| Entry | From | Notes |
+| --- | --- | --- |
+| `Hungarian` | `Ruben/Hungarian.cpp` | **replaces** the old `hungarian()` function: now a struct, `Hungarian h(a); h.cost; h.job[i]`. Three comment lines re-wrapped for the 62-char column |
+| `gaussMod` | `Ruiming/math/mod_elimination.cpp` | 0-indexed, returns rank / -1, inverse via `power` instead of a linear inverse table up to `MOD` |
+| `gaussXor` | `Ruiming/math/xor_gauss.cpp` | KACTL's `SolveLinearBinary` interface (same bitset algorithm); Ruiming's was tied to one problem's output |
+| `XorBasis` | `Ruiming/math/xor_basis.cpp` | struct with `add` / `can` / `maxXor` / `kth` instead of globals |
+| `ccCenter`, `ccRadius`, `mec` | `Ruiming/geomtery/Circle.cpp`, `min_cover_circle.cpp` | on `Pd`; `random_shuffle` (removed in C++17) → `shuffle` |
+| `lineProj`, `angleLess` | `Point_line_proj` / `Point_line_symmetry` in `Circle.cpp`, `cmp` in `Polygon.cpp` | angle sort is exact on `Pl` (no `atan2`) |
+| `centroidTree` | `b5xu/toolbox/trees.cpp` (`CD_tree`) | iterative; the original never filled `adj` before using it |
+| `FST` / `bitConv` | `b5xu/toolbox/bitwise-xor-convolution.cpp` | the original does not compile (`if (e =)`); rewritten, plus AND/OR |
+| DSU "move" note | `b5xu/toolbox/union-find.cpp` (`UF_MV`) | prose in the `DSU` entry |
+
+b5xu's segment trees, max-flow (Edmonds-Karp), `LCA_BL` and other union-finds duplicate
+existing entries (`Seg`, `LazySeg`, `SparseSeg`, `Dinic`, `LCA`, `DSU`, `RDSU`) and were
+not added. `Ruiming/geomtery/Closest_pair.cpp` is covered by `closest`, `exgcd.cpp` by
+`ext_gcd`.
+
+**From KACTL (CC0), each with extra explanation of when and how to use it:**
+`globalMinCut`, `gomoryHu`, `matInv` + `generalMatching`, `TwoSat` (rebuilt on our
+iterative `SCC`), `virtualTree`, `dmst` (on our `RDSU`), `modLog`, `modSqrt`,
+`divsum`/`modsum`, `det`/`detMod`, `berlekampMassey` + `linearRec`, `LPSolver`,
+`interpolate`, `quad`, `tangents`, `circlePoly`, `polygonCut`, `polygonCenter`,
+`hullDiameter`, `manhattanMST`, `mo`, `addInterval`/`removeInterval`,
+`gp_hash_table`, `cover`, `readInt`, `minRotation`. KACTL's `sz()` macro and
+`vi = vector<int>` were replaced by our header's conventions. Not from KACTL but new:
+`lagrange`, `dnc` (D&C DP), `knuth`.
+
+**New prose:** *Flow: how to spot it* (which tool for which problem shape, in plain
+words, plus lower bounds), *Games (Sprague-Grundy)*, *More counting*, *Geometry
+formulas*, *Technique by symptom*.
+
+Every new listing compiles, and has a brute-force smoke test in `tools/smoke/`
+(`flowx`, `treesx`, `mathx`, `geox`, `miscx`).
+
 ### Cut, and why
 
 | Cut | Reason |
@@ -234,21 +274,22 @@ assignment), `ntt`/`conv` (FFT), `closest` (closest pair), `circleLine`,
 
 ## Trim order
 
-If Overleaf reports more than 25 pages, delete from the top. Each `\entry` plus its
-following `lstlisting` is independently removable.
+If the PDF is over 25 pages, delete from the top. Each `\entry` plus its following
+`lstlisting` is independently removable (check the `%DEP` lines of what you keep).
 
-1. `SuffixArray` — `Hash` + binary search usually replaces it (~45 lines)
-2. `Aho` — rare relative to its size (~45 lines)
-3. `Treap` — needed only for insert/erase in the middle of a sequence (~60 lines)
-4. `kShortest`
-5. `sumOfDists` (rerooting) — the pattern is described in the prose anyway
-6. `inConvex` — `inPoly` is O(n) but usually fast enough
-7. `LineContainer` — only for a specific DP shape
-8. `gauss` — drop last; it is short and shows up in odd places
+1. `Fast input`, `Fast hash map` — rarely needed at NWERC time limits
+2. `SuffixArray` — `Hash` + binary search usually replaces it (~45 lines)
+3. `Circle-polygon intersection area`, `Circle tangents`
+4. `Aho` — rare relative to its size (~45 lines)
+5. `Directed MST` (~55 lines)
+6. `Treap` — needed only for insert/erase in the middle of a sequence (~60 lines)
+7. `Numerical integration`, `Polynomial interpolation`
+8. `kShortest`, `sumOfDists` (rerooting — the pattern is described in the prose anyway)
+9. `General matching` + `Matrix inverse mod p` together (~85 lines)
+10. `Linear programming (simplex)` (~70 lines)
 
 ## Still missing, deliberately
 
-Simplex / LP, Berlekamp-Massey, suffix automaton, half-plane intersection, persistent
-segment tree, Gomory-Hu, general (non-bipartite) matching, Mo's algorithm. All
-plausible-but-unlikely at NCPC/NWERC, and there is ~6 pages of slack if you want to
-add one — that is what the slack is for (16 of 25 pages used).
+Suffix automaton / suffix tree, persistent segment tree, link-cut tree, 3D hull,
+Delaunay, weighted general matching, matroid intersection. All plausible but unlikely
+at NWERC, and the page budget is now spent.

@@ -219,3 +219,65 @@ rep(len, 2, n + 1)
                      dp[i][k] + dp[k+1][j] + cost(i, j));
   }
 \end{lstlisting}
+
+\entry{Divide and conquer DP}{$O(k \cdot n \log n)$}{%
+For ``split the array into $k$ groups, the cost of a group is \code{C(l, r)}, minimise
+the total'': $dp_j[i] = \min_{k < i} dp_{j-1}[k] + C(k, i)$. Normally $O(k n^2)$. If the
+best split point never moves left as $i$ grows (true when \code{C} satisfies
+$C(a,c) + C(b,d) \le C(a,d) + C(b,c)$ for $a \le b \le c \le d$, e.g. ``sum squared'' or
+``number of equal pairs'' in a group), solve the middle $i$ first, and its best $k$
+splits the search range for both halves.\\[0.3ex]
+Run one layer at a time: \code{prv} is layer $j-1$ (layer 0 is \code{0} at index 0 and
+\code{INF} elsewhere), call \code{dnc(1, n+1, 0, n, prv, cur, C)}, then
+\code{prv = cur}. Answer is \code{prv[n]} after $k$ layers. \code{C(k, i)} is the cost
+of elements \code{[k, i)}, usually $O(1)$ from prefix sums. Not sure the condition
+holds? test against the $O(n^2)$ version on random input.}
+
+%LABEL dnc
+\begin{lstlisting}
+template<class F>   // cur[i] = min_{k<i} prv[k] + C(k, i)
+void dnc(int l, int r, int optl, int optr,
+         const vi& prv, vi& cur, F& C) {
+    if (l >= r) return;
+    int m = (l + r) / 2, best = optl;
+    ll bv = INF;
+    for (int k = optl; k <= min(m - 1, optr); k++) {
+        if (prv[k] >= INF) continue;
+        ll v = prv[k] + C(k, m);
+        if (v < bv) bv = v, best = k;
+    }
+    cur[m] = bv;
+    dnc(l, m, optl, best, prv, cur, C);
+    dnc(m + 1, r, best, optr, prv, cur, C);
+}
+\end{lstlisting}
+
+\entry{Knuth optimisation}{$O(n^2)$ instead of $O(n^3)$}{%
+Interval DP of the form $dp[i][j] = \min_{i<k<j} dp[i][k] + dp[k][j] + w(i, j)$, like
+``cut a stick at given points, each cut costs the current length'' or ``merge adjacent
+piles, a merge costs the total size''. If the best $k$ satisfies
+$opt[i][j{-}1] \le opt[i][j] \le opt[i{+}1][j]$ (true when $w$ satisfies the condition
+from D\&C DP above and $w(b,c) \le w(a,d)$ for $a \le b \le c \le d$), searching only
+between those makes the whole table $O(n^2)$.\\[0.3ex]
+Points are $0..n$, \code{dp[i][i+1] = 0}, answer \code{dp[0][n]}. \code{w(i, j)} is the
+cost of combining the block from point $i$ to point $j$.}
+
+%LABEL knuth
+\begin{lstlisting}
+template<class F> vector<vi> knuth(int n, F w) {
+    vector<vi> dp(n + 1, vi(n + 1, 0));
+    vector<vector<int>> opt(n + 1, vector<int>(n + 1));
+    rep(i, 0, n) opt[i][i + 1] = (int)i + 1;
+    for (int len = 2; len <= n; len++)
+        for (int i = 0; i + len <= n; i++) {
+            int j = i + len; dp[i][j] = INF;
+            int lo = max(i + 1, opt[i][j-1]);
+            int hi = min(j - 1, opt[i+1][j]);
+            for (int k = lo; k <= hi; k++) {
+                ll v = dp[i][k] + dp[k][j] + w(i, j);
+                if (v < dp[i][j]) dp[i][j] = v, opt[i][j] = k;
+            }
+        }
+    return dp;
+}
+\end{lstlisting}

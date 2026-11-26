@@ -1,5 +1,60 @@
 \section{Flow and matching}
 
+\entry{Flow: how to spot it}{read this first}{%
+Think of every edge as a pipe that carries at most \code{c} units. \textbf{Max flow} is
+how much can go from \code{s} to \code{t} at once. A \textbf{cut} is a set of edges
+whose removal makes \code{t} unreachable from \code{s}; the cheapest cut always weighs
+exactly the max flow, so ``cheapest way to separate'' is a flow problem too.\\[0.3ex]
+\textbf{Bipartite} means the things split into two groups (people / jobs, rows /
+columns, black / white squares of a chessboard, odd / even numbers) and every allowed
+pair has one thing from each group. Test: colour with BFS in two colours; it works iff
+no edge joins two same-coloured things (no odd cycle).\\[0.3ex]
+\textbf{Build it.} One source \code{S}, one sink \code{T}. \code{S -> x} with how many
+times \code{x} may be used, \code{x -> y} for every allowed pair, \code{y -> T} with how
+many times \code{y} may be used. Several sources or sinks: one super source / super sink
+in front of them.\\[0.3ex]
+{\footnotesize
+\begin{ctab}{0.47}{0.48}
+\textbf{The problem says...} & \textbf{Use}\\
+pair as many as possible, two groups, each used once & \code{Matching} (Hopcroft-Karp)\\
+same, but things may be used $k$ times & \code{Dinic}, capacity $k$ on \code{S->x}\\
+everyone must be paired and each pair has a cost; min (or max) total & \code{Hungarian},
+dense $n \le 1000$\\
+pairs have costs but not everyone must be paired, or the graph is sparse & \code{MCMF};
+\code{run(s,t,m.INFF,1)} stops when pairing more only costs\\
+send exactly $k$ units as cheaply as possible & \code{MCMF} \code{run(s, t, k)}\\
+fewest things to remove so that no allowed pair is left / every edge is touched & min
+vertex cover = matching size, \code{cover()} lists them\\
+most things you can pick with no two of them forming an allowed pair & independent set
+$= n - $ matching (complement of \code{cover()})\\
+pairs inside \emph{one} group (people pair with people) & not bipartite:
+\code{generalMatching}\\
+cheapest way to disconnect \code{s} from \code{t} by deleting edges & \code{Dinic}, then
+\code{cut()}\\
+delete \emph{vertices} instead of edges / a vertex may be used $k$ times & split
+\code{v} into \code{v\_in -> v\_out} with capacity = its cost or $k$\\
+$k$ paths from \code{s} to \code{t} that share no edge (no vertex) & capacity 1 on edges
+(and split vertices); max flow is the number of paths\\
+fewest paths covering every vertex of a DAG & $n -$ matching, left copy \code{u} to
+right copy \code{v} per edge; if paths may share vertices, add all reachable pairs
+first\\
+choose projects with profit; each needs tools that cost money & project selection: see
+\code{Dinic}\\
+cut the graph in two, no \code{s}/\code{t} given & \code{globalMinCut}\\
+min cut between \emph{every} pair of vertices & \code{gomoryHu}: $n-1$ flows\\
+``smallest time / budget so that everything fits'' & binary search the answer, run a
+flow inside the check\\
+\end{ctab}}\\[0.3ex]
+\textbf{Edges must carry at least $l$} (lower bounds): give the edge capacity $c - l$,
+add $l$ to \code{need[v]} and subtract $l$ from \code{need[u]}. Add \code{T -> S} with
+capacity \code{INF}, a new source \code{S'} to every \code{v} with \code{need[v] > 0}
+(capacity \code{need[v]}), and every \code{u} with \code{need[u] < 0} to a new sink
+\code{T'}. A valid flow exists iff max flow \code{S' -> T'} fills all of those
+edges.\\[0.3ex]
+\textbf{Do not fear the size}: Dinic is far faster than its bound; $10^5$ edges is
+routine. If it feels too slow, the graph is usually too big --- look for a smaller
+graph (merge equal vertices, only keep useful edges), not a faster flow.}
+
 \entry{Dinic (max flow, iterative)}{$O(n^2 m)$, unit caps $O(m\sqrt n)$ \quad mem $n + m$}{%
 Directed, 0-indexed. No recursion, so path length never matters; multi-edges,
 self-loops and 0-capacity edges are fine. \code{add(u, v, c)} returns an \textbf{even}
@@ -122,7 +177,7 @@ with cost: two separate \code{add} calls. Paths go cheapest first, so after $k$ 
 the cost is the minimum for exactly $k$. \code{run} is incremental like \code{Dinic}.\\[0.3ex]
 One Dijkstra per augmenting path ($\le$ total flow), fine up to $\sim10^4$--$10^5$ of
 them. Measured: $10^4$ vertices $10^5$ edges 0.4\,s; a $300\times300$ assignment
-0.42\,s, while \code{hungarian} does $1000\times1000$ in 0.08\,s --- use that for a
+0.42\,s, while \code{Hungarian} does $1000\times1000$ in 0.08\,s --- use that for a
 dense square cost matrix.}
 
 %LABEL MCMF
@@ -209,8 +264,8 @@ cover, \code{|L| + |R| == k}. Its complement --- left \emph{not} in \code{L} plu
 \emph{not} in \code{R} --- is a maximum independent set, size \code{nl + nr - k}.\\[0.3ex]
 \code{run} is incremental: add edges and call it again, old pairs are kept. You may also
 pre-fill \code{ml}/\code{mr} with a valid greedy matching.\\[0.3ex]
-Weighted: \code{hungarian} or \code{MCMF}. General (non-bipartite) graphs need blossom,
-not this. Measured: $10^5 + 10^5$ vertices, $10^6$ edges 0.15\,s, 15\,MB.}
+Weighted: \code{Hungarian} or \code{MCMF}. General (non-bipartite) graphs need
+\code{generalMatching}, not this. Measured: $10^5 + 10^5$ vertices, $10^6$ edges 0.15\,s, 15\,MB.}
 
 %LABEL Matching
 \begin{lstlisting}
@@ -284,56 +339,232 @@ struct Matching {
 \end{lstlisting}
 
 \entry{Hungarian (assignment)}{$O(n^2 m)$ \quad mem $nm$}{%
-Minimum-cost \textbf{perfect} matching on a cost matrix, rows $\le$ columns: every row
-gets its own column, cheapest in total. Returns \code{\{cost, asg\}} with
-\code{asg[row] = column}. Input is 0-indexed; the internals are 1-indexed, which is why
-the matrix is read as \code{a[i0-1][j-1]}.\\[0.3ex]
-\textbf{Maximise} instead: negate every cost, then negate the answer. Forbidden pairs:
-a large finite cost, not \code{INF} (\code{INF} arithmetic overflows here) --- something
-like $10^{12}$ with real costs below $10^6$.\\[0.3ex]
+\code{n} rows (workers), \code{m >= n} columns (jobs), \code{a[i][j]} = cost of giving
+job \code{j} to worker \code{i}. Every worker gets exactly one job, no job is used
+twice, and the total is as small as possible. The constructor does all the work:
+\code{Hungarian h(a);} then \code{h.cost} and \code{h.job[i]} (the column row \code{i}
+got). Costs may be negative; \code{C = double} works.\\[0.3ex]
+\begin{ctab}{0.30}{0.65}
+maximise & pass \code{-a}, negate \code{cost}.\\
+more rows than columns & transpose: jobs choose workers.\\
+forbidden pair & cost \code{BIG}, with \code{n*BIG} far below \code{INF} and
+\code{BIG} above any real total; \code{h.cost >= BIG} means one had to be used.\\
+a row may stay idle & add one 0-cost dummy column per such row.\\
+a worker takes up to $k$ jobs & repeat its row $k$ times.\\
+\end{ctab}\\[0.3ex]
 Not the same thing as \code{Matching}: that one maximises the \emph{number} of pairs,
-this one fixes the number and minimises the \emph{cost}. Costs may be negative.}
+this one fixes the number and minimises the \emph{cost}. Measured at -O2:
+$n = m = 500$ 0.02\,s, $1000$ 0.08\,s. Internally 1-indexed, column 0 is a virtual
+helper --- that is why the matrix is read as \code{a[i0-1][j-1]}.}
 
 %LABEL hungarian
 \begin{lstlisting}
-// a = cost matrix, a.size() <= a[0].size()
-pair<ll, vector<int>> hungarian(const matrix& a) {
-    int n = (int)a.size(), m = (int)a[0].size();
-    // 1-indexed inside; column 0 is virtual, p[j]==0 => free
-    vi u(n + 1, 0), v(m + 1, 0), minv(m + 1);
-    vector<int> p(m + 1, 0), way(m + 1, 0);
-    for (int i = 1; i <= n; i++) {
-        p[0] = i; int j0 = 0;
-        fill(all(minv), INF);
-        vector<char> used(m + 1, 0);
-        do {
-            used[j0] = 1;
-            int i0 = p[j0], j1 = 0; ll delta = INF;
-            for (int j = 1; j <= m; j++) if (!used[j]) {
-                ll cur = a[i0-1][j-1] - u[i0] - v[j];
-                if (cur < minv[j]) {
-                    minv[j] = cur; way[j] = j0;
+struct Hungarian {
+    using C = ll;
+    static constexpr C INF = numeric_limits<C>::max() / 4;
+    C cost; vector<int> job;
+
+    template<class M>                  // vector<vector<C>>
+    Hungarian(const M& a) {
+        int n = a.size(), m = n ? a[0].size() : 0;
+        vector<C> u(n + 1), v(m + 1);  // potentials, 1-idx
+        vector<int> p(m + 1), way(m + 1); // p[j]: row of j
+        for (int i = 1; i <= n; i++) {
+            p[0] = i; int j0 = 0;
+            vector<C> mn(m + 1, INF);
+            vector<char> used(m + 1, 0);
+            do {
+                used[j0] = 1;
+                int i0 = p[j0], j1 = 0; C dl = INF;
+                for (int j = 1; j <= m; j++) if (!used[j]) {
+                    C cur = a[i0-1][j-1] - u[i0] - v[j];
+                    if (cur < mn[j]) mn[j] = cur, way[j] = j0;
+                    if (mn[j] < dl) dl = mn[j], j1 = j;
                 }
-                if (minv[j] < delta) {
-                    delta = minv[j]; j1 = j;
-                }
-            }
-            for (int j = 0; j <= m; j++) {
-                if (used[j]) {
-                    u[p[j]] += delta; v[j] -= delta;
-                } else minv[j] -= delta;
-            }
-            j0 = j1;
-        } while (p[j0] != 0);
-        do {                          // flip the path back
-            int j1 = way[j0]; p[j0] = p[j1]; j0 = j1;
-        } while (j0);
+                for (int j = 0; j <= m; j++)
+                    if (used[j]) u[p[j]] += dl, v[j] -= dl;
+                    else mn[j] -= dl;
+                j0 = j1;
+            } while (p[j0]);
+            do {                        // flip the path back
+                int j1 = way[j0]; p[j0] = p[j1]; j0 = j1;
+            } while (j0);
+        }
+        job.assign(n, -1); cost = 0;
+        for (int j = 1; j <= m; j++)
+            if (p[j]) job[p[j] - 1] = j - 1;
+        for (int i = 0; i < n; i++) cost += a[i][job[i]];
     }
-    vector<int> asg(n);
-    for (int j = 1; j <= m; j++) if (p[j]) asg[p[j]-1] = j-1;
-    ll cost = 0;
-    for (int i = 0; i < n; i++) cost += a[i][asg[i]];
-    return {cost, asg};
+};
+\end{lstlisting}
+
+\entry{Global min cut (Stoer-Wagner)}{$O(n^3)$ \quad mem $n^2$}{%
+Cheapest set of edges whose removal splits an \textbf{undirected} graph into two
+non-empty parts, when nobody tells you which two vertices must end up apart. With
+\code{Dinic} you would need $n-1$ flows; this does it in one go from an adjacency
+\emph{matrix} of edge weights (add parallel edges together, keep the diagonal 0).
+Returns \code{\{weight, the vertices of one side\}}.\\[0.3ex]
+How it works, roughly: repeatedly grow a set by always adding the vertex most strongly
+connected to it. The last vertex added, cut away from everything else, is a candidate;
+then it is merged with the second-to-last and the process repeats. Weights must be
+$\ge 0$. ``Is the graph $k$-edge-connected'' is \code{globalMinCut(..).first >= k}.
+From KACTL.}
+
+%LABEL globalMinCut
+\begin{lstlisting}
+pair<ll, vector<int>> globalMinCut(vector<vi> mat) {
+    pair<ll, vector<int>> best = {LLONG_MAX, {}};
+    int n = (int)mat.size();
+    vector<vector<int>> co(n);
+    rep(i, 0, n) co[i] = {(int)i};
+    rep(ph, 1, n) {
+        vi w = mat[0];
+        size_t s = 0, t = 0;
+        rep(it, 0, n - ph) {     // O(n^2); heap -> O(m log n)
+            w[t] = LLONG_MIN;
+            s = t, t = max_element(all(w)) - w.begin();
+            rep(i, 0, n) w[i] += mat[t][i];
+        }
+        best = min(best, {w[t] - mat[t][t], co[t]});
+        co[s].insert(co[s].end(), all(co[t]));
+        rep(i, 0, n) mat[s][i] += mat[t][i];
+        rep(i, 0, n) mat[i][s] = mat[s][i];
+        mat[0][t] = LLONG_MIN;
+    }
+    return best;
+}
+\end{lstlisting}
+
+\entry{Gomory-Hu tree (all-pairs min cut)}{$n - 1$ calls to \code{Dinic}}{%
+Needs \code{Dinic}. For an \textbf{undirected} graph, builds a tree on the same vertices
+such that the min cut (= max flow) between \emph{any} two vertices \code{u, v} equals
+the \textbf{smallest edge weight on the tree path} from \code{u} to \code{v}. So $n^2$
+flow questions become $n-1$ flows plus tree queries.\\[0.3ex]
+Input edges are \code{\{u, v, cap\}}; output tree edges are \code{\{i, parent, flow\}}.
+For many queries, build \code{LCA} on the tree with a min table (see \code{LCA}), or for
+$n \le 3000$ just run a DFS from every vertex. The smallest tree edge overall is also
+the global min cut. Gusfield's version, from KACTL.}
+
+%DEP Dinic
+%LABEL gomoryHu
+\begin{lstlisting}
+vector<array<ll,3>> gomoryHu(int n, vector<array<ll,3>> ed) {
+    vector<array<ll,3>> tree;
+    vector<int> par(n, 0);
+    for (int i = 1; i < n; i++) {
+        Dinic d(n);
+        for (auto [u, v, c] : ed) d.add(u, v, c, c);
+        tree.push_back({i, par[i], d.maxflow(i, par[i])});
+        for (int j = i + 1; j < n; j++)
+            if (par[j] == par[i] && d.inS(j)) par[j] = i;
+    }
+    return tree;
+}
+\end{lstlisting}
+
+\entry{Matrix inverse mod p}{$O(n^3)$ \quad mem $n^2$}{%
+Needs \code{power} (Modular basics). Inverts \code{A} modulo a prime \code{md} in place
+and returns the rank; if the rank is below $n$ the matrix has no inverse and \code{A} is
+garbage. Used by \code{generalMatching} below, but on its own it also solves
+$Ax = b \pmod p$ for many different \code{b} at once ($x = A^{-1}b$).\\[0.3ex]
+\code{md} must be below $2^{31}$ (because of \code{power}). For a real-valued inverse,
+use \code{gauss} on each unit vector instead.}
+
+%DEP modbasics
+%LABEL matInv
+\begin{lstlisting}
+int matInv(vector<vi>& A, ll md) {
+    int n = (int)A.size(); vector<int> col(n);
+    vector<vi> tmp(n, vi(n));
+    rep(i, 0, n) tmp[i][i] = 1, col[i] = i;
+    rep(i, 0, n) {
+        int r = i, c = i;
+        rep(j, i, n) rep(k, i, n) if (A[j][k]) {
+            r = j; c = k; goto found;
+        }
+        return i;
+found:
+        A[i].swap(A[r]); tmp[i].swap(tmp[r]);
+        rep(j, 0, n) swap(A[j][i], A[j][c]),
+                     swap(tmp[j][i], tmp[j][c]);
+        swap(col[i], col[c]);
+        ll v = power(A[i][i], md - 2, md);
+        rep(j, i + 1, n) {
+            ll f = A[j][i] * v % md;
+            A[j][i] = 0;
+            rep(k, i + 1, n)
+                A[j][k] = (A[j][k] - f * A[i][k]) % md;
+            rep(k, 0, n)
+                tmp[j][k] = (tmp[j][k] - f * tmp[i][k]) % md;
+        }
+        rep(j, i + 1, n) A[i][j] = A[i][j] * v % md;
+        rep(j, 0, n) tmp[i][j] = tmp[i][j] * v % md;
+        A[i][i] = 1;
+    }
+    for (int i = n - 1; i > 0; --i) rep(j, 0, i) {
+        ll v = A[j][i];
+        rep(k, 0, n) tmp[j][k] = (tmp[j][k]-v*tmp[i][k]) % md;
+    }
+    rep(i, 0, n) rep(j, 0, n)
+        A[col[i]][col[j]] = (tmp[i][j] % md + md) % md;
+    return n;
+}
+\end{lstlisting}
+
+\entry{General matching}{$O(n^3)$ \quad mem $n^2$}{%
+Needs \code{matInv}. Maximum matching in a graph that is \textbf{not} bipartite ---
+pairing people with people, where triangles and other odd cycles exist and
+\code{Matching} gives wrong answers. Returns the matched pairs. Edges are undirected,
+0-indexed.\\[0.3ex]
+It is randomised (puts random numbers in a skew-symmetric matrix and uses its rank, the
+Tutte matrix trick): wrong with probability about $n / 10^9$, i.e. never in practice.
+$n \le 500$ is comfortable. For a \emph{weighted} general matching there is nothing
+here; for small $n$ ($\le 20$) use bitmask DP over the set of unmatched vertices.
+From KACTL.}
+
+%DEP modbasics matInv
+%LABEL generalMatching
+\begin{lstlisting}
+vector<pii> generalMatching(int N, const vector<pii>& ed) {
+    const ll md = 1e9 + 7;
+    mt19937 rng(2024);
+    vector<vi> mat(N, vi(N)), A;
+    for (auto [a, b] : ed) {
+        ll r = rng() % md;
+        mat[a][b] = r, mat[b][a] = (md - r) % md;
+    }
+    int r = matInv(A = mat, md), M = 2 * N - r, fi, fj;
+    assert(r % 2 == 0);
+    if (M != N) do {
+        mat.resize(M, vi(M));
+        rep(i, 0, N) {
+            mat[i].resize(M);
+            rep(j, N, M) {
+                ll x = rng() % md;
+                mat[i][j] = x, mat[j][i] = (md - x) % md;
+            }
+        }
+    } while (matInv(A = mat, md) != M);
+    vector<int> has(M, 1); vector<pii> ret;
+    rep(it, 0, M / 2) {
+        rep(i, 0, M) if (has[i])
+            rep(j, i + 1, M) if (A[i][j] && mat[i][j]) {
+                fi = i; fj = j; goto done;
+            }
+        assert(0); done:
+        if (fj < N) ret.emplace_back(fi, fj);
+        has[fi] = has[fj] = 0;
+        rep(sw, 0, 2) {
+            ll a = power(A[fi][fj], md - 2, md);
+            rep(i, 0, M) if (has[i] && A[i][fj]) {
+                ll b = A[i][fj] * a % md;
+                rep(j, 0, M)
+                    A[i][j] = (A[i][j] - A[fi][j] * b) % md;
+            }
+            swap(fi, fj);
+        }
+    }
+    return ret;
 }
 \end{lstlisting}
 

@@ -36,8 +36,8 @@ digits, \code{long double} 18--19 on x86.}
 \code{cnt}/\code{timer}. The most common repeat-offender bug there is.\\[0.3ex]
 \textbf{Recursion depth:} a DFS on a path of $2\cdot10^5$ vertices can blow the stack.
 The iterative \code{euler}, \code{SCC}, \code{Bridges}, \code{centroids},
-\code{eulerPath}, \code{Dinic}, \code{MCMF} and \code{Matching} here are safe;
-\code{HLD} is not.\\[0.3ex]
+\code{eulerPath}, \code{Dinic}, \code{MCMF}, \code{Matching}, \code{TwoSat} and
+\code{centroidTree} here are safe; \code{HLD} is not.\\[0.3ex]
 \textbf{Output:} \code{'\textbackslash n'} not \code{endl} (\code{endl} flushes).
 Keep \code{sync\_with\_stdio(false)}, and then never mix \code{printf} with
 \code{cout}.\\[0.3ex]
@@ -108,6 +108,82 @@ general graph it is any cofactor of the Laplacian (Matrix-Tree), i.e. one
 \textbf{Pick:} a lattice polygon has $A = I + B/2 - 1$, with
 $B = \sum \gcd(|dx|,|dy|)$ over the edges.}
 
+\entry{Games (Sprague-Grundy)}{}{%
+Two players alternate, the one who cannot move loses, both play perfectly, nothing is
+hidden and there is no luck. Every position gets a number, its \textbf{Grundy value}:
+$g(x) = \mathrm{mex}\{g(y) : y \text{ reachable from } x\}$, where mex is the smallest
+non-negative integer \emph{not} in the set. A position with no moves has $g = 0$. The
+player to move \textbf{loses iff $g = 0$}.\\[0.3ex]
+\textbf{Several independent games at once} (move in exactly one of them per turn): the
+Grundy value of the whole thing is the \textbf{XOR} of the parts. Nim: piles of sizes
+$a_i$, take any amount from one pile; $g = a_1 \oplus a_2 \oplus \dots$. A move that
+splits one game into two gives the XOR of the two halves as one option.\\[0.3ex]
+In practice: compute $g$ for small sizes by brute force with memo, print them, look for
+the pattern (periodic, $n \bmod k$, \dots), then prove or trust it. Mis\`ere Nim (last
+to move loses): same as Nim unless every pile is $\le 1$; then the player to move wins
+iff the number of piles is even.
+Staircase Nim: only piles on odd steps matter. ``Take $1..k$ from one pile'':
+$g = a \bmod (k+1)$.}
+
+\entry{More counting}{}{%
+\textbf{Stirling 2nd kind} $S(n,k)$: ways to split $n$ labelled items into $k$
+non-empty unlabelled groups. $S(n,k) = k\,S(n{-}1,k) + S(n{-}1,k{-}1)$. Onto functions
+$n \to k$: $k!\,S(n,k)$.\\[0.3ex]
+\textbf{Bell} $B_n = \sum_k S(n,k)$: all ways to split $n$ items into groups.
+$1, 1, 2, 5, 15, 52, 203, 877, 4140$.\\[0.3ex]
+\textbf{Stirling 1st kind} $c(n,k)$: permutations of $n$ with exactly $k$ cycles.
+$c(n,k) = (n{-}1)\,c(n{-}1,k) + c(n{-}1,k{-}1)$.\\[0.3ex]
+\textbf{Partitions} $p(n)$ of $n$ into a sum of positive integers (order does not
+matter): dp \code{p[0] = 1; for each part k: for i >= k: p[i] += p[i-k]}. $p(100) \approx
+1.9\cdot10^8$.\\[0.3ex]
+\textbf{Multinomial} $\binom{n}{k_1, \dots, k_m} = \frac{n!}{k_1! \cdots k_m!}$:
+arrangements of a word with repeated letters.\\[0.3ex]
+\textbf{Expected value} is linear even for dependent events: expected number of X =
+sum over all candidates of P(candidate is X). Expected tries until a success of
+probability $p$: $1/p$. Collect all $n$ coupons: $n H_n \approx n \ln n$.\\[0.3ex]
+\textbf{Grid paths} from $(0,0)$ to $(a,b)$: $\binom{a+b}{a}$. Those that never touch
+the line $y = x + 1$ ($a \ge b$, reflection trick): $\binom{a+b}{a} - \binom{a+b}{a+1}$.}
+
+\entry{Geometry formulas}{}{%
+Triangle with sides $a, b, c$, $s = (a+b+c)/2$: area
+$\sqrt{s(s-a)(s-b)(s-c)}$ (Heron); $c^2 = a^2 + b^2 - 2ab\cos\gamma$;
+$\frac{a}{\sin\alpha} = 2R$; circumradius $R = \frac{abc}{4A}$; inradius $r = A / s$.\\[0.3ex]
+Angle between vectors $u, v$: \code{atan2(cross, dot)} --- signed and stable, better than
+\code{acos}. Distance from point $p$ to line $ab$: $|(b-a)\times(p-a)| / |b-a|$.\\[0.3ex]
+Circle sector area $\frac12 r^2\theta$, segment area $\frac12 r^2(\theta - \sin\theta)$,
+chord length $2r\sin(\theta/2)$.\\[0.3ex]
+Sphere: $V = \frac43\pi r^3$, $A = 4\pi r^2$; cap of height $h$: $V = \frac{\pi h^2
+(3r - h)}{3}$, $A = 2\pi r h$. Cone / pyramid: $V = \frac13 \cdot$ base $\cdot$ height.\\[0.3ex]
+Great-circle distance, latitude $\varphi$, longitude $\lambda$:
+$d = r \arccos(\sin\varphi_1\sin\varphi_2 + \cos\varphi_1\cos\varphi_2\cos\Delta\lambda)$.\\[0.3ex]
+Polygon on lattice points: Pick, see \code{Polygons}. Volume of a polyhedron with
+outward faces: $\frac16\sum_{\text{faces}} (a \times b)\cdot c$ over triangulated
+faces.}
+
+\entry{Technique by symptom}{}{%
+\begin{ctab}{0.43}{0.52}
+\textbf{You see} & \textbf{Try}\\
+answer is ``smallest $x$ such that \dots works'' & binary search on $x$\\
+min of a max / max of a min & binary search, or sort + DSU\\
+queries offline, any order & sort queries; Mo; DFS + rollback\\
+``for every pair'' and $n \le 10^5$ & sort, two pointers, sweep, FFT\\
+sum over all subarrays & contribution of each element\\
+subsets and $n \le 20$ & bitmask DP, SOS\\
+$n \le 40$ & meet in the middle\\
+shortest path, few weights & 0-1 BFS (deque), Dijkstra\\
+``number of ways'' mod $p$ & DP, combinatorics, Berlekamp-Massey\\
+$k$ up to $10^{18}$ steps & matrix power, cycle finding, doubling\\
+grid, ``each cell one of two'' & bipartite / flow / 2-SAT\\
+intervals & sort by end (greedy), sweep with events\\
+tree, all paths & centroid decomposition, rerooting\\
+tree, path queries & HLD, LCA + prefix sums\\
+DAG / game & DP in topological order, Grundy\\
+strings, many patterns & Aho-Corasick, suffix array, hashing\\
+XOR of subsets & XOR basis, trie\\
+points, ``nearest / enclosing'' & hull, closest pair, \code{mec}\\
+exact formula unknown & brute force small cases, find the pattern\\
+\end{ctab}}
+
 \entry{When stuck}{}{%
 Re-read the statement and the constraints. The bound on $n$ usually names the intended
 complexity outright --- check the table above before designing anything.\\[0.3ex]
@@ -120,7 +196,7 @@ Check the samples \emph{by hand}. If the sample passes but the judge does not, t
 almost always an edge case from the Pitfalls list --- most often multiple test cases, or
 an overflow.\\[0.3ex]
 \footnotesize
-\emph{Team Wery Accepted: Ruben, Ruiming, Teo. Sources: templates by Ruben, Ruiming
-and Martin (earlier teammate), consolidated;
-\code{LineContainer} is adapted from KACTL (KTH, CC0). Provenance and the per-entry diff
-against the original files are in \code{notebook/README.md}.}}
+\emph{Team Wery Accepted: Ruben, Ruiming, Teo. Sources: templates by Ruben, Ruiming,
+b5xu and Martin (earlier teammate), consolidated. Entries marked ``From KACTL'' and
+\code{LineContainer} are adapted from KACTL (KTH, CC0). Provenance and the per-entry
+diff against the original files are in \code{notebook/README.md}.}}

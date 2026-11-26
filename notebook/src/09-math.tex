@@ -160,6 +160,92 @@ void factor(ll n, vi& out) {
 }
 \end{lstlisting}
 
+\entry{Discrete log (baby-step giant-step)}{$O(\sqrt m)$}{%
+Smallest $x > 0$ with $a^x \equiv b \pmod m$, or \code{-1}. Works even when
+$\gcd(a, m) \ne 1$. Check $x = 0$ (i.e. $b = 1$) yourself if it is allowed.
+\code{modLog(a, 1, m)} is the \emph{order} of $a$: the length of the cycle of powers.\\[0.3ex]
+Idea: write $x = n i - j$ with $n \approx \sqrt m$. Store $b a^j$ for all small $j$ in a
+hash map (baby steps), then try $a^{n i}$ for $i = 1, 2, \dots$ (giant steps) until one
+is in the map. $m$ up to $\sim 3\cdot10^9$ (products must fit in \code{ll}; above that
+use \code{i128}). From KACTL.}
+
+%LABEL modLog
+\begin{lstlisting}
+ll modLog(ll a, ll b, ll m) {
+    a %= m; b %= m;
+    ll n = (ll)sqrtl(m) + 1, e = 1, f = 1, j = 1;
+    unordered_map<ll, ll> A;
+    while (j <= n && (e = f = e * a % m) != b)
+        A[e * b % m] = j++;
+    if (e == b) return j;
+    if (__gcd(m, e) == __gcd(m, b))
+        rep(i, 2, n + 2) if (A.count(e = e * f % m))
+            return n * i - A[e];
+    return -1;
+}
+\end{lstlisting}
+
+\entry{Modular square root (Tonelli-Shanks)}{$O(\log^2 p)$}{%
+Needs \code{power}. For a \textbf{prime} $p$, finds $x$ with $x^2 \equiv a \pmod p$; the
+other root is $p - x$. A root exists iff $a \equiv 0$ or
+\code{power(a, (p-1)/2, p) == 1} (Euler's criterion) --- test that first, the code
+asserts it. Used for solving $x^2 + bx + c \equiv 0$ (complete the square) and in some
+NTT tricks. From KACTL.}
+
+%DEP modbasics
+%LABEL modSqrt
+\begin{lstlisting}
+ll modSqrt(ll a, ll p) {
+    a %= p; if (a < 0) a += p;
+    if (a == 0) return 0;
+    assert(power(a, (p - 1) / 2, p) == 1);   // no root
+    if (p % 4 == 3) return power(a, (p + 1) / 4, p);
+    ll s = p - 1, n = 2;
+    int r = 0, m;
+    while (s % 2 == 0) ++r, s /= 2;
+    while (power(n, (p - 1) / 2, p) != p - 1) ++n;
+    ll x = power(a, (s + 1) / 2, p);
+    ll b = power(a, s, p), g = power(n, s, p);
+    for (;; r = m) {
+        ll t = b;
+        for (m = 0; m < r && t != 1; ++m) t = t * t % p;
+        if (m == 0) return x;
+        ll gs = power(g, 1LL << (r - m - 1), p);
+        g = gs * gs % p;
+        x = x * gs % p;
+        b = b * g % p;
+    }
+}
+\end{lstlisting}
+
+\entry{Floor sums}{$O(\log m)$}{%
+\code{divsum(to, c, k, m)} $= \sum_{i=0}^{to-1} \lfloor (k i + c) / m \rfloor$ and
+\code{modsum(to, c, k, m)} $= \sum_{i=0}^{to-1} (k i + c) \bmod m$, for huge
+\code{to} (like $10^{18}$). It works like Euclid's gcd: swap the roles of $k$ and $m$ and
+recurse.\\[0.3ex]
+Where it shows up: counting lattice points under a line segment (that is exactly
+\code{divsum}), ``how many $i \le n$ have $(ai+b) \bmod m < c$'' (difference of two
+floor sums), and sums of \code{x \% m} over an arithmetic progression. All arguments
+non-negative for \code{divsum}; \code{modsum} accepts negative \code{c}, \code{k}.
+Overflow is handled with \code{ull} as long as the true answer fits. From KACTL.}
+
+%LABEL floorsum
+\begin{lstlisting}
+ull sumsq(ull to) { return to / 2 * ((to - 1) | 1); }
+ull divsum(ull to, ull c, ull k, ull m) {
+    ull res = k / m * sumsq(to) + c / m * to;
+    k %= m; c %= m;
+    if (!k) return res;
+    ull to2 = (to * k + c) / m;
+    return res + (to - 1) * to2 - divsum(to2, m-1-c, m, k);
+}
+ll modsum(ull to, ll c, ll k, ll m) {
+    c = ((c % m) + m) % m;
+    k = ((k % m) + m) % m;
+    return to * c + k * sumsq(to) - m * divsum(to, c, k, m);
+}
+\end{lstlisting}
+
 \entry{Binomials mod p}{precompute $O(n)$, query $O(1)$ \quad mem $n$}{%
 Call \code{precompute()} once, then \code{C(n, k)}. \code{MOD} must be \textbf{prime}
 and larger than \code{MAXN}. Returns 0 outside the triangle, so no guards at the call

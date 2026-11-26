@@ -2,7 +2,12 @@
 
 \entry{DSU}{$O(\alpha(n))$ amortised \quad mem $n$}{%
 \code{p[a] < 0} marks a root and then \code{-p[a]} is its component size, otherwise
-\code{p[a]} is the parent. Union by size plus path compression.}
+\code{p[a]} is the parent. Union by size plus path compression.\\[0.3ex]
+\textbf{Moving} one element \code{x} to another set (b5xu's \code{UF\_MV}): never move
+the node itself, it may be some other element's parent. Keep \code{id[x]}, the node that
+currently stands for \code{x}; to move it, make a fresh node (\code{DSU(n + moves)}),
+set \code{id[x]} to it and \code{join} it into the target. The old node stays behind as
+a ghost, so keep your own per-set counts (or subtract ghosts from \code{size}).}
 
 %LABEL DSU
 \begin{lstlisting}
@@ -31,6 +36,7 @@ the way back up: offline dynamic connectivity (segment tree over time, see
 \code{Trees}), or a batch of MST/connectivity queries that each add a different set of
 edges on top of a common prefix.}
 
+%LABEL RDSU
 \begin{lstlisting}
 struct RDSU {
     vector<int> p;
@@ -108,6 +114,7 @@ carrying a max table, not with a new search. For ``is this edge in some MST'' an
 the second-best MST, process all edges of equal weight as one block.}
 
 %DEP DSU
+%LABEL kruskal
 \begin{lstlisting}
 // e = {w, a, b}. returns {total cost, chosen edges}
 pair<ll, vector<array<ll,3>>>
@@ -121,3 +128,80 @@ kruskal(int n, vector<array<ll,3>> e) {
     return {cost, mst};
 }
 \end{lstlisting}
+\entry{Directed MST (min arborescence)}{$O(m \log n)$}{%
+Needs \code{RDSU}. The directed version of an MST: choose the cheapest set of edges
+such that every vertex can be reached from the root \code{r} along chosen edges. Every
+vertex except \code{r} gets exactly one incoming edge. Kruskal is \textbf{wrong} here
+(direction matters). Returns \code{\{cost, par\}} with \code{par[v]} the start of
+\code{v}'s chosen incoming edge (\code{par[r] = -1}), or \code{\{-1, \{\}\}} if some
+vertex cannot be reached at all.\\[0.3ex]
+Idea (Edmonds / Chu-Liu): every vertex grabs its cheapest incoming edge; if that makes a
+cycle, shrink the cycle to one vertex, lower the other incoming edges by what the cycle
+already paid, and repeat. Heaps that can be merged and an undoable DSU make it fast.
+No root given (``any root'')? add a new vertex with edges of a huge cost $M$ to every
+vertex, root there, and subtract $M$; if the cost is $\ge 2M$ there is no answer.
+Weights may be negative. From KACTL.}
+
+%DEP RDSU
+%LABEL dmst
+\begin{lstlisting}
+struct DEdge { int a, b; ll w; };
+struct SkewNode {                      // lazy skew heap
+    DEdge key; SkewNode *l, *r; ll delta;
+    void prop() {
+        key.w += delta;
+        if (l) l->delta += delta;
+        if (r) r->delta += delta;
+        delta = 0;
+    }
+    DEdge top() { prop(); return key; }
+};
+SkewNode* merge(SkewNode* a, SkewNode* b) {
+    if (!a || !b) return a ? a : b;
+    a->prop(), b->prop();
+    if (a->key.w > b->key.w) swap(a, b);
+    swap(a->l, (a->r = merge(b, a->r)));
+    return a;
+}
+void pop(SkewNode*& a) { a->prop(); a = merge(a->l, a->r); }
+
+pair<ll, vector<int>> dmst(int n, int r, vector<DEdge>& g) {
+    RDSU uf(n);
+    vector<SkewNode*> heap(n);
+    for (DEdge e : g)
+        heap[e.b] = merge(heap[e.b], new SkewNode{e});
+    ll res = 0;
+    vector<int> seen(n, -1), path(n), par(n);
+    seen[r] = r;
+    vector<DEdge> Q(n), in(n, {-1, -1});
+    deque<tuple<int, int, vector<DEdge>>> cycs;
+    rep(s, 0, n) {
+        int u = s, qi = 0, w;
+        while (seen[u] < 0) {
+            if (!heap[u]) return {-1, {}};
+            DEdge e = heap[u]->top();
+            heap[u]->delta -= e.w, pop(heap[u]);
+            Q[qi] = e, path[qi++] = u, seen[u] = s;
+            res += e.w, u = uf.find(e.a);
+            if (seen[u] == s) {          // cycle: contract
+                SkewNode* cyc = 0;
+                int end = qi, t = uf.snap();
+                do cyc = merge(cyc, heap[w = path[--qi]]);
+                while (uf.join(u, w));
+                u = uf.find(u), heap[u] = cyc, seen[u] = -1;
+                cycs.push_front({u, t, {&Q[qi], &Q[end]}});
+            }
+        }
+        rep(i, 0, qi) in[uf.find(Q[i].b)] = Q[i];
+    }
+    for (auto& [u, t, comp] : cycs) {     // rebuild the tree
+        uf.undo(t);
+        DEdge inEdge = in[u];
+        for (auto& e : comp) in[uf.find(e.b)] = e;
+        in[uf.find(inEdge.b)] = inEdge;
+    }
+    rep(i, 0, n) par[i] = in[i].a;
+    return {res, par};
+}
+\end{lstlisting}
+
